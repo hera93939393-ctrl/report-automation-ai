@@ -43,6 +43,23 @@ def to_gaejoshik(sentence: str) -> str:
     return clean_markdown(raw)
 
 
+SPELLCHECK_PROMPT = (
+    "다음 문장에서 맞춤법이나 띄어쓰기, 없는 단어(오탈자)가 있으면 찾아서 "
+    "'틀린 표현 -> 올바른 표현' 형식으로만 나열해줘. 문제 없으면 '문제 없음'이라고만 답해:"
+)
+
+
+def check_spelling_llm(text: str) -> str:
+    """로컬 LLM으로 맞춤법을 검토한다 (100% 로컬, 외부 전송 없음).
+    전문 맞춤법 검사기(부산대/네이버 등)는 외부 서버로 문장을 보내야 해서 쓸 수 없어 대체함.
+    정확도는 전문 검사기보다 낮고, 사족(불필요한 스타일 제안)이 섞일 수 있음 — 참고용으로 사용."""
+    body = {"model": MODEL, "prompt": f"{SPELLCHECK_PROMPT} {text}", "stream": False}
+    res = requests.post(OLLAMA_URL, json=body, timeout=300)
+    res.raise_for_status()
+    raw = res.json()["response"]
+    return clean_markdown(raw)
+
+
 if __name__ == "__main__":
     samples = [
         "이번에 간담회 하는 이유는 주민들이 요즘 시끄럽다고 민원을 많이 넣어서 그거 들어보려고",
