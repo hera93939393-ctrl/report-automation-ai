@@ -4,6 +4,14 @@ __pycache__/
 # 실제 업무 문서 (개인정보 포함 가능) - 절대 커밋하지 않음
 2026년 서류평가 심사 담당자 회의 계획(안) 계획(안).hwp
 _테스트결과*.hwp
+_테스트*.xlsx
+_테스트*.wav
+_테스트매뉴얼이미지/
+manual_image_index.npz
+_테스트포스터.png
+_포스터결과.png
+law_api_oc.txt
+_selftest_result.txt
 
 # 로컬 실행 로그
 run_log.txt
