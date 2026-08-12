@@ -117,8 +117,10 @@ def handle_f5():
 def handle_f7():
     def work(text):
         fmt = format_checker.run_all_checks(text)
+        spell = ai_writer.check_spelling_llm(text)
         lines = [f"항목번호 오류: {fmt['numbering_issues']}",
-                 f"계산 오류: {fmt['arithmetic_issues']}"]
+                 f"계산 오류: {fmt['arithmetic_issues']}",
+                 f"맞춤법 검토(참고용):\n{spell}"]
         return "\n".join(lines)
     _run("F7 검토", work, insert=False)
 
@@ -127,10 +129,14 @@ if __name__ == "__main__":
     print("단축키 도우미 시작.", flush=True)
     print("Ctrl+Shift+G: 문장변환 / Ctrl+Shift+M: 회의록요약 / Ctrl+Shift+L: 법령검색 / Ctrl+Shift+R: 검토", flush=True)
     print("(한글/워드/메모장 등에서 문장을 드래그로 선택한 뒤 눌러보세요)", flush=True)
-    print("종료하려면 이 창을 닫으세요.", flush=True)
+    print("!! 이 창은 클릭하지 마세요 !! 그냥 켜둔 채로 두고, 작업은 한글 등 다른 창에서 하세요.", flush=True)
+    print("종료하려면 이 창의 X 버튼을 누르세요 (Ctrl+C는 누르지 마세요).", flush=True)
 
     keyboard.add_hotkey("ctrl+shift+g", handle_f1)
     keyboard.add_hotkey("ctrl+shift+m", handle_f2)
     keyboard.add_hotkey("ctrl+shift+l", handle_f5)
     keyboard.add_hotkey("ctrl+shift+r", handle_f7)
-    keyboard.wait()
+    try:
+        keyboard.wait()
+    except KeyboardInterrupt:
+        print("\n종료합니다.", flush=True)
