@@ -67,11 +67,27 @@ def check_item_numbering(text: str):
     return issues
 
 
-NUMBER_PATTERN = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
+NUMBER_PATTERN = re.compile(r"(?<!\d)[-+]?\d[\d,]*(?:\.\d+)?")
+
+# 합계 계산에 끼면 안 되는 숫자(날짜/전화번호/시간)를 미리 지워내기 위한 패턴들.
+# 예: "2026-09-07", "031-1234-5678", "14:00~16:00", "9월 7일" 같은 표기는
+# 예산 항목 숫자가 아닌데도 NUMBER_PATTERN에 그대로 걸려 합계를 오염시킬 수 있음.
+NON_VALUE_PATTERNS = [
+    re.compile(r"\d{2,4}-\d{1,2}-\d{1,2}"),           # 날짜(2026-09-07)
+    re.compile(r"\d{2,4}-\d{3,4}-\d{4}"),              # 전화번호(031-1234-5678)
+    re.compile(r"\d{1,2}:\d{2}(?:~\d{1,2}:\d{2})?"),   # 시간/시간대(14:00~16:00)
+    re.compile(r"\d{1,2}월\s*\d{1,2}일"),               # 한글 날짜(9월 7일)
+]
 
 
 def _to_number(s: str) -> float:
     return float(s.replace(",", ""))
+
+
+def _strip_non_value_numbers(line: str) -> str:
+    for pat in NON_VALUE_PATTERNS:
+        line = pat.sub("", line)
+    return line
 
 
 def check_arithmetic(text: str, total_keywords=("합계", "총액", "총 금액", "총계", "소계")):
@@ -87,18 +103,19 @@ def check_arithmetic(text: str, total_keywords=("합계", "총액", "총 금액"
         # 번호 표시 줄(1. / 가. / 1) / 가))은 항목 순번일 뿐 값이 아니므로 합산 대상에서 제외
         if _level_of(line) is not None and not is_total_line:
             continue
-        numbers_in_line = [_to_number(n) for n in NUMBER_PATTERN.findall(line)]
+        numbers_in_line = [_to_number(n) for n in NUMBER_PATTERN.findall(_strip_non_value_numbers(line))]
 
-        if is_total_line and numbers_in_line:
-            stated = numbers_in_line[-1]  # 합계 줄의 마지막 숫자를 표기된 합계로 간주
-            computed = sum(pending_numbers)
-            if pending_numbers and abs(stated - computed) > 0.01:
-                issues.append({
-                    "line": i, "content": line.strip(),
-                    "stated": stated, "computed": computed,
-                    "issue": f"합계 불일치 (표기: {stated}, 계산: {computed})"
-                })
-            pending_numbers = []  # 합계 줄 이후 초기화
+        if is_total_line:
+            if numbers_in_line:
+                stated = numbers_in_line[-1]  # 합계 줄의 마지막 숫자를 표기된 합계로 간주
+                computed = sum(pending_numbers)
+                if pending_numbers and abs(stated - computed) > 0.01:
+                    issues.append({
+                        "line": i, "content": line.strip(),
+                        "stated": stated, "computed": computed,
+                        "issue": f"합계 불일치 (표기: {stated}, 계산: {computed})"
+                    })
+            pending_numbers = []  # 합계 줄을 지났으니(숫자 유무와 무관하게) 다음 구간을 위해 초기화
         elif numbers_in_line:
             pending_numbers.extend(numbers_in_line)
 
