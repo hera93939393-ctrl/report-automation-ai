@@ -163,6 +163,7 @@ def _selftest_extract_times_long_digit_run_no_false_match():
     assert extract_times("14:100~16시") == []
     assert extract_times("14:009~16시") == []
     assert extract_times("09:001~10시") == []
+    assert extract_times("14:100시~16시") == []
     print("_selftest_extract_times_long_digit_run_no_false_match 통과")
 
 
