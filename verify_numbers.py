@@ -93,42 +93,33 @@ def _selftest_extract_dates():
 
 
 _TIME_COLON = re.compile(r'(\d{1,2}):(\d{2})\s*[~-]\s*(\d{1,2}):(\d{2})')
-_TIME_FULL_SI = re.compile(r'(\d{1,2})시\s*[~-]\s*(\d{1,2})시')
-_TIME_SHORT_SI = re.compile(r'(\d{1,2})\s*[~-]\s*(\d{1,2})시')
+_TIME_FULL_SI = re.compile(r'(?<!:)(?<!:\d)(\d{1,2})시\s*[~-]\s*(\d{1,2})시')
+_TIME_SHORT_SI = re.compile(r'(?<!:)(?<!:\d)(\d{1,2})\s*[~-]\s*(\d{1,2})시')
 
 
 def extract_times(text: str) -> list[dict]:
-    """14:00~16:00 / 14시~16시 / 14~16시 3종을 "시작시~종료시"(분 단위 무시,
-    24시간制)로 정규화해서 반환한다. 콜론형은 분을 버리고 시만 비교한다.
+    """14:00~16:00 / 14시~16시 / 14~16시 3종을 "HH:MM~HH:MM"(24시간制)로
+    정규화해서 반환한다. 콜론형은 실제 분(分)을 그대로 유지하고, 시(時) 단위로만
+    표현되는 두 형식(전체시/축약시)은 분을 00으로 간주한다 — 그래야
+    "14:30~16:45"(원본과 분 단위로 다른 값) 같은 불일치를 놓치지 않는다.
+    `(?<!:)`는 콜론형의 분(分) 자릿수를 뒤 패턴이 시(時)로 잘못 읽는 것을 막는다.
+    세 정규식은 구조상 서로 겹칠 수 없어(전체시/축약시는 각각 "시"라는 리터럴
+    위치가 서로 달라 같은 지점에서 동시에 매치될 수 없음) 별도의 중복매치
+    방지 로직이 필요 없다.
     """
     results = []
-    consumed_spans = []
-
     for m in _TIME_COLON.finditer(text):
-        h1, _, h2, _ = m.groups()
-        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+        h1, m1, h2, m2 = m.groups()
+        results.append({"type": "time", "normalized": f"{int(h1):02d}:{m1}~{int(h2):02d}:{m2}",
                          "raw": m.group(0), "span": m.span()})
-        consumed_spans.append(m.span())
-
-    def _overlaps(span):
-        return any(s <= span[0] < e or s < span[1] <= e for s, e in consumed_spans)
-
     for m in _TIME_FULL_SI.finditer(text):
-        if _overlaps(m.span()):
-            continue
         h1, h2 = m.groups()
-        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+        results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
                          "raw": m.group(0), "span": m.span()})
-        consumed_spans.append(m.span())
-
     for m in _TIME_SHORT_SI.finditer(text):
-        if _overlaps(m.span()):
-            continue
         h1, h2 = m.groups()
-        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+        results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
                          "raw": m.group(0), "span": m.span()})
-        consumed_spans.append(m.span())
-
     return results
 
 
@@ -136,8 +127,23 @@ def _selftest_extract_times():
     text = "회의 시간은 14:00~16:00, 또는 14시~16시, 혹은 14~16시"
     result = extract_times(text)
     normalized = [r["normalized"] for r in result]
-    assert normalized == ["14~16", "14~16", "14~16"], normalized
+    assert normalized == ["14:00~16:00", "14:00~16:00", "14:00~16:00"], normalized
     print("extract_times 통과:", result)
+
+
+def _selftest_extract_times_minute_precision():
+    """콜론형은 분(分)까지 정확히 비교해야 하므로, 분이 다르면 다른 값으로 나와야 한다."""
+    result = extract_times("14:30~16:45")
+    assert result[0]["normalized"] == "14:30~16:45", result
+    print("_selftest_extract_times_minute_precision 통과:", result)
+
+
+def _selftest_extract_times_mixed_notation_no_false_match():
+    """콜론형 한쪽만 있는 손상/혼합 표기에서, 분 숫자를 시로 잘못 읽어 매치하면 안 된다
+    (예: "14:00~16시"에서 "00~16시"를 "0시~16시"로 오인하는 과거 버그 재발 방지)."""
+    result = extract_times("14:00~16시")
+    assert result == [], result
+    print("_selftest_extract_times_mixed_notation_no_false_match 통과:", result)
 
 
 if __name__ == "__main__":
@@ -146,3 +152,5 @@ if __name__ == "__main__":
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
     _selftest_extract_times()
+    _selftest_extract_times_minute_precision()
+    _selftest_extract_times_mixed_notation_no_false_match()
