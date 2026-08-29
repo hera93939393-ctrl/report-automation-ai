@@ -2,7 +2,7 @@
 import re
 
 
-_AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)\s*(만원|천원|원|%)?')
+_AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(만원|천원|원|%))?')
 _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 
 
@@ -35,5 +35,30 @@ def _selftest_extract_amounts():
     print("extract_amounts 통과:", result)
 
 
+def _selftest_unit_multipliers():
+    # 만원(x10000)/천원(x1000) 배율 변환이 실제로 적용되는지 검증
+    result = extract_amounts("185만원")
+    assert len(result) == 1 and result[0]["normalized"] == "1850000", result
+    assert result[0]["raw"] == "185만원", result
+
+    result = extract_amounts("3천원")
+    assert len(result) == 1 and result[0]["normalized"] == "3000", result
+    assert result[0]["raw"] == "3천원", result
+    print("_selftest_unit_multipliers 통과:", result)
+
+
+def _selftest_no_unit_no_trailing_space():
+    # 단위 없는 숫자 뒤 공백이 raw/span에 섞이면 안 됨 (mark_red의 exact-text find 대비)
+    result = extract_amounts("회의는 2026-09-07 14:00~16:00")
+    matches = [r for r in result if r["raw"].startswith("07")]
+    assert matches, result
+    for r in matches:
+        assert r["raw"] == "07", repr(r["raw"])
+        assert not r["raw"].endswith(" "), repr(r["raw"])
+    print("_selftest_no_unit_no_trailing_space 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
+    _selftest_unit_multipliers()
+    _selftest_no_unit_no_trailing_space()
