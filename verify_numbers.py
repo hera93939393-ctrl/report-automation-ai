@@ -28,6 +28,32 @@ def extract_amounts(text: str) -> list[dict]:
     return results
 
 
+_DATE_ISO = re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})')
+_DATE_KOR = re.compile(r'(\d{1,2})월\s*(\d{1,2})일')
+_DATE_ABBR = re.compile(r"'(\d{2})\.(\d{1,2})\.(\d{1,2})(?:\([월화수목금토일]\))?")
+
+
+def extract_dates(text: str, default_year: int) -> list[dict]:
+    """ISO(2026-09-07) / 한국어(9월 7일) / 공문서축약형('26.9.7(화)) 3종을
+    모두 YYYY-MM-DD 문자열로 정규화해서 반환한다.
+    한국어 형식은 연도 정보가 없어 default_year를 사용한다.
+    """
+    results = []
+    for m in _DATE_ISO.finditer(text):
+        y, mo, d = m.groups()
+        results.append({"type": "date", "normalized": f"{int(y):04d}-{int(mo):02d}-{int(d):02d}",
+                         "raw": m.group(0), "span": m.span()})
+    for m in _DATE_KOR.finditer(text):
+        mo, d = m.groups()
+        results.append({"type": "date", "normalized": f"{default_year:04d}-{int(mo):02d}-{int(d):02d}",
+                         "raw": m.group(0), "span": m.span()})
+    for m in _DATE_ABBR.finditer(text):
+        yy, mo, d = m.groups()
+        results.append({"type": "date", "normalized": f"{2000 + int(yy):04d}-{int(mo):02d}-{int(d):02d}",
+                         "raw": m.group(0), "span": m.span()})
+    return results
+
+
 def _selftest_extract_amounts():
     result = extract_amounts("예산 1,850,000원이고 참가인원 342명, 증가율 12%")
     normalized = [r["normalized"] for r in result]
@@ -58,7 +84,16 @@ def _selftest_no_unit_no_trailing_space():
     print("_selftest_no_unit_no_trailing_space 통과:", result)
 
 
+def _selftest_extract_dates():
+    text = "회의는 2026-09-07, 또는 9월 7일, 혹은 '26.9.7(화)에 진행"
+    result = extract_dates(text, default_year=2026)
+    normalized = [r["normalized"] for r in result]
+    assert normalized == ["2026-09-07", "2026-09-07", "2026-09-07"], normalized
+    print("extract_dates 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
+    _selftest_extract_dates()
