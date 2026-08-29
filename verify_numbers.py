@@ -93,8 +93,9 @@ def _selftest_extract_dates():
 
 
 _TIME_COLON = re.compile(r'(\d{1,2}):(\d{2})\s*[~-]\s*(\d{1,2}):(\d{2})')
-_TIME_FULL_SI = re.compile(r'(?<!:)(?<!:\d)(\d{1,2})시\s*[~-]\s*(\d{1,2})시')
-_TIME_SHORT_SI = re.compile(r'(?<!:)(?<!:\d)(\d{1,2})\s*[~-]\s*(\d{1,2})시')
+_TIME_FULL_SI = re.compile(r'(\d{1,2})시\s*[~-]\s*(\d{1,2})시')
+_TIME_SHORT_SI = re.compile(r'(\d{1,2})\s*[~-]\s*(\d{1,2})시')
+_COLON_DIGIT_RUN = re.compile(r':\d+')
 
 
 def extract_times(text: str) -> list[dict]:
@@ -102,21 +103,32 @@ def extract_times(text: str) -> list[dict]:
     정규화해서 반환한다. 콜론형은 실제 분(分)을 그대로 유지하고, 시(時) 단위로만
     표현되는 두 형식(전체시/축약시)은 분을 00으로 간주한다 — 그래야
     "14:30~16:45"(원본과 분 단위로 다른 값) 같은 불일치를 놓치지 않는다.
-    `(?<!:)`는 콜론형의 분(分) 자릿수를 뒤 패턴이 시(時)로 잘못 읽는 것을 막는다.
-    세 정규식은 구조상 서로 겹칠 수 없어(전체시/축약시는 각각 "시"라는 리터럴
-    위치가 서로 달라 같은 지점에서 동시에 매치될 수 없음) 별도의 중복매치
-    방지 로직이 필요 없다.
+
+    콜론(:) 바로 뒤에 오는 숫자 구간(분에 해당, 자릿수 무관)은 전체시/축약시
+    패턴이 시작 위치로 삼지 못하도록 배제한다 — 부정 후방탐색은 고정 길이만
+    막을 수 있어 일반화가 안 되므로, `:\\d+` 구간의 위치를 직접 찾아 그 구간
+    안에서 시작하는 매치를 전부 걸러내는 방식을 쓴다.
     """
     results = []
     for m in _TIME_COLON.finditer(text):
         h1, m1, h2, m2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:{m1}~{int(h2):02d}:{m2}",
                          "raw": m.group(0), "span": m.span()})
+
+    colon_digit_spans = [m.span() for m in _COLON_DIGIT_RUN.finditer(text)]
+
+    def _starts_inside_colon_digits(pos):
+        return any(s < pos < e for s, e in colon_digit_spans)
+
     for m in _TIME_FULL_SI.finditer(text):
+        if _starts_inside_colon_digits(m.start()):
+            continue
         h1, h2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
                          "raw": m.group(0), "span": m.span()})
     for m in _TIME_SHORT_SI.finditer(text):
+        if _starts_inside_colon_digits(m.start()):
+            continue
         h1, h2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
                          "raw": m.group(0), "span": m.span()})
@@ -146,6 +158,14 @@ def _selftest_extract_times_mixed_notation_no_false_match():
     print("_selftest_extract_times_mixed_notation_no_false_match 통과:", result)
 
 
+def _selftest_extract_times_long_digit_run_no_false_match():
+    """콜론 뒤 숫자가 3자리 이상(오타 등)이어도 시로 오독하지 않아야 한다."""
+    assert extract_times("14:100~16시") == []
+    assert extract_times("14:009~16시") == []
+    assert extract_times("09:001~10시") == []
+    print("_selftest_extract_times_long_digit_run_no_false_match 통과")
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -154,3 +174,4 @@ if __name__ == "__main__":
     _selftest_extract_times()
     _selftest_extract_times_minute_precision()
     _selftest_extract_times_mixed_notation_no_false_match()
+    _selftest_extract_times_long_digit_run_no_false_match()
