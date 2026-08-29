@@ -92,8 +92,57 @@ def _selftest_extract_dates():
     print("extract_dates 통과:", result)
 
 
+_TIME_COLON = re.compile(r'(\d{1,2}):(\d{2})\s*[~-]\s*(\d{1,2}):(\d{2})')
+_TIME_FULL_SI = re.compile(r'(\d{1,2})시\s*[~-]\s*(\d{1,2})시')
+_TIME_SHORT_SI = re.compile(r'(\d{1,2})\s*[~-]\s*(\d{1,2})시')
+
+
+def extract_times(text: str) -> list[dict]:
+    """14:00~16:00 / 14시~16시 / 14~16시 3종을 "시작시~종료시"(분 단위 무시,
+    24시간制)로 정규화해서 반환한다. 콜론형은 분을 버리고 시만 비교한다.
+    """
+    results = []
+    consumed_spans = []
+
+    for m in _TIME_COLON.finditer(text):
+        h1, _, h2, _ = m.groups()
+        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+                         "raw": m.group(0), "span": m.span()})
+        consumed_spans.append(m.span())
+
+    def _overlaps(span):
+        return any(s <= span[0] < e or s < span[1] <= e for s, e in consumed_spans)
+
+    for m in _TIME_FULL_SI.finditer(text):
+        if _overlaps(m.span()):
+            continue
+        h1, h2 = m.groups()
+        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+                         "raw": m.group(0), "span": m.span()})
+        consumed_spans.append(m.span())
+
+    for m in _TIME_SHORT_SI.finditer(text):
+        if _overlaps(m.span()):
+            continue
+        h1, h2 = m.groups()
+        results.append({"type": "time", "normalized": f"{int(h1)}~{int(h2)}",
+                         "raw": m.group(0), "span": m.span()})
+        consumed_spans.append(m.span())
+
+    return results
+
+
+def _selftest_extract_times():
+    text = "회의 시간은 14:00~16:00, 또는 14시~16시, 혹은 14~16시"
+    result = extract_times(text)
+    normalized = [r["normalized"] for r in result]
+    assert normalized == ["14~16", "14~16", "14~16"], normalized
+    print("extract_times 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
+    _selftest_extract_times()
