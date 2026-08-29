@@ -20,6 +20,7 @@
 | 통합 GUI | F1~F8을 버튼/입력창으로 실행하는 도우미 창 | [assistant_panel.py](./assistant_panel.py) | ✅ |
 | F9 | 한글 등 실제 문서에서 단축키로 바로 쓰기 (클립보드 방식, 모든 프로그램 공용) | [hotkey_assistant.py](./hotkey_assistant.py) | ✅ (F1/F5/F7 검증, F2 준검증 — [PRD 참고](./PRD.md)) |
 | F10 | 한글 안의 진짜 매크로/버튼으로 바로 쓰기 (클립보드 없이 문서에 직접 삽입) | [hwp_macro_ai.js](./hwp_macro_ai.js), [macro_bridge.py](./macro_bridge.py) | ✅ 실제 한글에서 F1 매크로 동작 확인(F7은 동작하나 LLM 정확도 한계 있음) — [PRD 참고](./PRD.md#f10) |
+| F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | `chat_assistant.py`, `verify_numbers.py` (예정) | 📝 PRD 확정, 구현 전 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
 
 ## 실행 방법
 
