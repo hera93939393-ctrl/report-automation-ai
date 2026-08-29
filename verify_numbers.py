@@ -167,6 +167,41 @@ def _selftest_extract_times_long_digit_run_no_false_match():
     print("_selftest_extract_times_long_digit_run_no_false_match 통과")
 
 
+_PHONE_PATTERN = re.compile(r'\d{2,3}-\d{3,4}-\d{4}')
+
+
+def extract_phones(text: str) -> list[dict]:
+    return [{"type": "phone", "normalized": m.group(0), "raw": m.group(0), "span": m.span()}
+            for m in _PHONE_PATTERN.finditer(text)]
+
+
+def extract_values(text: str, default_year: int) -> list[dict]:
+    """텍스트에서 금액/날짜/시간/전화번호 4종을 전부 뽑아 하나의 리스트로 반환한다.
+    날짜·시간·전화번호를 먼저 뽑고, 그 글자 범위는 금액 추출 대상에서 제외한다
+    (전화번호의 하이픈숫자, 날짜의 연도, 시간의 숫자가 금액으로 오인되는 것을 방지).
+    """
+    dates = extract_dates(text, default_year)
+    times = extract_times(text)
+    phones = extract_phones(text)
+    excluded_spans = [r["span"] for r in dates + times + phones]
+
+    def _in_excluded(span):
+        return any(s <= span[0] < e for s, e in excluded_spans)
+
+    amounts = [r for r in extract_amounts(text) if not _in_excluded(r["span"])]
+    return amounts + dates + times + phones
+
+
+def _selftest_extract_values():
+    text = "담당자 031-1234-5678, 예산 1,850,000원, 2026-09-07 14:00~16:00 진행"
+    result = extract_values(text, default_year=2026)
+    types = sorted(r["type"] for r in result)
+    assert types == ["amount", "date", "phone", "time"], types
+    phone = [r for r in result if r["type"] == "phone"][0]
+    assert phone["normalized"] == "031-1234-5678", phone
+    print("extract_values 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -176,3 +211,4 @@ if __name__ == "__main__":
     _selftest_extract_times_minute_precision()
     _selftest_extract_times_mixed_notation_no_false_match()
     _selftest_extract_times_long_digit_run_no_false_match()
+    _selftest_extract_values()
