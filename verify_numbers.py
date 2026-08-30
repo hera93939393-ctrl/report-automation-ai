@@ -232,26 +232,20 @@ def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
     print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
 
 
-_AMOUNT_TOLERANCE = 0.000001  # ±0.0001% — 부동소수점 계산 잡음만 흡수하려는 목적.
-# 사람이 만드는 실제 오타(자릿수 교체 등)는 보통 이보다 훨씬 크게 벌어지므로 여전히 잡힌다.
-# "대충 비슷하면 통과"가 아니라 "계산 과정의 반올림 잡음만 허용"이 이 값의 의도임을
-# 유지보수자가 임의로 다시 키우지 않도록 반드시 이 주석과 함께 남겨둔다.
-
-
 def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
     """report_values 각각을 answer_pool과 대조해, 원본에서 확인 안 되는 항목만 반환한다.
-    금액은 부동소수점 계산 잡음만 허용하는 아주 작은 오차(±0.0001%)로 비교하고,
-    날짜/시간/전화번호는 정확히 일치해야 한다.
+    4종(금액/날짜/시간/전화번호) 전부 normalized 값이 정확히 일치해야 통과한다.
+    금액에 별도 오차 허용을 두지 않는 이유: normalized는 이미 단위환산까지 끝난
+    깨끗한 정수 문자열이고, 이 도구가 다루는 금액 규모(최대 수조 원)는 배정밀도
+    float의 정수 정확 표현 한계(2^53)에 전혀 못 미쳐 부동소수점 잡음이 생기지
+    않는다. 상대오차(%) 허용은 금액이 클수록 허용되는 절대 오차도 커져서,
+    큰 금액에서 실제 오타를 놓치는 근본적인 결함이 있었다(임계값을 아무리
+    좁혀도 해결 안 됨) — 그래서 정확 일치로 되돌린다.
     """
     mismatches = []
     for rv in report_values:
         candidates = [a for a in answer_pool if a["type"] == rv["type"]]
-        if rv["type"] == "amount":
-            target = float(rv["normalized"])
-            found = any(abs(float(a["normalized"]) - target) / max(target, 1) <= _AMOUNT_TOLERANCE
-                        for a in candidates)
-        else:
-            found = any(a["normalized"] == rv["normalized"] for a in candidates)
+        found = any(a["normalized"] == rv["normalized"] for a in candidates)
         if not found:
             mismatches.append(rv)
     return mismatches
@@ -283,6 +277,16 @@ def _selftest_compare_values_catches_digit_transposition_typo():
     print("_selftest_compare_values_catches_digit_transposition_typo 통과:", mismatches)
 
 
+def _selftest_compare_values_catches_typo_in_large_amount():
+    """상대오차 방식의 근본 결함이었던 케이스 — 10억 단위에서 마지막 자리 오타도 잡혀야 한다."""
+    answer_pool = [{"type": "amount", "normalized": "1000000000", "raw": "10억",
+                     "source_file": "원본.xlsx", "location": "Sheet1!C2"}]
+    report_values = [{"type": "amount", "normalized": "1000000001", "raw": "1,000,000,001", "span": (0, 10)}]
+    mismatches = compare_values(report_values, answer_pool)
+    assert len(mismatches) == 1, mismatches
+    print("_selftest_compare_values_catches_typo_in_large_amount 통과:", mismatches)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -298,3 +302,4 @@ if __name__ == "__main__":
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
     _selftest_compare_values()
     _selftest_compare_values_catches_digit_transposition_typo()
+    _selftest_compare_values_catches_typo_in_large_amount()
