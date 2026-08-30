@@ -9,12 +9,14 @@ _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 
 def _decimal_to_normalized_str(value: Decimal) -> str:
     """Decimal 값을 정규화된 문자열로 바꾼다. 정수면 소수점 없이, 아니면
-    고정소수점 표기로 (과학적 표기법 "1E-7" 같은 건 정확일치 비교를 깨뜨리므로
-    format(value, 'f')로 항상 고정소수점만 나오게 강제한다).
+    고정소수점 표기로 — 어느 분기든 항상 format(x, 'f')를 써서 과학적 표기법이
+    나오지 않게 강제한다. 소수 분기는 아주 작은 값("1E-7")에서, 정수 분기는
+    Decimal의 기본 28자리 정밀도를 넘는 아주 큰 값(예: 1e28)에서 str()이
+    과학적 표기법을 낼 수 있어 둘 다 format(x, 'f')가 필요하다.
     """
     integral = value.to_integral_value()
     if value == integral:
-        return str(integral)
+        return format(integral, 'f')
     return format(value.normalize(), 'f')
 
 
@@ -91,6 +93,21 @@ def _selftest_extract_amounts_no_scientific_notation():
     result = extract_amounts("증감률은 0.0000001%입니다")
     assert result[0]["normalized"] == "0.0000001", result
     print("_selftest_extract_amounts_no_scientific_notation 통과:", result)
+
+
+def _selftest_decimal_to_normalized_str_large_integral_no_scientific_notation():
+    """Decimal의 기본 28자리 정밀도를 넘는 아주 큰 정수값도 str()이 과학적 표기법
+    ("1E+28")을 내지 않고 고정소수점 전체 자릿수로 나와야 한다."""
+    result = _decimal_to_normalized_str(Decimal("1E+28"))
+    assert result == "10000000000000000000000000000", result
+    assert "E" not in result and "e" not in result, result
+
+    result2 = _decimal_to_normalized_str(Decimal("2E+30"))
+    assert result2 == "2000000000000000000000000000000", result2
+    assert "E" not in result2 and "e" not in result2, result2
+
+    print("_selftest_decimal_to_normalized_str_large_integral_no_scientific_notation 통과:",
+          result, result2)
 
 
 def _selftest_unit_multipliers():
@@ -372,6 +389,7 @@ if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_extract_amounts_decimal_unit_no_float_noise()
     _selftest_extract_amounts_no_scientific_notation()
+    _selftest_decimal_to_normalized_str_large_integral_no_scientific_notation()
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
