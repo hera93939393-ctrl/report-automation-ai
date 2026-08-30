@@ -194,7 +194,10 @@ def _selftest_read_hwp_source_missing_file_no_crash():
 
 
 def read_pdf_source(path: str, default_year: int) -> list[dict]:
-    """디지털 PDF에서 텍스트·표를 추출해 정답 풀 항목으로 변환한다.
+    """디지털 PDF에서 텍스트를 추출해 정답 풀 항목으로 변환한다. 표 형태 데이터는
+    별도 표 파싱(extract_tables) 없이 흐르는 텍스트로 추출하는데, 칸이 잘
+    구분된 단순한 표는 이 방식으로도 값이 잘 잡히지만, 여러 줄에 걸친 셀이나
+    칸 구분이 애매한 복잡한 표는 놓칠 수 있다(알려진 한계, 이번엔 해결 안 함).
     파일이 없거나, 텍스트를 전혀 추출할 수 없는 스캔 이미지 PDF인 경우
     예외를 던지지 않고 빈 리스트를 반환한다 (PRD 12-2: OCR 비목표, 조용히 건너뜀).
     """
@@ -224,6 +227,52 @@ def _selftest_read_pdf_source_missing_file():
     print("read_pdf_source(없는 파일) 통과: 빈 리스트, 오류 없이 건너뜀")
 
 
+def _selftest_read_pdf_source_multipage_skips_blank():
+    """여러 페이지 중 빈 페이지(스캔 이미지 가정)가 껴 있어도, 나머지 페이지는
+    정상적으로 처리되어야 한다."""
+    from fpdf import FPDF
+    test_path = "_test_원본_다중페이지.pdf"
+    pdf = FPDF()
+    # 참고: fpdf2 기본 코어 폰트("Helvetica")는 Latin-1만 지원해 한글이
+    # FPDFUnicodeEncodingException으로 실패한다(이 환경에서 실측 확인).
+    # Windows 기본 제공 맑은 고딕(TTF)을 등록해 한글 테스트 문자열을 그대로 쓴다.
+    pdf.add_font("Malgun", fname="C:/Windows/Fonts/malgun.ttf")
+    pdf.add_page(); pdf.set_font("Malgun", size=12)
+    pdf.cell(0, 10, "예산은 1,850,000원입니다")
+    pdf.add_page()  # 빈 페이지 (텍스트 없음)
+    pdf.add_page(); pdf.set_font("Malgun", size=12)
+    pdf.cell(0, 10, "인원은 342명입니다")
+    pdf.output(test_path)
+    try:
+        result = read_pdf_source(test_path, default_year=2026)
+        locations = sorted(r["location"] for r in result)
+        assert locations == ["1페이지", "3페이지"], locations  # 2페이지(빈 페이지)는 건너뜀
+        print("read_pdf_source_multipage_skips_blank 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_pdf_source_simple_table():
+    """칸이 잘 구분된 단순 표 형태 데이터도 텍스트 추출로 값이 잡혀야 한다."""
+    from fpdf import FPDF
+    test_path = "_test_원본_표.pdf"
+    pdf = FPDF()
+    # 위 _selftest_read_pdf_source_multipage_skips_blank와 동일한 이유로
+    # 한글 렌더링을 위해 맑은 고딕(TTF)을 등록한다.
+    pdf.add_font("Malgun", fname="C:/Windows/Fonts/malgun.ttf")
+    pdf.add_page(); pdf.set_font("Malgun", size=12)
+    pdf.cell(60, 10, "항목", border=1); pdf.cell(60, 10, "금액", border=1); pdf.ln()
+    pdf.cell(60, 10, "예산", border=1); pdf.cell(60, 10, "1850000", border=1); pdf.ln()
+    pdf.output(test_path)
+    try:
+        result = read_pdf_source(test_path, default_year=2026)
+        amounts = [r["normalized"] for r in result if r["type"] == "amount"]
+        assert "1850000" in amounts, amounts
+        print("read_pdf_source_simple_table 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -232,3 +281,5 @@ if __name__ == "__main__":
     _selftest_read_hwp_source_no_match()
     _selftest_read_hwp_source_missing_file_no_crash()
     _selftest_read_pdf_source_missing_file()
+    _selftest_read_pdf_source_multipage_skips_blank()
+    _selftest_read_pdf_source_simple_table()
