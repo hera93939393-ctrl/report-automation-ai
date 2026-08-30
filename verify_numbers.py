@@ -1,5 +1,6 @@
 """verify_numbers.py — 원본데이터 대비 보고서 숫자검증 핵심 로직 (순수 함수, 외부 의존성 없음)"""
 import re
+from decimal import Decimal
 
 
 _AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(만원|천원|원|%))?')
@@ -11,14 +12,18 @@ def extract_amounts(text: str) -> list[dict]:
 
     반환 형식: [{"type": "amount", "normalized": "1850000", "raw": "1,850,000원",
                  "span": (start, end)}, ...]
-    normalized는 단위환산이 적용된 순수 숫자 문자열이다(비교 시 float으로 변환해 사용).
+    normalized는 단위환산이 적용된 순수 숫자 문자열이다. float이 아니라 Decimal로
+    계산하는 이유: "1.005천원"처럼 소수×배율을 float으로 계산하면 이진 부동소수점
+    표현 오차(예: 1004.9999999999999)가 생겨, 같은 실제 값을 다르게 표기한
+    "1,005원"과 문자열이 달라져 Task 5의 정확일치 비교에서 오탐이 난다. Decimal은
+    십진수를 오차 없이 그대로 표현하므로 이 문제가 생기지 않는다.
     """
     results = []
     for m in _AMOUNT_PATTERN.finditer(text):
         digits, unit = m.group(1), m.group(2)
-        value = float(digits.replace(",", "")) * _UNIT_MULTIPLIER[unit]
-        # 정수면 소수점 없이, 아니면 소수점 유지 (185.5만원 같은 케이스 대비)
-        normalized = str(int(value)) if value == int(value) else str(value)
+        value = Decimal(digits.replace(",", "")) * _UNIT_MULTIPLIER[unit]
+        integral = value.to_integral_value()
+        normalized = str(integral) if value == integral else str(value.normalize())
         results.append({
             "type": "amount",
             "normalized": normalized,
@@ -59,6 +64,15 @@ def _selftest_extract_amounts():
     normalized = [r["normalized"] for r in result]
     assert normalized == ["1850000", "342", "12"], normalized
     print("extract_amounts 통과:", result)
+
+
+def _selftest_extract_amounts_decimal_unit_no_float_noise():
+    """소수+단위 조합이 float 오차 없이, 같은 값을 다르게 쓴 것과 정확히 같은
+    문자열로 정규화되어야 한다 (Task 5의 정확일치 비교가 성립하는 전제)."""
+    a = extract_amounts("예산은 1.005천원입니다")
+    b = extract_amounts("예산은 1,005원입니다")
+    assert a[0]["normalized"] == b[0]["normalized"] == "1005", (a, b)
+    print("_selftest_extract_amounts_decimal_unit_no_float_noise 통과:", a, b)
 
 
 def _selftest_unit_multipliers():
@@ -289,6 +303,7 @@ def _selftest_compare_values_catches_typo_in_large_amount():
 
 if __name__ == "__main__":
     _selftest_extract_amounts()
+    _selftest_extract_amounts_decimal_unit_no_float_noise()
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
