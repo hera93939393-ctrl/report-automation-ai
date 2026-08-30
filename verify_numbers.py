@@ -7,6 +7,17 @@ _AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(만원|천원|�
 _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 
 
+def _decimal_to_normalized_str(value: Decimal) -> str:
+    """Decimal 값을 정규화된 문자열로 바꾼다. 정수면 소수점 없이, 아니면
+    고정소수점 표기로 (과학적 표기법 "1E-7" 같은 건 정확일치 비교를 깨뜨리므로
+    format(value, 'f')로 항상 고정소수점만 나오게 강제한다).
+    """
+    integral = value.to_integral_value()
+    if value == integral:
+        return str(integral)
+    return format(value.normalize(), 'f')
+
+
 def extract_amounts(text: str) -> list[dict]:
     """텍스트에서 금액/일반숫자를 뽑아 정규화된 값과 원문을 반환한다.
 
@@ -22,8 +33,7 @@ def extract_amounts(text: str) -> list[dict]:
     for m in _AMOUNT_PATTERN.finditer(text):
         digits, unit = m.group(1), m.group(2)
         value = Decimal(digits.replace(",", "")) * _UNIT_MULTIPLIER[unit]
-        integral = value.to_integral_value()
-        normalized = str(integral) if value == integral else str(value.normalize())
+        normalized = _decimal_to_normalized_str(value)
         results.append({
             "type": "amount",
             "normalized": normalized,
@@ -73,6 +83,14 @@ def _selftest_extract_amounts_decimal_unit_no_float_noise():
     b = extract_amounts("예산은 1,005원입니다")
     assert a[0]["normalized"] == b[0]["normalized"] == "1005", (a, b)
     print("_selftest_extract_amounts_decimal_unit_no_float_noise 통과:", a, b)
+
+
+def _selftest_extract_amounts_no_scientific_notation():
+    """아주 작은 소수라도 과학적 표기법("1E-7")이 아니라 고정소수점("0.0000001")으로
+    나와야 한다 (그래야 정확일치 비교가 깨지지 않는다)."""
+    result = extract_amounts("증감률은 0.0000001%입니다")
+    assert result[0]["normalized"] == "0.0000001", result
+    print("_selftest_extract_amounts_no_scientific_notation 통과:", result)
 
 
 def _selftest_unit_multipliers():
@@ -306,16 +324,18 @@ def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[
     미리 계산해 정답 풀에 추가할 항목으로 반환한다 (PRD 12-2: 합계만, 증감률/평균은 제외).
     float을 직접 sum()하지 않고 Decimal로 변환해 더한다 — 소수를 포함하는 컬럼(단가 등)의
     합계에서 이진 부동소수점 오차가 생겨 Task 5의 정확일치 비교와 충돌하는 것을 방지한다.
+    bool은 int의 서브클래스라 isinstance(v, (int, float))를 그냥 두면 True/False가
+    섞인 컬럼(완료여부 등)에서 Decimal("True") 파싱 오류가 나므로 명시적으로 제외한다.
     """
     if not rows:
         return []
     results = []
     for col in rows[0].keys():
-        values = [r[col] for r in rows if isinstance(r.get(col), (int, float))]
+        values = [r[col] for r in rows
+                  if isinstance(r.get(col), (int, float)) and not isinstance(r.get(col), bool)]
         if len(values) == len(rows) and values:
             total = sum(Decimal(str(v)) for v in values)
-            integral = total.to_integral_value()
-            normalized = str(integral) if total == integral else str(total.normalize())
+            normalized = _decimal_to_normalized_str(total)
             results.append({
                 "type": "amount", "normalized": normalized, "raw": f"{col} 합계",
                 "source_file": source_file, "location": f"{sheet}!{col}(합계)",
@@ -339,9 +359,19 @@ def _selftest_compute_column_sums_decimal_no_float_noise():
     print("_selftest_compute_column_sums_decimal_no_float_noise 통과:", sums)
 
 
+def _selftest_compute_column_sums_ignores_boolean_column():
+    """완료여부 같은 True/False 컬럼이 섞여 있어도 크래시 없이 무시해야 한다."""
+    rows = [{"예산": 100, "완료": True}, {"예산": 200, "완료": False}]
+    sums = compute_column_sums(rows, source_file="원본.xlsx", sheet="Sheet1")
+    normalized = sorted(r["normalized"] for r in sums)
+    assert normalized == ["300"], normalized  # "완료" 컬럼은 합계 대상에서 제외됨
+    print("_selftest_compute_column_sums_ignores_boolean_column 통과:", sums)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_extract_amounts_decimal_unit_no_float_noise()
+    _selftest_extract_amounts_no_scientific_notation()
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
@@ -358,3 +388,4 @@ if __name__ == "__main__":
     _selftest_compare_values_catches_typo_in_large_amount()
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
+    _selftest_compute_column_sums_ignores_boolean_column()
