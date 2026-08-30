@@ -171,24 +171,29 @@ _PHONE_PATTERN = re.compile(r'\d{2,3}-\d{3,4}-\d{4}')
 
 
 def extract_phones(text: str) -> list[dict]:
+    """전화번호(031-1234-5678 등 표준 하이픈 형식)를 추출한다."""
     return [{"type": "phone", "normalized": m.group(0), "raw": m.group(0), "span": m.span()}
             for m in _PHONE_PATTERN.finditer(text)]
 
 
 def extract_values(text: str, default_year: int) -> list[dict]:
     """텍스트에서 금액/날짜/시간/전화번호 4종을 전부 뽑아 하나의 리스트로 반환한다.
-    날짜·시간·전화번호를 먼저 뽑고, 그 글자 범위는 금액 추출 대상에서 제외한다
-    (전화번호의 하이픈숫자, 날짜의 연도, 시간의 숫자가 금액으로 오인되는 것을 방지).
+    날짜·시간·전화번호를 먼저 뽑고, 그 글자 범위와 조금이라도 겹치는 금액 매치는
+    제외한다 (전화번호의 하이픈숫자, 날짜의 연도, 시간의 숫자가 금액으로 오인되는
+    것을 방지 — 시작 위치만 보면 안 되고 구간 겹침 전체를 봐야 한다. 예:
+    "1"+날짜가 공백 없이 붙은 "12026-09-07" 같은 입력에서 금액 매치("12026")가
+    제외구간보다 먼저 시작하면서 겹치는 경우까지 잡아야 함).
     """
     dates = extract_dates(text, default_year)
     times = extract_times(text)
     phones = extract_phones(text)
     excluded_spans = [r["span"] for r in dates + times + phones]
 
-    def _in_excluded(span):
-        return any(s <= span[0] < e for s, e in excluded_spans)
+    def _overlaps_excluded(span):
+        a_start, a_end = span
+        return any(a_start < e and s < a_end for s, e in excluded_spans)
 
-    amounts = [r for r in extract_amounts(text) if not _in_excluded(r["span"])]
+    amounts = [r for r in extract_amounts(text) if not _overlaps_excluded(r["span"])]
     return amounts + dates + times + phones
 
 
@@ -202,6 +207,15 @@ def _selftest_extract_values():
     print("extract_values 통과:", result)
 
 
+def _selftest_extract_values_adjacent_no_separator():
+    """구분자 없이 붙어있어 금액 매치가 제외구간보다 먼저 시작하며 겹치는 경우도
+    걸러내야 한다 (시작 위치만 보는 검사로는 놓치는 케이스)."""
+    result = extract_values("1" + "2026-09-07 회의", default_year=2026)
+    amounts = [r for r in result if r["type"] == "amount"]
+    assert amounts == [], amounts
+    print("_selftest_extract_values_adjacent_no_separator 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -212,3 +226,4 @@ if __name__ == "__main__":
     _selftest_extract_times_mixed_notation_no_false_match()
     _selftest_extract_times_long_digit_run_no_false_match()
     _selftest_extract_values()
+    _selftest_extract_values_adjacent_no_separator()
