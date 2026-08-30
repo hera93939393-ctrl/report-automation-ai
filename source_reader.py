@@ -1,5 +1,6 @@
 """source_reader.py — 엑셀/한글/PDF 원본데이터를 읽어 verify_numbers의 정답 풀 형식으로 변환"""
 import os
+import re
 import datetime
 from decimal import Decimal
 
@@ -273,6 +274,84 @@ def _selftest_read_pdf_source_simple_table():
         os.remove(test_path)
 
 
+_READERS = {".xlsx": read_excel_source, ".xls": read_excel_source,
+            ".hwp": read_hwp_source, ".hwpx": read_hwp_source,
+            ".pdf": read_pdf_source}
+
+
+_CELL_ADDRESS_PATTERN = re.compile(r'^[A-Za-z]{1,3}\d+$')
+
+
+def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict], list[dict]]:
+    """폴더 안 모든 파일을 읽되, 처리 가능한 확장자만 실제로 읽고 나머지는 조용히
+    건너뛴다. 서로 다른 엑셀 파일의 "같은 시트!같은 셀 주소"에 다른 값이 있으면
+    충돌로 간주해 별도 리스트로 반환한다 (PRD 12-5).
+
+    반환: (정답_풀, 충돌_목록)
+    충돌_목록 항목 형식: {"location": "Sheet1!A2", "values": [
+        {"file": "초안.xlsx", "normalized": "1800000"},
+        {"file": "최종.xlsx", "normalized": "1850000"}]}
+
+    (2026-08-30 구현 중 실제 테스트로 발견 — 중요) 최초 버전은 "!" 개수만 세어
+    "Sheet1!A2"(진짜 셀 주소)와 "Sheet1!예산(합계)"(compute_column_sums가 만드는
+    파생 컬럼합계 라벨, Task 6)을 구분하지 못했다 — 둘 다 "!"가 정확히 1개라서
+    똑같이 충돌 탐지 대상으로 잡혔다. 실제로 이 테스트 데이터(시트당 데이터 행이
+    1개뿐이라 컬럼합계가 그 한 셀 값과 같음)로 돌려보니, 파일마다 컬럼합계 값도
+    달라서 "Sheet1!A2" 충돌 1건과 "Sheet1!예산(합계)" 충돌 1건, 총 2건이 나와
+    "같은 셀 주소" 하나만 충돌로 잡는다는 모델링 결정과 어긋났다. "!" 뒤쪽이
+    "A2"처럼 열문자+행번호로 된 진짜 셀 주소 형식인지까지 확인해서, 파생 라벨은
+    애초에 충돌 탐지 후보에서 제외한다 (범위를 넓히는 게 아니라, "같은 셀 주소"라는
+    원래 정의를 정확히 지키기 위한 수정).
+    """
+    pool = []
+    for name in os.listdir(folder_path):
+        ext = os.path.splitext(name)[1].lower()
+        reader = _READERS.get(ext)
+        if reader is None:
+            continue  # 이미지, 워드, 알 수 없는 형식 등 → 조용히 건너뜀
+        full_path = os.path.join(folder_path, name)
+        pool.extend(reader(full_path, default_year))
+
+    by_location: dict[str, list[dict]] = {}
+    for item in pool:
+        location = item.get("location", "")
+        if location.count("!") == 1:
+            _, _, cell_ref = location.partition("!")
+            if _CELL_ADDRESS_PATTERN.match(cell_ref):  # 진짜 셀 주소만 충돌 탐지 대상
+                by_location.setdefault(location, []).append(item)
+
+    conflicts = []
+    for location, items in by_location.items():
+        distinct_files = {i["source_file"]: i["normalized"] for i in items}
+        distinct_values = set(distinct_files.values())
+        if len(distinct_values) > 1:
+            conflicts.append({
+                "location": location,
+                "values": [{"file": f, "normalized": v} for f, v in distinct_files.items()],
+            })
+    return pool, conflicts
+
+
+def _selftest_read_source_folder_conflict():
+    os.makedirs("_test_원본폴더", exist_ok=True)
+    wb1 = openpyxl.Workbook(); ws1 = wb1.active; ws1.title = "Sheet1"
+    ws1["A1"] = "예산"; ws1["A2"] = 1800000
+    wb1.save("_test_원본폴더/초안.xlsx")
+    wb2 = openpyxl.Workbook(); ws2 = wb2.active; ws2.title = "Sheet1"
+    ws2["A1"] = "예산"; ws2["A2"] = 1850000
+    wb2.save("_test_원본폴더/최종.xlsx")
+    with open("_test_원본폴더/무관한파일.txt", "w") as f:
+        f.write("이건 읽으면 안 되는 파일")
+    try:
+        pool, conflicts = read_source_folder("_test_원본폴더", default_year=2026)
+        assert len(conflicts) == 1, conflicts
+        assert conflicts[0]["location"] == "Sheet1!A2", conflicts
+        print("read_source_folder 통과: 충돌", conflicts)
+    finally:
+        import shutil
+        shutil.rmtree("_test_원본폴더")
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -283,3 +362,4 @@ if __name__ == "__main__":
     _selftest_read_pdf_source_missing_file()
     _selftest_read_pdf_source_multipage_skips_blank()
     _selftest_read_pdf_source_simple_table()
+    _selftest_read_source_folder_conflict()
