@@ -122,17 +122,34 @@ def read_hwp_source(path: str, default_year: int) -> list[dict]:
     """한글 문서를 안 보이게(visible=False) 열어서 전체 텍스트를 읽고,
     4종 값을 뽑아 정답 풀 항목으로 변환한다. 원본 참고용으로만 열기 때문에
     화면에 띄우지 않는다 (사용자가 실제로 편집 중인 보고서와는 별개의 인스턴스).
+    손상되었거나 열 수 없는 파일은 예외 없이 빈 리스트를 반환한다 (PRD 12-5,
+    read_excel_source/read_pdf_source와 동일한 관례). hwp.quit()은 어떤 예외가
+    나든 반드시 호출되도록 try/finally로 감싼다 — 그렇지 않으면 보이지 않는
+    Hwp.exe 프로세스가 누적되어 남는 문제가 실제로 재현된 적 있다.
     """
     from pyhwpx import Hwp
-    hwp = Hwp(visible=False)
-    hwp.open(path)
-    text = hwp.GetTextFile("TEXT", "")
-    hwp.quit()
+    hwp = None
+    try:
+        hwp = Hwp(visible=False)
+        if not hwp.open(path):
+            return []
+        text = hwp.GetTextFile("TEXT", "")
+        if not text:
+            return []
+    except Exception:
+        return []
+    finally:
+        if hwp is not None:
+            hwp.quit()
 
     results = extract_values(text, default_year)
     for r in results:
+        start, end = r["span"]
+        before = text[max(0, start - 10):start]
+        matched = text[start:end]
+        after = text[end:end + 10]
         r["source_file"] = path
-        r["location"] = text[max(0, r["span"][0] - 10):r["span"][1] + 10]
+        r["location"] = f"{before}**{matched}**{after}"
         del r["span"]
     return results
 
@@ -153,8 +170,33 @@ def _selftest_read_hwp_source():
         os.remove(test_path)
 
 
+def _selftest_read_hwp_source_no_match():
+    """숫자/날짜/시간/전화번호가 전혀 없는 문서는 빈 리스트를 반환해야 한다."""
+    from pyhwpx import Hwp
+    test_path = os.path.abspath("_test_원본_빈값.hwp")
+    hwp = Hwp(visible=False)
+    hwp.insert_text("이 문서에는 특별한 값이 없습니다")
+    hwp.save_as(test_path)
+    hwp.quit()
+    try:
+        result = read_hwp_source(test_path, default_year=2026)
+        assert result == [], result
+        print("read_hwp_source_no_match 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_hwp_source_missing_file_no_crash():
+    """존재하지 않는 파일은 예외 없이 빈 리스트를 반환해야 한다 (프로세스 누수 방지 포함)."""
+    result = read_hwp_source(os.path.abspath("_존재하지_않는_파일.hwp"), default_year=2026)
+    assert result == [], result
+    print("read_hwp_source_missing_file_no_crash 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
     _selftest_read_excel_source_corrupted_file_no_crash()
     _selftest_read_hwp_source()
+    _selftest_read_hwp_source_no_match()
+    _selftest_read_hwp_source_missing_file_no_crash()
