@@ -118,7 +118,43 @@ def _selftest_read_excel_source_corrupted_file_no_crash():
         os.remove(test_path)
 
 
+def read_hwp_source(path: str, default_year: int) -> list[dict]:
+    """한글 문서를 안 보이게(visible=False) 열어서 전체 텍스트를 읽고,
+    4종 값을 뽑아 정답 풀 항목으로 변환한다. 원본 참고용으로만 열기 때문에
+    화면에 띄우지 않는다 (사용자가 실제로 편집 중인 보고서와는 별개의 인스턴스).
+    """
+    from pyhwpx import Hwp
+    hwp = Hwp(visible=False)
+    hwp.open(path)
+    text = hwp.GetTextFile("TEXT", "")
+    hwp.quit()
+
+    results = extract_values(text, default_year)
+    for r in results:
+        r["source_file"] = path
+        r["location"] = text[max(0, r["span"][0] - 10):r["span"][1] + 10]
+        del r["span"]
+    return results
+
+
+def _selftest_read_hwp_source():
+    from pyhwpx import Hwp
+    test_path = os.path.abspath("_test_원본.hwp")
+    hwp = Hwp(visible=False)
+    hwp.insert_text("예산은 1,850,000원이며 회의는 2026-09-07 14:00~16:00 진행")
+    hwp.save_as(test_path)
+    hwp.quit()
+    try:
+        result = read_hwp_source(test_path, default_year=2026)
+        types = sorted(r["type"] for r in result)
+        assert types == ["amount", "date", "time"], types
+        print("read_hwp_source 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
     _selftest_read_excel_source_corrupted_file_no_crash()
+    _selftest_read_hwp_source()
