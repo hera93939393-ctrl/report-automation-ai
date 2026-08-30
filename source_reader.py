@@ -193,6 +193,37 @@ def _selftest_read_hwp_source_missing_file_no_crash():
     print("read_hwp_source_missing_file_no_crash 통과:", result)
 
 
+def read_pdf_source(path: str, default_year: int) -> list[dict]:
+    """디지털 PDF에서 텍스트·표를 추출해 정답 풀 항목으로 변환한다.
+    파일이 없거나, 텍스트를 전혀 추출할 수 없는 스캔 이미지 PDF인 경우
+    예외를 던지지 않고 빈 리스트를 반환한다 (PRD 12-2: OCR 비목표, 조용히 건너뜀).
+    """
+    import pdfplumber
+    if not os.path.exists(path):
+        return []
+    results = []
+    try:
+        with pdfplumber.open(path) as pdf:
+            for page_num, page in enumerate(pdf.pages, start=1):
+                text = page.extract_text() or ""
+                if not text.strip():
+                    continue  # 텍스트 없음 = 스캔 이미지로 추정, 건너뜀
+                for v in extract_values(text, default_year):
+                    v["source_file"] = path
+                    v["location"] = f"{page_num}페이지"
+                    del v["span"]
+                    results.append(v)
+    except Exception:
+        return []  # 손상되었거나 읽을 수 없는 PDF는 조용히 건너뜀 (PRD 12-5)
+    return results
+
+
+def _selftest_read_pdf_source_missing_file():
+    result = read_pdf_source("존재하지_않는_파일.pdf", default_year=2026)
+    assert result == [], result
+    print("read_pdf_source(없는 파일) 통과: 빈 리스트, 오류 없이 건너뜀")
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -200,3 +231,4 @@ if __name__ == "__main__":
     _selftest_read_hwp_source()
     _selftest_read_hwp_source_no_match()
     _selftest_read_hwp_source_missing_file_no_crash()
+    _selftest_read_pdf_source_missing_file()
