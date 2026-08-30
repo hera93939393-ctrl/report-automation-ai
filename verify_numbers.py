@@ -232,12 +232,16 @@ def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
     print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
 
 
-_AMOUNT_TOLERANCE = 0.005  # ±0.5%
+_AMOUNT_TOLERANCE = 0.000001  # ±0.0001% — 부동소수점 계산 잡음만 흡수하려는 목적.
+# 사람이 만드는 실제 오타(자릿수 교체 등)는 보통 이보다 훨씬 크게 벌어지므로 여전히 잡힌다.
+# "대충 비슷하면 통과"가 아니라 "계산 과정의 반올림 잡음만 허용"이 이 값의 의도임을
+# 유지보수자가 임의로 다시 키우지 않도록 반드시 이 주석과 함께 남겨둔다.
 
 
 def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
     """report_values 각각을 answer_pool과 대조해, 원본에서 확인 안 되는 항목만 반환한다.
-    금액은 ±0.5% 오차를 허용하고, 날짜/시간/전화번호는 정확히 일치해야 한다.
+    금액은 부동소수점 계산 잡음만 허용하는 아주 작은 오차(±0.0001%)로 비교하고,
+    날짜/시간/전화번호는 정확히 일치해야 한다.
     """
     mismatches = []
     for rv in report_values:
@@ -269,6 +273,16 @@ def _selftest_compare_values():
     print("compare_values 통과:", mismatches)
 
 
+def _selftest_compare_values_catches_digit_transposition_typo():
+    """0.5% 오차 허용에서는 놓쳤던, 자릿수를 바꿔 쓴 전형적인 오타를 다시 잡아야 한다."""
+    answer_pool = [{"type": "amount", "normalized": "12345000", "raw": "12,345,000",
+                     "source_file": "원본.xlsx", "location": "Sheet1!C1"}]
+    report_values = [{"type": "amount", "normalized": "12354000", "raw": "12,354,000", "span": (0, 10)}]
+    mismatches = compare_values(report_values, answer_pool)
+    assert len(mismatches) == 1, mismatches
+    print("_selftest_compare_values_catches_digit_transposition_typo 통과:", mismatches)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -283,3 +297,4 @@ if __name__ == "__main__":
     _selftest_extract_values_reverse_direction_overlap()
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
     _selftest_compare_values()
+    _selftest_compare_values_catches_digit_transposition_typo()
