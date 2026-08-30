@@ -232,6 +232,43 @@ def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
     print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
 
 
+_AMOUNT_TOLERANCE = 0.005  # ±0.5%
+
+
+def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
+    """report_values 각각을 answer_pool과 대조해, 원본에서 확인 안 되는 항목만 반환한다.
+    금액은 ±0.5% 오차를 허용하고, 날짜/시간/전화번호는 정확히 일치해야 한다.
+    """
+    mismatches = []
+    for rv in report_values:
+        candidates = [a for a in answer_pool if a["type"] == rv["type"]]
+        if rv["type"] == "amount":
+            target = float(rv["normalized"])
+            found = any(abs(float(a["normalized"]) - target) / max(target, 1) <= _AMOUNT_TOLERANCE
+                        for a in candidates)
+        else:
+            found = any(a["normalized"] == rv["normalized"] for a in candidates)
+        if not found:
+            mismatches.append(rv)
+    return mismatches
+
+
+def _selftest_compare_values():
+    answer_pool = [
+        {"type": "amount", "normalized": "1850000", "raw": "1,850,000", "source_file": "원본.xlsx", "location": "Sheet1!C15"},
+        {"type": "date", "normalized": "2026-09-07", "raw": "2026-09-07", "source_file": "원본.xlsx", "location": "Sheet1!D2"},
+    ]
+    report_values = [
+        {"type": "amount", "normalized": "1850000", "raw": "185만원", "span": (0, 4)},   # 정상(단위환산 일치)
+        {"type": "amount", "normalized": "9999999", "raw": "999만9900원", "span": (10, 20)},  # 오탐(원본에 없음)
+        {"type": "date", "normalized": "2026-09-07", "raw": "'26.9.7(화)", "span": (30, 40)},  # 정상
+    ]
+    mismatches = compare_values(report_values, answer_pool)
+    assert len(mismatches) == 1, mismatches
+    assert mismatches[0]["raw"] == "999만9900원", mismatches
+    print("compare_values 통과:", mismatches)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -245,3 +282,4 @@ if __name__ == "__main__":
     _selftest_extract_values_adjacent_no_separator()
     _selftest_extract_values_reverse_direction_overlap()
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
+    _selftest_compare_values()
