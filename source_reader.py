@@ -18,6 +18,10 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
     열어도 실제 Excel에서 한 번도 저장된 적 없으면 캐시된 값이 없어 None으로
     읽힐 수 있다(합계 등 파생값이 원본에 있어도 못 읽는 경우 발생 가능). 병합된
     제목 행이 실제 헤더보다 위에 있는 레이아웃도 1행=헤더 가정과 어긋날 수 있다.
+    시간만 있는 셀(datetime.time, 날짜 없이 시각만 서식 지정된 셀)도 date/amount/str
+    어디에도 안 걸려 조용히 누락된다 — 이 도구가 다루는 원본(주로 금액·날짜 중심의
+    공공기관 계획서/실적표)에서는 드문 케이스라 이번 라운드는 해결하지 않고
+    한계로만 남겨둔다.
     """
     try:
         wb = openpyxl.load_workbook(path, data_only=True)
