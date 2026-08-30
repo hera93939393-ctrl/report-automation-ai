@@ -301,6 +301,44 @@ def _selftest_compare_values_catches_typo_in_large_amount():
     print("_selftest_compare_values_catches_typo_in_large_amount 통과:", mismatches)
 
 
+def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[dict]:
+    """엑셀에서 읽은 행(딕셔너리 리스트)에서, 숫자로만 이루어진 각 컬럼의 단순 합계를
+    미리 계산해 정답 풀에 추가할 항목으로 반환한다 (PRD 12-2: 합계만, 증감률/평균은 제외).
+    float을 직접 sum()하지 않고 Decimal로 변환해 더한다 — 소수를 포함하는 컬럼(단가 등)의
+    합계에서 이진 부동소수점 오차가 생겨 Task 5의 정확일치 비교와 충돌하는 것을 방지한다.
+    """
+    if not rows:
+        return []
+    results = []
+    for col in rows[0].keys():
+        values = [r[col] for r in rows if isinstance(r.get(col), (int, float))]
+        if len(values) == len(rows) and values:
+            total = sum(Decimal(str(v)) for v in values)
+            integral = total.to_integral_value()
+            normalized = str(integral) if total == integral else str(total.normalize())
+            results.append({
+                "type": "amount", "normalized": normalized, "raw": f"{col} 합계",
+                "source_file": source_file, "location": f"{sheet}!{col}(합계)",
+            })
+    return results
+
+
+def _selftest_compute_column_sums():
+    rows = [{"예산": 500000, "인원": 10}, {"예산": 300000, "인원": 20}]
+    sums = compute_column_sums(rows, source_file="원본.xlsx", sheet="Sheet1")
+    normalized = sorted(r["normalized"] for r in sums)
+    assert normalized == ["30", "800000"], normalized
+    print("compute_column_sums 통과:", sums)
+
+
+def _selftest_compute_column_sums_decimal_no_float_noise():
+    """소수를 포함하는 컬럼의 합계도 float 오차 없이 정확해야 한다."""
+    rows = [{"단가": 0.1}, {"단가": 0.2}]
+    sums = compute_column_sums(rows, source_file="원본.xlsx", sheet="Sheet1")
+    assert sums[0]["normalized"] == "0.3", sums
+    print("_selftest_compute_column_sums_decimal_no_float_noise 통과:", sums)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_extract_amounts_decimal_unit_no_float_noise()
@@ -318,3 +356,5 @@ if __name__ == "__main__":
     _selftest_compare_values()
     _selftest_compare_values_catches_digit_transposition_typo()
     _selftest_compare_values_catches_typo_in_large_amount()
+    _selftest_compute_column_sums()
+    _selftest_compute_column_sums_decimal_no_float_noise()
