@@ -216,6 +216,22 @@ def _selftest_extract_values_adjacent_no_separator():
     print("_selftest_extract_values_adjacent_no_separator 통과:", result)
 
 
+def _selftest_extract_values_reverse_direction_overlap():
+    """금액 매치가 제외구간 안에서 시작해 밖으로 걸치는 반대 방향도 걸러야 한다."""
+    result = extract_values("연락처 031-1234-56789999 입니다", default_year=2026)
+    amounts = [r for r in result if r["type"] == "amount"]
+    assert amounts == [], amounts
+    print("_selftest_extract_values_reverse_direction_overlap 통과:", result)
+
+
+def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
+    """제외구간(날짜+시간) 두 개가 붙어있고, 그 경계를 금액이 걸치는 경우도 걸러야 한다."""
+    result = extract_values("2026-09-0714:00~16:0099900", default_year=2026)
+    amounts = [r for r in result if r["type"] == "amount"]
+    assert amounts == [], amounts
+    print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
+
+
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_unit_multipliers()
@@ -227,3 +243,5 @@ if __name__ == "__main__":
     _selftest_extract_times_long_digit_run_no_false_match()
     _selftest_extract_values()
     _selftest_extract_values_adjacent_no_separator()
+    _selftest_extract_values_reverse_direction_overlap()
+    _selftest_extract_values_straddles_two_adjacent_excluded_spans()
