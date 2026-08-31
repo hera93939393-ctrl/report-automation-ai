@@ -76,6 +76,7 @@ class ChatAssistant(ctk.CTk):
 
         self.report_path = None
         self.source_path = None
+        self._busy = False
 
         self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
@@ -119,6 +120,10 @@ class ChatAssistant(ctk.CTk):
         self.chat_log.see("end")
 
     def _on_submit(self, event):
+        if self._busy:
+            self._log("도우미: 아직 이전 요청을 처리 중이에요. 잠시만 기다려주세요.")
+            return
+
         text = self.input_box.get()
         self.input_box.delete(0, "end")
         self._log(f"나: {text}")
@@ -127,13 +132,28 @@ class ChatAssistant(ctk.CTk):
             self._log("도우미: 먼저 보고서 파일과 원본자료를 선택해주세요.")
             return
 
-        tool_name = route_intent(text)
-        if tool_name == "verify_numbers":
-            from verify_tool import run_verification
-            result = run_verification(self.report_path, self.source_path, default_year=2026)
-            self._log(f"도우미: {result['summary']}")
-        else:
-            self._log("도우미: 아직 이 요청은 처리할 수 있는 도구가 없어요. '숫자 검증해줘'라고 말씀해보세요.")
+        self._busy = True
+        self.input_box.configure(state="disabled")
+        try:
+            self._log("도우미: 확인 중입니다... (시간이 좀 걸릴 수 있어요)")
+            # 여러 분이 걸릴 수 있는 블로킹 호출(Ollama/HWP COM) 전에 위 메시지가
+            # 실제로 화면에 그려지도록 강제로 갱신한다. update_idletasks()가 아니라
+            # update()를 쓰는 이유: update_idletasks()는 대기 중인 draw만 처리하고
+            # 이벤트 큐는 비우지 않아 일부 환경에서 텍스트가 그려지지 않을 수 있다.
+            self.update()
+
+            tool_name = route_intent(text)
+            if tool_name == "verify_numbers":
+                from verify_tool import run_verification
+                result = run_verification(self.report_path, self.source_path, default_year=2026)
+                self._log(f"도우미: {result['summary']}")
+            else:
+                self._log("도우미: 아직 이 요청은 처리할 수 있는 도구가 없어요. '숫자 검증해줘'라고 말씀해보세요.")
+        except Exception as e:
+            self._log(f"도우미: 오류가 발생했습니다 - {e}")
+        finally:
+            self._busy = False
+            self.input_box.configure(state="normal")
 
 
 def _selftest_route_intent():
