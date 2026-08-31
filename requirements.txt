@@ -13,3 +13,4 @@ pyperclip==1.11.0
 customtkinter
 pdfplumber
 ollama
+pyhwpx==1.7.2
