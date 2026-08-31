@@ -1578,6 +1578,8 @@ git add chat_assistant.py
 git commit -m "F11: 채팅창 UI 뼈대 (topmost, 파일/폴더 선택 버튼, 로그, 입력창) - 도구 연결 전"
 ```
 
+**(2026-08-31) ✅ 완료**. 순수 UI 태스크라 자동 테스트 대신 실제 실행 + 화면 캡처로 확인함. `python chat_assistant.py`를 백그라운드 프로세스로 띄운 뒤 `FindWindowW`로 창을 찾아 `.tmp\task13_screenshot.png`로 캡처: 320x480 창이 "보고서 도우미" 제목으로 맨 위에 뜨고, 파란 버튼 3개(보고서 파일 선택/원본자료 선택(파일)/원본자료 선택(폴더))와 빈 채팅 로그, 하단 입력창(placeholder "예: 숫자 검증해줘")이 모두 정상적으로 보임. Enter 바인딩도 실제로 검증함 — `SendInput`(유니코드 키 이벤트)으로 입력창에 "test 123 hello"를 타이핑하고 Enter를 보낸 뒤 다시 캡처하니 로그에 "나: test 123 hello"가 찍히고 입력창이 비워진 것을 확인(코드만 읽고 넘어간 게 아니라 실제 키 입력으로 동작 확인). 확인 후 프로세스는 `Stop-Process`로 정리했고, 잔류 python 프로세스 없음을 재확인함.
+
 ---
 
 ### Task 14: Ollama Qwen3 도구호출 연결
