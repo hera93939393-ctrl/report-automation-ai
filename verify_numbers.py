@@ -290,10 +290,22 @@ def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[d
     않는다. 상대오차(%) 허용은 금액이 클수록 허용되는 절대 오차도 커져서,
     큰 금액에서 실제 오타를 놓치는 근본적인 결함이 있었다(임계값을 아무리
     좁혀도 해결 안 됨) — 그래서 정확 일치로 되돌린다.
+
+    (2026-08-31 최종 검토 반영) answer_pool에 해당 type이 단 하나도 없으면
+    비교 자체를 생략하고 넘어간다(오탐 방지). 예: 원본이 예산/실적 엑셀이라
+    amount·date만 있고 phone 항목이 아예 없는 경우, 보고서 담당자 연락처
+    "031-1234-5678"은 "원본에 있는 phone 값들과 달라서" 틀린 게 아니라
+    "원본에 대조할 phone 자체가 없어서" 확인이 불가능한 것이다 — 이런 경우
+    무조건 mismatch로 찍으면 진짜 오타와 구분이 안 되는 전수 오탐이 된다.
+    반대로 해당 type이 하나라도 있으면(원본에 phone이 있지만 이 값과는 다 다름)
+    기존과 동일하게 정상적으로 mismatch로 잡는다 — "타입 있음 vs 없음"만
+    가르는 최소한의 변경이다.
     """
     mismatches = []
     for rv in report_values:
         candidates = [a for a in answer_pool if a["type"] == rv["type"]]
+        if not candidates:
+            continue  # 원본에 이 타입 자체가 없음 → 대조 불가, 오탐 방지 위해 생략
         found = any(a["normalized"] == rv["normalized"] for a in candidates)
         if not found:
             mismatches.append(rv)
@@ -334,6 +346,54 @@ def _selftest_compare_values_catches_typo_in_large_amount():
     mismatches = compare_values(report_values, answer_pool)
     assert len(mismatches) == 1, mismatches
     print("_selftest_compare_values_catches_typo_in_large_amount 통과:", mismatches)
+
+
+def _selftest_compare_values_skips_type_absent_from_source():
+    """(2026-08-31 최종 검토 반영 회귀테스트) 원본 정답 풀에 phone 타입이 아예
+    없으면, 보고서의 (완전히 정상적인) 전화번호를 오탐으로 찍으면 안 된다."""
+    answer_pool = [{"type": "amount", "normalized": "1850000", "raw": "1,850,000",
+                     "source_file": "원본.xlsx", "location": "Sheet1!C15"}]
+    report_values = extract_values(
+        "담당자: 김주무관 (031-1234-5678), 예산 1,850,000원", default_year=2026,
+    )
+    mismatches = compare_values(report_values, answer_pool)
+    assert mismatches == [], mismatches
+    print("_selftest_compare_values_skips_type_absent_from_source 통과:", mismatches)
+
+
+def _selftest_compare_values_still_flags_when_type_present_but_no_match():
+    """타입 자체는 원본에 있지만(phone 항목 존재), 이 값과는 하나도 일치하지
+    않는 경우는 여전히 mismatch로 잡아야 한다 — 위 스킵 로직이 진짜 오타
+    탐지까지 죽여버리면 안 된다."""
+    answer_pool = [
+        {"type": "phone", "normalized": "031-9999-0000", "raw": "031-9999-0000",
+         "source_file": "원본.xlsx", "location": "Sheet1!B3"},
+    ]
+    report_values = [{"type": "phone", "normalized": "031-1234-5678",
+                       "raw": "031-1234-5678", "span": (0, 13)}]
+    mismatches = compare_values(report_values, answer_pool)
+    assert len(mismatches) == 1 and mismatches[0]["raw"] == "031-1234-5678", mismatches
+    print("_selftest_compare_values_still_flags_when_type_present_but_no_match 통과:", mismatches)
+
+
+def _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches():
+    """스킵 로직은 "이 타입이 원본에 아예 없을 때"에만 적용돼야지, 다른 타입에
+    영향을 주거나 같은 타입 안에서 진짜 오타를 덮어버리면 안 된다. phone은
+    원본에 없어 스킵되지만, amount는 원본에 있고 그중 하나는 진짜 오타라
+    여전히 잡혀야 한다(같은 타입이 다른 곳(정상 항목)에도 등장하는 상황 포함)."""
+    answer_pool = [
+        {"type": "amount", "normalized": "1850000", "raw": "1,850,000",
+         "source_file": "원본.xlsx", "location": "Sheet1!C15"},
+    ]
+    report_values = [
+        {"type": "phone", "normalized": "031-1234-5678", "raw": "031-1234-5678", "span": (0, 13)},  # 스킵돼야 함(원본에 phone 없음)
+        {"type": "amount", "normalized": "1850000", "raw": "185만원", "span": (20, 24)},  # 정상(일치)
+        {"type": "amount", "normalized": "9999999", "raw": "999만9900원", "span": (30, 40)},  # 진짜 오타(여전히 잡혀야 함)
+    ]
+    mismatches = compare_values(report_values, answer_pool)
+    assert len(mismatches) == 1, mismatches
+    assert mismatches[0]["raw"] == "999만9900원", mismatches
+    print("_selftest_compare_values_per_type_skip_does_not_hide_other_mismatches 통과:", mismatches)
 
 
 def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[dict]:
@@ -404,6 +464,9 @@ if __name__ == "__main__":
     _selftest_compare_values()
     _selftest_compare_values_catches_digit_transposition_typo()
     _selftest_compare_values_catches_typo_in_large_amount()
+    _selftest_compare_values_skips_type_absent_from_source()
+    _selftest_compare_values_still_flags_when_type_present_but_no_match()
+    _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches()
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
     _selftest_compute_column_sums_ignores_boolean_column()
