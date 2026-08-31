@@ -1830,24 +1830,27 @@ Files
 - Modify: `requirements.txt`
 - Modify: `README.md`
 
-- [ ] Step 1: `requirements.txt`에 추가 (기존 내용 유지, 아래 4줄만 추가)
+- [ ] Step 1: `requirements.txt`에 추가
+
+**(2026-08-31 Task 15 리뷰에서 미리 발견 — 실행 전 확인할 것)** `requirements.txt`에 `openpyxl==3.1.5`가 이미 있음(F1~F10 때부터). 아래 원안 그대로 4줄을 붙이면 `openpyxl`이 중복 등록되니, **3줄만** 추가한다(기존 내용 유지):
 
 ```
 customtkinter
 pdfplumber
 ollama
-openpyxl
 ```
 
 - [ ] Step 2: `README.md`의 F11 상태 행을 최종 갱신
 
 기존 "📝 PRD 확정, 구현 전" 상태를, "✅ 구현 완료" 로 바꾸고 실행법 섹션에 아래를 추가:
 
+**(2026-08-31 Task 15 리뷰에서 미리 발견)** Task 14에서 `qwen3:8b`는 이 PC에 설치되어 있지 않았고(다운로드 승인 없이는 받지 않기로 함) 실제 코드는 `qwen3.5:2b` + 키워드 안전망 하이브리드로 대체되었다(Task 14 계획 섹션 참고). 아래 안내문의 `ollama pull qwen3:8b`를 실제 사용 모델로 바꿔야 한다:
+
 ```markdown
 ### 6. 채팅 인터페이스 + 숫자검증 (F11)
 
 ```bash
-ollama pull qwen3:8b   # 최초 1회
+ollama pull qwen3.5:2b   # 최초 1회 (실제 코드가 쓰는 모델 — qwen3:8b 아님, Task 14 참고)
 python chat_assistant.py
 ```
 
