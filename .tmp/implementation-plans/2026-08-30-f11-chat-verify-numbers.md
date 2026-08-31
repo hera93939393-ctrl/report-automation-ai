@@ -1456,6 +1456,12 @@ git add verify_tool.py
 git commit -m "F11: run_verification 전체 파이프라인 (문서열기+원본읽기+대조+빨간색표시+요약)"
 ```
 
+**✅ 완료 (커밋 `19fc9a8`)**. Step 3 구현은 계획서 예시와 코드 한 글자도 다르지 않게 그대로 반영됨 — 실행 전 `verify_numbers.py`/`source_reader.py`/`hwp_report.py`의 현재 시그니처를 다시 읽어 확인했고, `compare_values()`가 반환하는 mismatch 딕셔너리가 `raw` 키를 그대로 갖고 있는 점과 `read_source_folder()`의 충돌 항목이 `{"file", "normalized"}` 키를 쓰는 점 모두 계획서 예시와 일치해 별도 수정이 필요 없었다.
+
+셀프테스트만 두 가지를 계획서 원안에서 조정했다: (1) 테스트 파일 위치를 워크트리 폴더 대신 `tempfile.gettempdir()`로 옮김 — Task 11에서 이미 확인된 "파일 접근 허용" 보안 대화상자 리스크를 줄이기 위해 `hwp_report.py`의 자기 셀프테스트가 쓴 것과 같은 완화책. (2) `result["_report_handle"]`을 테스트의 `finally`에서 명시적으로 `.close(save=False)`하도록 추가함 — 계획서 원안 테스트는 이 핸들을 전혀 닫지 않아 Hwp.exe 프로세스가 열린 채 남고, 뒤이은 `os.remove(report_path)`도 파일이 한글에 열려있어 실패했을 것.
+
+무인 실행 결과: 첫 시도(Step 2, `NameError` 확인)는 통과, Step 4(구현 후 통과 확인) 1회차는 Task 11에서 이미 문서화된 "파일 접근 허용" 보안 대화상자로 추정되는 무응답(90초 타임아웃, 출력 없음)으로 실패 — `Hwp.exe` 고아 프로세스 1개를 `taskkill`로 정리 후 2회차 재시도에서 정상 통과(`run_verification 통과: 1건 확인 필요\n- [amount] '9999999원' 원본에서 확인 안 됨`, exit 0). 실행 후 고아 프로세스·임시파일 잔여 없음을 확인함.
+
 ---
 
 ### Task 13: 채팅창 UI 뼈대 (도구 연결 없이, 화면만)
