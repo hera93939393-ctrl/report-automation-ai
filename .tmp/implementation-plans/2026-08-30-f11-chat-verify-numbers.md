@@ -1096,7 +1096,7 @@ git commit -m "F11: 디지털 PDF 원본 읽기 (스캔 PDF·손상 파일은 �
 
 ---
 
-### Task 10: 폴더 스캔 + 원본 파일 간 충돌 탐지
+### Task 10: 폴더 스캔 + 원본 파일 간 충돌 탐지 ✅ 완료 (ee93123 → 5c187e0(location+type 튜플로 그룹핑, 셀 내 다중타입 충돌 오탐 수정) → 080e52b(코드품질 리뷰 반영 - 충돌 결과에 type 포함, docstring에 location 비고유 명시), 2개 셀프테스트 전부 통과)
 
 Files
 
@@ -1146,9 +1146,15 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
     충돌로 간주해 별도 리스트로 반환한다 (PRD 12-5).
 
     반환: (정답_풀, 충돌_목록)
-    충돌_목록 항목 형식: {"location": "Sheet1!A2", "values": [
+    충돌_목록 항목 형식: {"location": "Sheet1!A2", "type": "amount", "values": [
         {"file": "초안.xlsx", "normalized": "1800000"},
         {"file": "최종.xlsx", "normalized": "1850000"}]}
+
+    (2026-08-31 코드품질 검토 후 명시) 충돌은 (location, type) 단위로 탐지하므로,
+    같은 location이 서로 다른 타입의 충돌 항목으로 두 번 이상 나타날 수 있다 —
+    예를 들어 한 셀에 금액도 날짜도 잘못된 값이 있으면 "Sheet1!A2"가 amount
+    충돌 하나, date 충돌 하나로 각각 별도 항목이 된다. 즉 location만으로는
+    충돌_목록 항목을 유일하게 식별할 수 없다.
     """
     pool = []
     for name in os.listdir(folder_path):
@@ -1159,7 +1165,7 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
         full_path = os.path.join(folder_path, name)
         pool.extend(reader(full_path, default_year))
 
-    by_location: dict[tuple, list[dict]] = {}
+    by_location: dict[tuple[str, str], list[dict]] = {}
     for item in pool:
         location = item.get("location", "")
         if location.count("!") != 1:  # 엑셀 셀 주소 형식만 충돌 탐지 대상
@@ -1170,25 +1176,28 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
             # 파생값 라벨도 "!"가 정확히 1개라 이 체크를 그냥 통과해버림 — 진짜 셀 주소
             # 형식(A2, XFD1048576 등)인지 정규식으로 한 번 더 확인해야 한다.
             continue
-        by_location.setdefault((location, item["type"]), []).append(item)
         # (2026-08-30 코드품질 검토 후 수정됨 — 중요) 키를 location만으로 잡으면,
         # 같은 셀에서 금액+날짜처럼 여러 타입이 같이 나올 때(예: "1,850,000원
         # 2026-09-07"이 든 셀) 파일별로 나중 타입이 앞 타입을 덮어써서, 날짜와
         # 금액을 서로 비교하는 말도 안 되는 "충돌"이 나오거나 진짜 금액 불일치가
         # 가려지는 문제가 있었다. (location, type) 튜플로 키를 잡아 타입별로
         # 따로 그룹핑해야 한다.
+        by_location.setdefault((location, item.get("type", "")), []).append(item)
 
     conflicts = []
-    for (location, _value_type), items in by_location.items():
+    for (location, value_type), items in by_location.items():
         distinct_files = {i["source_file"]: i["normalized"] for i in items}
         distinct_values = set(distinct_files.values())
         if len(distinct_values) > 1:
             conflicts.append({
                 "location": location,
+                "type": value_type,
                 "values": [{"file": f, "normalized": v} for f, v in distinct_files.items()],
             })
     return pool, conflicts
 ```
+
+**(2026-08-31 코드품질 리뷰 반영)**: 위 코드에서 `conflicts` 항목이 `type`을 버리고 있었다 — 같은 `location`에 amount 충돌과 date 충돌이 각각 따로 있어도 두 항목이 겉보기엔 똑같아서 어느 게 어떤 타입인지 구분이 안 됐다. `_value_type` → `value_type`으로 바꾸고 `"type": value_type`을 충돌 dict에 추가했다(위 코드에 이미 반영됨). 이에 따라 docstring도 "같은 location이 타입별로 여러 번 나타날 수 있다"는 점을 명시하도록 갱신했다(위 docstring 예시에 반영됨). 실제 커밋은 080e52b.
 
 **모델링 결정 사항 (계획 단계에서 확정)**: "원본 파일 간 값 불일치"는 PRD에서 추상적으로만 정의돼 있어, 이 계획에서 구체적인 규칙으로 확정한다 — **서로 다른 엑셀 파일에서 같은 시트이름+같은 셀 주소("Sheet1!A2" 형식)에 다른 값이 있을 때만** 충돌로 판단한다. 이건 같은 서식의 초안/최종본처럼 실제로 흔한 케이스를 다루기 위함이며, 구조가 다른 파일끼리의 의미적 충돌 탐지(예: 한글 문서와 엑셀의 같은 항목 비교)는 이번 범위에 포함하지 않는다.
 
