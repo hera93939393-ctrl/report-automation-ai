@@ -17,7 +17,23 @@ _TOOLS = [{
 }]
 
 
-_VERIFY_KEYWORDS = ["검증", "확인", "대조", "체크", "맞는지", "틀린"]
+_VERIFY_KEYWORDS = [
+    "검증", "확인", "대조", "체크", "맞는지", "틀린",
+    # 2026-08-31 Task14 리뷰 반영: 이 프로젝트의 PRD.md 자체가 "검토"를 이런 요청의
+    # 자연어 표현으로 20회 넘게 쓰고 있는데도 원래 목록에 빠져 있었음(예: "형식검토",
+    # "최종 검토"). "점검"/"검사"/"오류"도 비개발자가 같은 요청을 할 법한 표현이라 추가.
+    "검토", "점검", "검사", "오류",
+]
+
+# 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
+# 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
+#   - "체크카드로 결제했어요" → "체크"가 "체크카드"의 일부로 걸림
+#   - "파일 선택 확인했어" → "확인"이 "그냥 선택을 확인했다"는 무관한 진술에 걸림
+# 완전한 자연어 이해 없이 이 두 사례만 막기 위해, 매칭 전에 이런 무관한 복합어/구절을
+# 먼저 지워버리는 최소 denylist를 둔다("체크"는 살려둬서 "더블체크해줘" 같은 정상
+# 요청은 계속 잡히게 함). 이 정도가 "가벼운 안전망" 단계에 맞는 절충이라고 판단함 —
+# 완벽한 정확도가 필요해지면(도구가 여러 개로 늘어나는 다음 라운드) 재설계 대상.
+_FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 
 
 def route_intent(user_message: str) -> str | None:
@@ -28,6 +44,12 @@ def route_intent(user_message: str) -> str | None:
     명백한 검증 요청 키워드가 있으면 verify_numbers로 보내는 안전망을 둔다.
     지금은 등록된 도구가 하나뿐이라 이 방식이 안전하다 — 도구가 여러 개로 늘어나면
     이 키워드 안전망은 재설계가 필요하다(TODO 아님, 다음 라운드에서 다룰 설계 결정).
+
+    키워드 매칭은 여전히 bare substring 매칭이라 원리적으로 오탐 가능성이 남아있다
+    (예: 새로운 복합어). 실측된 오탐 두 건은 `_FALSE_POSITIVE_DENYLIST`로 막았지만,
+    이건 화이트리스트가 아니라 알려진 사례에 대한 대응이므로 이 정도 잔여 리스크는
+    감내한다 — 최악의 경우도 "검증이 한 번 더 돌고 화면이 빨갛게 표시되는" 정도이고
+    (자동저장이 없어 파괴적이지 않음) 사용자가 바로 알아챌 수 있는 수준이다.
     """
     response = ollama.chat(
         model="qwen3.5:2b",
@@ -37,7 +59,10 @@ def route_intent(user_message: str) -> str | None:
     tool_calls = response.get("message", {}).get("tool_calls") or []
     if tool_calls:
         return tool_calls[0]["function"]["name"]
-    if any(keyword in user_message for keyword in _VERIFY_KEYWORDS):
+    cleaned_message = user_message
+    for phrase in _FALSE_POSITIVE_DENYLIST:
+        cleaned_message = cleaned_message.replace(phrase, "")
+    if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
     return None
 
@@ -111,6 +136,22 @@ def _selftest_route_intent():
     unrelated = route_intent("오늘 날씨 어때")
     assert unrelated is None, unrelated
     print("route_intent 통과 (무관한 요청):", unrelated)
+
+    # 3) 2026-08-31 Task14 리뷰 반영: 새로 추가된 키워드(검토/점검/오류/검사)도
+    # 안전망에서 잡히는지 확인 (PRD.md가 "검토"를 이런 요청에 20회 넘게 쓰는데
+    # 정작 원래 키워드 목록에는 빠져 있었던 커버리지 공백에 대한 회귀 테스트)
+    new_keywords = route_intent("이거 검토 점검하고 오류 있는지 검사해줘")
+    assert new_keywords == "verify_numbers", new_keywords
+    print("route_intent 통과 (검토/점검/오류/검사):", new_keywords)
+
+    # 4) 2026-08-31 Task14 리뷰 반영: 실측된 오탐 두 건이 denylist로 막히는지 확인
+    fp_choice = route_intent("파일 선택 확인했어")
+    assert fp_choice is None, fp_choice
+    print("route_intent 통과 (오탐 방지: 파일 선택 확인했어):", fp_choice)
+
+    fp_card = route_intent("체크카드로 결제했어요")
+    assert fp_card is None, fp_card
+    print("route_intent 통과 (오탐 방지: 체크카드로 결제했어요):", fp_card)
 
 
 if __name__ == "__main__":
