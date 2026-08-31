@@ -122,7 +122,18 @@ class ChatAssistant(ctk.CTk):
         text = self.input_box.get()
         self.input_box.delete(0, "end")
         self._log(f"나: {text}")
-        # Task 15에서 Ollama 도구호출로 교체 예정. 지금은 입력이 화면에 찍히는지만 확인.
+
+        if not self.report_path or not self.source_path:
+            self._log("도우미: 먼저 보고서 파일과 원본자료를 선택해주세요.")
+            return
+
+        tool_name = route_intent(text)
+        if tool_name == "verify_numbers":
+            from verify_tool import run_verification
+            result = run_verification(self.report_path, self.source_path, default_year=2026)
+            self._log(f"도우미: {result['summary']}")
+        else:
+            self._log("도우미: 아직 이 요청은 처리할 수 있는 도구가 없어요. '숫자 검증해줘'라고 말씀해보세요.")
 
 
 def _selftest_route_intent():
