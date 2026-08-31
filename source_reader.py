@@ -312,16 +312,24 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
         full_path = os.path.join(folder_path, name)
         pool.extend(reader(full_path, default_year))
 
-    by_location: dict[str, list[dict]] = {}
+    by_location: dict[tuple, list[dict]] = {}
     for item in pool:
         location = item.get("location", "")
-        if location.count("!") == 1:
-            _, _, cell_ref = location.partition("!")
-            if _CELL_ADDRESS_PATTERN.match(cell_ref):  # 진짜 셀 주소만 충돌 탐지 대상
-                by_location.setdefault(location, []).append(item)
+        if location.count("!") != 1:
+            continue  # 엑셀 셀 주소 형식만 충돌 탐지 대상
+        _, _, cell_ref = location.partition("!")
+        if not _CELL_ADDRESS_PATTERN.match(cell_ref):  # 진짜 셀 주소만 충돌 탐지 대상
+            continue
+        by_location.setdefault((location, item["type"]), []).append(item)
+        # (2026-08-31 코드품질 검토 후 수정됨 — 중요) 키를 location만으로 잡으면,
+        # 같은 셀에서 금액+날짜처럼 여러 타입이 같이 나올 때(예: "1,850,000원
+        # 2026-09-07"이 든 셀) 파일별로 나중 타입이 앞 타입을 덮어써서, 날짜와
+        # 금액을 서로 비교하는 말도 안 되는 "충돌"이 나오거나 진짜 금액 불일치가
+        # 가려지는 문제가 있었다. (location, type) 튜플로 키를 잡아 타입별로
+        # 따로 그룹핑해야 한다.
 
     conflicts = []
-    for location, items in by_location.items():
+    for (location, _value_type), items in by_location.items():
         distinct_files = {i["source_file"]: i["normalized"] for i in items}
         distinct_values = set(distinct_files.values())
         if len(distinct_values) > 1:
@@ -352,6 +360,29 @@ def _selftest_read_source_folder_conflict():
         shutil.rmtree("_test_원본폴더")
 
 
+def _selftest_read_source_folder_multi_type_cell_no_cross_type_conflict():
+    """같은 셀에서 금액+날짜 등 여러 타입이 같이 나올 때, 타입을 섞어서 엉뚱하게
+    비교하면 안 된다 — 실제 금액 불일치만 정확히 잡아야 한다."""
+    os.makedirs("_test_원본폴더2", exist_ok=True)
+    wb1 = openpyxl.Workbook(); ws1 = wb1.active; ws1.title = "Sheet1"
+    ws1["A1"] = "메모"; ws1["A2"] = "예산은 1,850,000원이며 회의는 2026-09-07 진행"
+    wb1.save("_test_원본폴더2/초안.xlsx")
+    wb2 = openpyxl.Workbook(); ws2 = wb2.active; ws2.title = "Sheet1"
+    ws2["A1"] = "메모"; ws2["A2"] = 1900000  # 금액만 다름(진짜 불일치), 날짜는 없음
+    wb2.save("_test_원본폴더2/최종.xlsx")
+    try:
+        pool, conflicts = read_source_folder("_test_원본폴더2", default_year=2026)
+        amount_conflicts = [c for c in conflicts if any(
+            v["normalized"] in ("1850000", "1900000") for v in c["values"])]
+        assert len(amount_conflicts) == 1, conflicts
+        values = sorted(v["normalized"] for v in amount_conflicts[0]["values"])
+        assert values == ["1850000", "1900000"], values  # 날짜와 뒤섞이지 않아야 함
+        print("read_source_folder_multi_type_cell_no_cross_type_conflict 통과:", conflicts)
+    finally:
+        import shutil
+        shutil.rmtree("_test_원본폴더2")
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -363,3 +394,4 @@ if __name__ == "__main__":
     _selftest_read_pdf_source_multipage_skips_blank()
     _selftest_read_pdf_source_simple_table()
     _selftest_read_source_folder_conflict()
+    _selftest_read_source_folder_multi_type_cell_no_cross_type_conflict()
