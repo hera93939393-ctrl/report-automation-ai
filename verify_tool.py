@@ -18,8 +18,10 @@ def run_verification(report_path: str, source_path: str, default_year: int) -> d
     5) 채팅창에 보여줄 요약 텍스트와 충돌 목록을 반환한다
 
     반환 dict 계약 (Task 13~15 등 이 함수를 직접 호출하는 후속 코드가 알아야 함):
-      - mismatch_count: int — 서로 다른(중복 제거된) 불일치 값의 개수. summary의
-        첫 줄 숫자 및 그 아래 나열된 줄 개수와 항상 일치한다.
+      - mismatch_count: int — 서로 다른(중복 제거된) 불일치 값의 개수. summary
+        첫 줄 숫자와는 항상 일치하지만, 그 아래 나열된 줄 수와는 conflicts가
+        비어있을 때만 일치한다 — conflicts가 있으면 그 충돌 항목들이 추가 줄로
+        더 붙어서(아래 conflicts 참고) 줄 수가 이 숫자보다 많아질 수 있다.
       - summary: str — 채팅창에 그대로 보여줄 사람이 읽는 요약 텍스트.
       - conflicts: list — read_source_folder가 찾은 원본 파일 간 불일치 목록
         (단일 파일/폴더가 아닌 경우 항상 빈 리스트).
@@ -67,8 +69,11 @@ def run_verification(report_path: str, source_path: str, default_year: int) -> d
 
     # 요약에 표시되는 "확인 필요" 건수·목록도 같은 이유로 raw 기준 중복 제거한다 —
     # 같은 잘못된 값이 목록에 두 번 나오면 "서로 다른 문제 2건"처럼 보여 혼란만
-    # 준다. mismatch_count와 summary 첫 줄 숫자를 이 중복 제거된 개수로 통일해,
-    # 숫자와 그 아래 나열되는 줄 수가 항상 일치하도록 한다.
+    # 준다. mismatch_count와 summary 첫 줄 숫자를 이 중복 제거된 개수로 통일한다.
+    # 단, conflicts 항목은 이 숫자에 포함되지 않고 목록 뒤에 추가로 붙으므로
+    # (아래 참고), conflicts가 있으면 첫 줄 숫자보다 실제 나열되는 줄 수가 더
+    # 많아진다 — 이건 의도된 것이다(원본 파일 간 불일치는 "불일치 값 개수"와
+    # 성격이 달라 같은 숫자에 합산하지 않기로 함).
     first_type_by_raw = {}
     for m in mismatches:
         first_type_by_raw.setdefault(m["raw"], m["type"])
