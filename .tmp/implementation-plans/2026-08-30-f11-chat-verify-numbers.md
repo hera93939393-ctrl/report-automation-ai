@@ -1830,7 +1830,7 @@ Files
 - Modify: `requirements.txt`
 - Modify: `README.md`
 
-- [ ] Step 1: `requirements.txt`에 추가
+- [x] Step 1: `requirements.txt`에 추가
 
 **(2026-08-31 Task 15 리뷰에서 미리 발견 — 실행 전 확인할 것)** `requirements.txt`에 `openpyxl==3.1.5`가 이미 있음(F1~F10 때부터). 아래 원안 그대로 4줄을 붙이면 `openpyxl`이 중복 등록되니, **3줄만** 추가한다(기존 내용 유지):
 
@@ -1840,7 +1840,7 @@ pdfplumber
 ollama
 ```
 
-- [ ] Step 2: `README.md`의 F11 상태 행을 최종 갱신
+- [x] Step 2: `README.md`의 F11 상태 행을 최종 갱신
 
 기존 "📝 PRD 확정, 구현 전" 상태를, "✅ 구현 완료" 로 바꾸고 실행법 섹션에 아래를 추가:
 
@@ -1857,12 +1857,18 @@ python chat_assistant.py
 "보고서 파일 선택" → "원본자료 선택(파일 또는 폴더)" → 채팅창에 "숫자 검증해줘"라고 입력. 원본에서 확인 안 되는 금액·날짜·시간·전화번호가 보고서 안에 빨간색으로 표시됩니다 (자동저장 안 됨, 확인 후 직접 저장).
 ```
 
-- [ ] Step 3: 커밋
+- [x] Step 3: 커밋
 
 ```bash
 git add requirements.txt README.md
 git commit -m "F11: 의존성 목록·README 실행법 갱신, 구현 완료 표시"
 ```
+
+**(2026-08-31, 커밋 `8e1ee52`) ✅ Task 16 완료.** 계획서 원안 그대로 적용했으며, 위에 미리 기록된 두 정정사항(openpyxl 중복 방지 → 3줄만 추가, `qwen3:8b` → `qwen3.5:2b`)을 그대로 반영함.
+
+- `requirements.txt`: 기존 11줄 유지한 채 `customtkinter`, `pdfplumber`, `ollama` 3줄만 추가(`openpyxl==3.1.5`는 이미 있어 중복 추가 안 함).
+- `README.md`: F11 상태 행을 "📝 PRD 확정, 구현 전" → "✅ 구현 완료"로 변경. "실행 방법" 섹션에 기존 0~5번과 동일한 스타일(헤딩 레벨 `###`, bash 코드펜스, 화살표 문장)로 "6. 채팅 인터페이스 + 숫자검증 (F11)" 절 추가, `ollama pull qwen3.5:2b` 사용(`qwen3:8b` 아님).
+- 검증: `pip show customtkinter pdfplumber ollama openpyxl`로 4개 패키지 모두 이 PC에 실제 설치돼 있음을 확인(customtkinter 6.0.0, pdfplumber 0.11.10, ollama 0.6.2, openpyxl 3.1.5) — requirements.txt에 새로 적은 내용이 이미 실증된 상태를 정확히 반영함. `git diff` 확인 결과 의도한 두 파일만 변경됨. 커밋 후 `git status`는 이 작업과 무관한 기존 미추적 스크린샷 3개(`task13_screenshot.png`, `task15_hwp_screenshot.png`, `task15_screenshot.png`)만 남고 깨끗함.
 
 ---
 
@@ -1876,3 +1882,7 @@ git commit -m "F11: 의존성 목록·README 실행법 갱신, 구현 완료 표
 ## 확인 필요 사항 (실행 시작 전에 답변 부탁드립니다)
 
 **"열어줘" 기능(원본 파일 간 불일치 시 해당 위치로 직접 이동)을 이번 1차 구현에 포함할까요, 아니면 위 16개 태스크로 먼저 끝내고 다음 라운드에 추가할까요?** PRD엔 있지만 계획을 짜다 보니 이번 범위(채팅+숫자검증 핵심)와 별개로 떼어내도 되는 독립 기능이라, 먼저 핵심을 완성하고 검증한 뒤 추가하는 걸 추천드립니다.
+
+## 최종 완료 안내 (2026-08-31)
+
+**16개 태스크 전부 완료.** Task 1~16 모두 위 각 절에 커밋 해시와 함께 완료 기록이 남아 있으며, 마지막 Task 16(`requirements.txt`/`README.md` 갱신, 커밋 `8e1ee52`)까지 반영됨. 이 계획서는 이제 사용자 검토를 받을 준비가 된 상태이며, 바로 위 "확인 필요 사항"의 "열어줘" 기능 포함 여부만 사용자 결정이 남아 있음(이번 1차 구현 범위에서는 제외됨).
