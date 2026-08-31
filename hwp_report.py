@@ -33,11 +33,25 @@ class HwpReport:
         # 연장선으로 보임), 무인 실행 시 이 대화상자가 뜨면 사람이 "접근
         # 허용"을 눌러줘야 진행된다는 점을 알아두어야 한다.
         self.hwp = Hwp(visible=True, new=True)  # 사용자가 직접 봐야 하므로 visible=True
-        # 주의: 위 Hwp() 생성이 성공한 뒤 아래 open(path)이 예외를 던지면, 방금 띄운
-        # 한글 프로세스를 가리키는 핸들이 호출자에게 없어 코드로 닫을 수 없다 —
-        # visible=True로 사람이 지켜보는 도구이므로, 그 경우 사람이 직접 창을
-        # 닫아줘야 하는 것을 받아들인 트레이드오프다(지금 단계에서 고칠 문제 아님).
-        self.hwp.open(path)
+        # (2026-08-31 코드품질 리뷰 반영) pyhwpx의 Hwp.open()은 성공하면 True, 실패하면
+        # False를 반환할 뿐 흔한 실사용자 실수(존재하지 않는 경로, 오타, 손상/형식오류
+        # 파일)에 대해 반드시 예외를 던지지는 않는다. 반환값을 무시하면 문서가 실제로는
+        # 열리지 않았는데도(빈 화면) get_text()가 빈 문자열을 돌려주고, 이를 바탕으로 한
+        # 대조 로직이 "이상 없음"이라는 거짓 결과를 내는 최악의 실패 모드로 이어진다
+        # (verify_tool.py run_verification 참고). 이 클래스의 docstring이 명시한 설계
+        # 의도("오류가 조용히 삼켜지지 않고 화면을 보고 있는 사람에게 그대로 드러나야
+        # 한다")에 맞춰, open() 실패를 명시적으로 감지해 예외로 드러낸다.
+        #
+        # 방금 띄운 한글 프로세스가 open() 실패로 빈/실패 상태로 남는 문제(위 옛 주석이
+        # 지적했던 누수)는 여기서 self.hwp.quit()으로 닫아 정리한다 — quit()이 다시
+        # 예외를 던지는 극단적 상황까지 감안해 원래의 open-실패 예외가 항상 사용자에게
+        # 보이도록 try/except로 감싼다(quit() 실패로 원래 원인이 가려지지 않게).
+        if not self.hwp.open(path):
+            try:
+                self.hwp.quit()
+            except Exception:
+                pass
+            raise FileNotFoundError(f"한글 문서를 열 수 없습니다: {path}")
         self.path = path
 
     def get_text(self) -> str:
