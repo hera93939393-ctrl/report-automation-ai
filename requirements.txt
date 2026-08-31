@@ -10,3 +10,6 @@ huggingface_hub==1.27.0
 tokenizers==0.22.2
 keyboard==0.13.5
 pyperclip==1.11.0
+customtkinter
+pdfplumber
+ollama
