@@ -7,6 +7,11 @@ from pyhwpx import Hwp
 class HwpReport:
     """채팅 도구가 pyhwpx로 직접 여는 보고서 문서. 사용자가 한글 아이콘으로
     따로 열지 않게 해서, F9에서 확인된 COM 재연결 제약(PRD 12-3)을 피한다.
+
+    참고: 이 클래스는 의도적으로 메서드 호출을 try/except로 감싸지 않는다.
+    source_reader.py의 read_hwp_source()와 달리, 여기서는 오류가 조용히
+    삼켜지지 않고 화면을 보고 있는 사람에게 그대로 드러나야 한다
+    (visible=True로 사람이 직접 지켜보는 도구라는 설계에 맞는 선택).
     """
 
     def __init__(self, path: str):
@@ -28,6 +33,10 @@ class HwpReport:
         # 연장선으로 보임), 무인 실행 시 이 대화상자가 뜨면 사람이 "접근
         # 허용"을 눌러줘야 진행된다는 점을 알아두어야 한다.
         self.hwp = Hwp(visible=True, new=True)  # 사용자가 직접 봐야 하므로 visible=True
+        # 주의: 위 Hwp() 생성이 성공한 뒤 아래 open(path)이 예외를 던지면, 방금 띄운
+        # 한글 프로세스를 가리키는 핸들이 호출자에게 없어 코드로 닫을 수 없다 —
+        # visible=True로 사람이 지켜보는 도구이므로, 그 경우 사람이 직접 창을
+        # 닫아줘야 하는 것을 받아들인 트레이드오프다(지금 단계에서 고칠 문제 아님).
         self.hwp.open(path)
         self.path = path
 
@@ -35,14 +44,25 @@ class HwpReport:
         return self.hwp.GetTextFile("TEXT", "")
 
     def mark_red(self, target_text: str) -> bool:
-        """문서 안에서 target_text를 찾아 글자색을 빨간색(255,0,0)으로 바꾼다.
-        찾지 못하면 False를 반환한다. 자동저장은 하지 않는다.
+        """문서 안에서 target_text의 모든 occurrence를 찾아 글자색을 빨간색
+        (255,0,0)으로 바꾼다. 같은 잘못된 값이 표와 요약 문장 등 여러 곳에
+        중복 등장하는 경우가 흔해서, 한 곳만 바꾸면 나머지가 안 바뀐 채로
+        남는다 — 그래서 문서 전체를 훑어 전부 바꾼다.
+        문서 어디에도 없으면 False를 반환한다. 자동저장은 하지 않는다.
+
+        구현 메모: 커서를 문서 처음으로 옮긴 뒤 direction="Forward"로 반복
+        탐색한다. "AllDoc"을 루프 안에서 쓰면 문서 끝에 닿았을 때 처음으로
+        다시 감싸 돌아가 버려(pyhwpx core.py의 find() 문서 참고) 같은
+        occurrence를 무한히 다시 찾아 무한 루프가 된다. "Forward"는 문서
+        끝에서 자연히 멈추므로 이 루프에 맞다. pyhwpx 자체도 동일한 패턴을
+        set_field_by_bracket()에서 쓴다(MoveDocBegin() 후 while self.find(...)).
         """
-        found = self.hwp.find(target_text, direction="AllDoc")
-        if not found:
-            return False
-        self.hwp.set_font(TextColor=self.hwp.RGBColor(255, 0, 0))
-        return True
+        self.hwp.MoveDocBegin()
+        found_any = False
+        while self.hwp.find(target_text, direction="Forward"):
+            self.hwp.set_font(TextColor=self.hwp.RGBColor(255, 0, 0))
+            found_any = True
+        return found_any
 
     def get_char_color_at(self, target_text: str):
         """target_text 위치의 현재 글자색을 (R,G,B) 튜플로 반환한다 (테스트 검증용).
@@ -63,26 +83,67 @@ class HwpReport:
         color_value = self.hwp.CharShape.Item("TextColor")
         return (color_value & 0xFF, (color_value >> 8) & 0xFF, (color_value >> 16) & 0xFF)
 
+    def get_char_colors(self, target_text: str) -> list:
+        """target_text의 모든 occurrence 위치의 글자색을 문서 순서대로
+        (R,G,B) 튜플 리스트로 반환한다 (테스트 검증용 — mark_red()가 정말
+        모든 occurrence를 바꿨는지 하나씩 확인하기 위함).
+
+        mark_red()와 동일하게 커서를 문서 처음으로 옮긴 뒤 direction="Forward"로
+        반복 탐색한다. get_char_color_at()의 Cancel() 관련 주의사항은 "색을
+        바꾼 직후 바로 같은 위치를 다시 찾을 때"에 해당하는 것이고, 여기서는
+        찾은 뒤 쓰기(set_font) 없이 읽기만 하고 다음 occurrence로 넘어가므로
+        그 문제가 재현되지 않는다 — 다만 호출 시작 시점에 이전 호출이 남긴
+        선택 상태가 있을 수 있으니 시작 전에 한 번 Cancel()로 정리한다.
+        """
+        self.hwp.Cancel()
+        self.hwp.MoveDocBegin()
+        colors = []
+        while self.hwp.find(target_text, direction="Forward"):
+            color_value = self.hwp.CharShape.Item("TextColor")
+            colors.append((color_value & 0xFF, (color_value >> 8) & 0xFF, (color_value >> 16) & 0xFF))
+        return colors
+
     def close(self, save: bool):
+        """한글 문서를 닫는다.
+
+        save=True이면 pyhwpx의 quit(save=True)를 호출하는데, 이는 내부적으로
+        save()를 실행해 self.path의 원본 파일을 그 자리에서 덮어쓴다 —
+        "다른 이름으로 저장"이 아니라 원본을 직접 덮어쓰며, 백업을 남기지
+        않는다. 이 모듈 전체의 핵심 설계가 "자동저장 없음"이므로, save=True를
+        넘기는 유일한 지점인 이 메서드의 동작은 분명히 해둘 필요가 있다.
+        save=False이면 변경사항을 저장하지 않고 닫는다(자동저장 없음, 기본 사용 경로).
+        """
         self.hwp.quit(save=save)
 
 
 def _selftest_open_and_mark_red():
+    import tempfile
     from pyhwpx import Hwp
-    test_path = os.path.abspath("_test_보고서.hwp")
+    # (2026-08-31) 이 워크트리 폴더 안에 테스트 파일을 만들면 한글이 자체 보안
+    # 모듈 경고("...접근하려는 시도...")를 띄우며 무한 대기하는 현상이 간헐적으로
+    # 재현됐다(직접 확인: 워크트리 밖 임시폴더에서는 재현 안 됨) — 이 폴더
+    # 경로 자체가 원인으로 보여, 무인 테스트 실행이 이 문제를 안 겪도록 시스템
+    # 임시폴더에 테스트 파일을 만든다.
+    test_path = os.path.join(tempfile.gettempdir(), "_test_보고서.hwp")
     setup = Hwp(visible=False, new=True)
-    setup.insert_text("예산은 9999999원이며 정상입니다")
+    setup.insert_text("예산은 9999999원이며, 표에도 9999999원이 있습니다")
     setup.save_as(test_path)
     setup.quit()
+    report = None
     try:
-        report = HwpReport(test_path)
-        text = report.get_text()
-        assert "9999999" in text, text
-        report.mark_red("9999999")
-        color_at_match = report.get_char_color_at("9999999")
-        assert color_at_match == (255, 0, 0), color_at_match
-        report.close(save=False)
-        print("HwpReport 통과: 텍스트 읽기 + 빨간색 표시 확인")
+        try:
+            report = HwpReport(test_path)
+            text = report.get_text()
+            assert "9999999" in text, text
+            found = report.mark_red("9999999")
+            assert found is True, found
+            colors = report.get_char_colors("9999999")
+            assert len(colors) == 2, colors
+            assert all(c == (255, 0, 0) for c in colors), colors
+            print("HwpReport 통과: 텍스트 읽기 + 모든 occurrence 빨간색 표시 확인")
+        finally:
+            if report is not None:
+                report.close(save=False)
     finally:
         os.remove(test_path)
 
