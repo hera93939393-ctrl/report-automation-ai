@@ -1799,6 +1799,32 @@ git commit -m "F11: 채팅창-verify_tool 통합 완료, 자연어 입력으로 
 
 **환경 이슈 관련 비고**: 이번 실행에서 보안 대화상자를 자동으로 여러 번 감지해 Enter로 닫으려던 첫 시도(`HwndWrapper[hwp.exe...]` 클래스 프리픽스로 매칭)가 실패했는데, 원인은 이 클래스 프리픽스가 실제 보안 대화상자뿐 아니라 정상적인 한글 문서 편집 창에도 동일하게 붙기 때문이었다(제목 텍스트로 구분해야 함 — 다음에 유사한 자동화가 필요하면 클래스만으로 판별하지 말 것). 최종적으로는 창을 특정해(제목이 깨져 보이지만 dialog 특유의 짧은 폭/높이로 구분 가능) 스크린샷 기반으로 버튼 좌표를 계산해 클릭하는 방식으로 안정적으로 통과시켰다.
 
+**(2026-08-31, 커밋 `42e2780`) Task 15 리뷰 반영 — `_on_submit` 예외처리/처리중 안내/중복요청 방지 추가**
+
+리뷰어가 위 실사용 시나리오 검증(행복 경로)만으로는 드러나지 않는 세 가지 실제 결함을 지적함:
+
+1. **예외 처리 없음**: `route_intent`/`run_verification` 호출에 try/except가 없어, 예외가 나면 Tkinter의 `report_callback_exception`이 stderr에만 트레이스백을 찍고 채팅 로그(사용자가 실제로 보는 유일한 화면)에는 아무 것도 안 남음 — `pythonw.exe`로 콘솔 없이 띄우면 사실상 완전히 사라짐. `hwp_report.py`가 이미 지키고 있는 "오류는 보는 사람에게 드러나야 한다"는 이 코드베이스의 원칙에 이 레이어만 어긋나 있었음.
+2. **"처리 중" 피드백 없음**: `route_intent` 단독으로도 Ollama 호출에 ~1~2분, `run_verification`까지 더하면 HWP COM 자동화(간헐적 보안 대화상자 포함)로 훨씬 더 걸릴 수 있는데, 아무 피드백이 없어 "느리지만 정상 동작 중"과 "조용히 멈춤"을 사용자가 구분할 수 없었음.
+3. **중복 요청으로 HWP 창 중복 실행 가능**: `HwpReport.__init__`이 항상 `new=True`로 새 프로세스를 열기 때문에, 첫 요청 처리(또는 그 HWP 창) 중 두 번째 "숫자 검증해줘"를 보내면 별도의 HWP 프로세스/창이 하나 더 뜰 수 있었음.
+
+`chat_assistant.py`의 `_on_submit`만 수정(다른 파일은 건드리지 않음, 요청받은 범위 그대로):
+
+- `__init__`에 `self._busy = False` 추가.
+- `_on_submit` 진입 시 `self._busy`가 True면 "도우미: 아직 이전 요청을 처리 중이에요. 잠시만 기다려주세요."를 로그하고 즉시 반환(early return, `route_intent` 호출 자체를 안 함).
+- 보고서/원본 경로 체크를 통과한 뒤부터 `self._busy = True` + `self.input_box.configure(state="disabled")`로 처리 시작을 표시.
+- "도우미: 확인 중입니다... (시간이 좀 걸릴 수 있어요)"를 `self._log`로 남긴 직후 `self.update()`를 호출해, 몇 분씩 걸리는 블로킹 호출(Ollama/HWP COM) 전에 이 메시지가 실제로 화면에 그려지도록 강제 리페인트함(`update_idletasks()`가 아니라 `update()`를 쓴 이유: idletasks는 대기 중인 draw만 처리하고 이벤트 큐를 비우지 않아 일부 환경에서 안 그려질 수 있음).
+- `route_intent`/`run_verification` 호출부 전체를 `try:`로 감싸고, `except Exception as e:`에서 `self._log(f"도우미: 오류가 발생했습니다 - {e}")`로 사람이 읽을 수 있게 표면화. 예외 종류별 분기 없이 단일 broad except로 처리(이 UI 경계 레이어에 맞는 수준 — 하위 모듈들은 이미 `HwpReport`의 `FileNotFoundError`처럼 의미 있는 예외를 던지므로 `str(e)`를 그대로 보여주는 것으로 충분).
+- `finally:`에서 `self._busy = False`와 `self.input_box.configure(state="normal")`를 항상 복원(예외가 나도 다음 요청을 받을 수 있도록).
+- 스레딩/비동기는 도입하지 않음(요청받은 범위 밖) — 여전히 동기 블로킹 호출이고, `self.update()` 한 번으로 그 직전 상태만 화면에 반영시키는 최소 개입.
+
+**검증**: 실제 멀티분 HWP/Ollama 실행은 Task 15 본 구현에서 이미 두 번(위 실사용 시나리오, 그 이전 Task 13 검증) 했으므로 이번엔 반복하지 않고, `route_intent`를 몽키패치해 Ollama/HWP를 전혀 건드리지 않는 드라이버 스크립트로 세 가지를 직접 확인함:
+
+1. `route_intent`가 예외를 던지도록 몽키패치 → `_on_submit` 실행 → 채팅 로그에 "도우미: 오류가 발생했습니다 - test-boom"이 실제로 찍히고, `self._busy`가 `False`로, `input_box` 상태가 `"normal"`로 복원됨을 확인 (예외 경로에서도 `finally`가 정상 동작).
+2. `route_intent`가 호출되는 순간 채팅 로그 내용을 캡처하도록 몽키패치 → 그 시점에 이미 "확인 중입니다..." 메시지가 로그에 들어있음을 확인 (블로킹 호출 시작 전에 `self.update()`로 실제 화면에 반영됨을 실증 — 로그 버퍼에만 쓰이고 끝나고 나서야 한꺼번에 보이는 게 아님).
+3. `self._busy = True`를 미리 설정한 뒤 `_on_submit` 호출 → "도우미: 아직 이전 요청을 처리 중이에요..." 로그만 남고 `route_intent`는 아예 호출되지 않음(콜 카운터로 확인) — 중복요청 가드가 실제로 조기 반환함을 실증.
+
+세 검증 모두 통과. 검증 스크립트는 스크래치패드에만 존재하고 저장소에는 커밋하지 않음. 검증 전후 `tasklist`로 `Hwp.exe`/`python.exe` 잔류 프로세스 없음 확인(애초에 Ollama/HWP를 안 띄우는 테스트라 뜰 이유도 없었음).
+
 Files
 
 - Modify: `requirements.txt`
