@@ -20,7 +20,7 @@
 | 통합 GUI | F1~F8을 버튼/입력창으로 실행하는 도우미 창 | [assistant_panel.py](./assistant_panel.py) | ✅ |
 | F9 | 한글 등 실제 문서에서 단축키로 바로 쓰기 (클립보드 방식, 모든 프로그램 공용) | [hotkey_assistant.py](./hotkey_assistant.py) | ✅ (F1/F5/F7 검증, F2 준검증 — [PRD 참고](./PRD.md)) |
 | F10 | 한글 안의 진짜 매크로/버튼으로 바로 쓰기 (클립보드 없이 문서에 직접 삽입) | [hwp_macro_ai.js](./hwp_macro_ai.js), [macro_bridge.py](./macro_bridge.py) | ✅ 실제 한글에서 F1 매크로 동작 확인(F7은 동작하나 LLM 정확도 한계 있음) — [PRD 참고](./PRD.md#f10) |
-| F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | `chat_assistant.py`, `verify_numbers.py` (예정) | ✅ 구현 완료 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
+| F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | [verify_numbers.py](./verify_numbers.py), [source_reader.py](./source_reader.py), [hwp_report.py](./hwp_report.py), [verify_tool.py](./verify_tool.py), [chat_assistant.py](./chat_assistant.py) | ✅ 구현 완료 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
 
 ## 실행 방법
 
@@ -85,6 +85,8 @@ python chat_assistant.py
 ```
 
 "보고서 파일 선택" → "원본자료 선택(파일 또는 폴더)" → 채팅창에 "숫자 검증해줘"라고 입력. 원본에서 확인 안 되는 금액·날짜·시간·전화번호가 보고서 안에 빨간색으로 표시됩니다 (자동저장 안 됨, 확인 후 직접 저장).
+
+> "숫자 검증해줘" 요청 1건은 Ollama 도구호출 과정 때문에 몇 분 정도 걸릴 수 있습니다(테스트 중 도구호출만 약 1분 45초 측정됨) — 응답이 바로 안 와도 멈춘 게 아니니 기다려주세요. 실제로 쓰는 모델은 원래 계획했던 큰 모델이 아니라 `qwen3.5:2b`이며, 속도를 위해 정확도를 키워드 기반 보조 로직(safety net)으로 보완했습니다.
 
 ## 예시
 
