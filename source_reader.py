@@ -288,9 +288,15 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
     충돌로 간주해 별도 리스트로 반환한다 (PRD 12-5).
 
     반환: (정답_풀, 충돌_목록)
-    충돌_목록 항목 형식: {"location": "Sheet1!A2", "values": [
+    충돌_목록 항목 형식: {"location": "Sheet1!A2", "type": "amount", "values": [
         {"file": "초안.xlsx", "normalized": "1800000"},
         {"file": "최종.xlsx", "normalized": "1850000"}]}
+
+    (2026-08-31 코드품질 검토 후 명시) 충돌은 (location, type) 단위로 탐지하므로,
+    같은 location이 서로 다른 타입의 충돌 항목으로 두 번 이상 나타날 수 있다 —
+    예를 들어 한 셀에 금액도 날짜도 잘못된 값이 있으면 "Sheet1!A2"가 amount
+    충돌 하나, date 충돌 하나로 각각 별도 항목이 된다. 즉 location만으로는
+    충돌_목록 항목을 유일하게 식별할 수 없다.
 
     (2026-08-30 구현 중 실제 테스트로 발견 — 중요) 최초 버전은 "!" 개수만 세어
     "Sheet1!A2"(진짜 셀 주소)와 "Sheet1!예산(합계)"(compute_column_sums가 만드는
@@ -312,7 +318,7 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
         full_path = os.path.join(folder_path, name)
         pool.extend(reader(full_path, default_year))
 
-    by_location: dict[tuple, list[dict]] = {}
+    by_location: dict[tuple[str, str], list[dict]] = {}
     for item in pool:
         location = item.get("location", "")
         if location.count("!") != 1:
@@ -320,21 +326,22 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
         _, _, cell_ref = location.partition("!")
         if not _CELL_ADDRESS_PATTERN.match(cell_ref):  # 진짜 셀 주소만 충돌 탐지 대상
             continue
-        by_location.setdefault((location, item["type"]), []).append(item)
         # (2026-08-31 코드품질 검토 후 수정됨 — 중요) 키를 location만으로 잡으면,
         # 같은 셀에서 금액+날짜처럼 여러 타입이 같이 나올 때(예: "1,850,000원
         # 2026-09-07"이 든 셀) 파일별로 나중 타입이 앞 타입을 덮어써서, 날짜와
         # 금액을 서로 비교하는 말도 안 되는 "충돌"이 나오거나 진짜 금액 불일치가
         # 가려지는 문제가 있었다. (location, type) 튜플로 키를 잡아 타입별로
         # 따로 그룹핑해야 한다.
+        by_location.setdefault((location, item.get("type", "")), []).append(item)
 
     conflicts = []
-    for (location, _value_type), items in by_location.items():
+    for (location, value_type), items in by_location.items():
         distinct_files = {i["source_file"]: i["normalized"] for i in items}
         distinct_values = set(distinct_files.values())
         if len(distinct_values) > 1:
             conflicts.append({
                 "location": location,
+                "type": value_type,
                 "values": [{"file": f, "normalized": v} for f, v in distinct_files.items()],
             })
     return pool, conflicts
