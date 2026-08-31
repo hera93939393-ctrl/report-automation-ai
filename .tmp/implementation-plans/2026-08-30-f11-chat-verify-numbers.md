@@ -1426,7 +1426,9 @@ def run_verification(report_path: str, source_path: str, default_year: int) -> d
     lines = [f"- [{m['type']}] '{m['raw']}' 원본에서 확인 안 됨" for m in mismatches]
     for c in conflicts:
         value_desc = ", ".join(f"{v['file']}={v['normalized']}" for v in c["values"])
-        lines.append(f"- ⚠ 원본자료 불일치: {c['location']} ({value_desc})")
+        # (2026-08-31) 같은 location에 타입이 다른 충돌이 각각 별도 항목으로 올 수 있으므로
+        # (Task 10 참고) type을 같이 표시해야 두 줄이 나와도 사용자가 구분할 수 있다.
+        lines.append(f"- ⚠ 원본자료 불일치[{c['type']}]: {c['location']} ({value_desc})")
 
     summary = f"{len(mismatches)}건 확인 필요\n" + "\n".join(lines) if mismatches or conflicts else "이상 없음, 모두 원본과 일치합니다"
 
