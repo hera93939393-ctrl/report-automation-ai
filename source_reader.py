@@ -315,13 +315,30 @@ def read_source_files(paths: list[str], default_year: int) -> tuple[list[dict], 
     "A2"처럼 열문자+행번호로 된 진짜 셀 주소 형식인지까지 확인해서, 파생 라벨은
     애초에 충돌 탐지 후보에서 제외한다 (범위를 넓히는 게 아니라, "같은 셀 주소"라는
     원래 정의를 정확히 지키기 위한 수정).
+
+    (2026-09-01 코드품질 검토 후 수정) 폴더를 펼치는 os.listdir 호출은 권한 문제,
+    또는 파일 선택과 실제 호출 사이에 폴더가 삭제되는 등의 이유로 실패할 수 있다.
+    이 모듈의 다른 리더들(read_excel_source 등)과 같은 관례로, 그런 폴더는
+    예외를 던지지 않고 조용히 건너뛴다. 또한 같은 경로가 리스트에 두 번 들어오거나
+    (다중 선택 파일 대화상자에서 실수로 같은 파일을 두 번 고르는 경우 등), 같은
+    파일이 상대경로/절대경로로 각각 한 번씩 들어오면, 펼쳐진 경로 목록을 절대경로
+    기준으로 중복 제거해 같은 파일이 두 번 읽혀 정답 풀이 조용히 부풀려지는 것을
+    막는다.
     """
     expanded_paths = []
     for path in paths:
         if os.path.isdir(path):
-            expanded_paths.extend(os.path.join(path, name) for name in os.listdir(path))
+            try:
+                expanded_paths.extend(os.path.join(path, name) for name in os.listdir(path))
+            except OSError:
+                continue  # 권한 문제 등으로 폴더를 열 수 없으면 조용히 건너뜀 (기존 리더들과 같은 관례)
         else:
             expanded_paths.append(path)
+
+    # 같은 파일이 두 번 들어오거나(중복 선택) 상대/절대경로로 각각 한 번씩
+    # 들어와도, 실제로는 같은 파일이면 한 번만 읽도록 절대경로 기준으로
+    # 중복 제거한다(순서는 유지).
+    expanded_paths = list(dict.fromkeys(os.path.normpath(os.path.abspath(p)) for p in expanded_paths))
 
     pool = []
     for full_path in expanded_paths:
@@ -463,6 +480,65 @@ def _selftest_read_source_folder_still_works():
         shutil.rmtree("_test_원본_회귀")
 
 
+def _selftest_read_source_files_folder_listdir_permission_error_skipped():
+    """(2026-09-01 코드품질 검토 반영) 폴더를 펼치는 os.listdir이 권한 문제 등으로
+    실패해도(PermissionError/OSError) 예외를 던지지 않고 그 폴더만 조용히
+    건너뛰어야 하며, 같은 호출에 함께 들어온 다른 정상 경로는 영향받지 않고
+    정상적으로 읽혀야 한다. 실제 권한 없는 폴더는 이식 가능하게 재현하기
+    어려워, 실재하는 두 폴더 중 하나에 대해서만 os.listdir이 예외를 던지도록
+    mock으로 시뮬레이션한다."""
+    from unittest.mock import patch
+    os.makedirs("_test_원본_정상폴더", exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save("_test_원본_정상폴더/원본.xlsx")
+
+    os.makedirs("_test_원본_권한없음폴더", exist_ok=True)
+    blocked_abs = os.path.abspath("_test_원본_권한없음폴더")
+    real_listdir = os.listdir
+
+    def fake_listdir(path):
+        if os.path.abspath(path) == blocked_abs:
+            raise PermissionError("접근 거부(시뮬레이션)")
+        return real_listdir(path)
+
+    try:
+        with patch("os.listdir", side_effect=fake_listdir):
+            pool, conflicts = read_source_files(
+                ["_test_원본_권한없음폴더", "_test_원본_정상폴더"], default_year=2026
+            )
+        normalized_values = {item["normalized"] for item in pool}
+        assert "1850000" in normalized_values, pool
+        print("read_source_files_folder_listdir_permission_error_skipped 통과:", normalized_values)
+    finally:
+        import shutil
+        shutil.rmtree("_test_원본_정상폴더")
+        shutil.rmtree("_test_원본_권한없음폴더")
+
+
+def _selftest_read_source_files_dedup_duplicate_path():
+    """(2026-09-01 코드품질 검토 반영) 같은 파일 경로가 리스트에 두 번 들어오면
+    (다중 선택 파일 대화상자에서 실수로 같은 파일을 두 번 고르는 경우 등) 정답
+    풀이 두 배로 부풀려지면 안 된다. 같은 파일을 상대경로/절대경로로 각각 한 번씩
+    넣어도(경로 문자열은 다르지만 같은 파일) 결과는 동일해야 한다."""
+    test_path = "_test_원본_중복.xlsx"
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(test_path)
+    try:
+        pool_once, _ = read_source_files([test_path], default_year=2026)
+        pool_same_twice, _ = read_source_files([test_path, test_path], default_year=2026)
+        pool_relative_and_absolute, _ = read_source_files(
+            [test_path, os.path.abspath(test_path)], default_year=2026
+        )
+        assert len(pool_same_twice) == len(pool_once), (len(pool_same_twice), len(pool_once))
+        assert len(pool_relative_and_absolute) == len(pool_once), (
+            len(pool_relative_and_absolute), len(pool_once))
+        print("read_source_files_dedup_duplicate_path 통과:", len(pool_once), "건 (중복 제거됨, 배로 부풀지 않음)")
+    finally:
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -477,3 +553,5 @@ if __name__ == "__main__":
     _selftest_read_source_folder_multi_type_cell_no_cross_type_conflict()
     _selftest_read_source_files_mixed_list()
     _selftest_read_source_folder_still_works()
+    _selftest_read_source_files_folder_listdir_permission_error_skipped()
+    _selftest_read_source_files_dedup_duplicate_path()
