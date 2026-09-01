@@ -127,11 +127,23 @@ def read_hwp_source(path: str, default_year: int) -> list[dict]:
     read_excel_source/read_pdf_source와 동일한 관례). hwp.quit()은 어떤 예외가
     나든 반드시 호출되도록 try/finally로 감싼다 — 그렇지 않으면 보이지 않는
     Hwp.exe 프로세스가 누적되어 남는 문제가 실제로 재현된 적 있다.
+
+    (2026-09-01 F12 Task10 최종검증 중 발견 — 치명적, 수정됨) new=True 없이
+    Hwp(visible=False)만 쓰면, pyhwpx는 이미 실행 중인 한글 프로세스가 있을 때
+    그 프로세스에 그대로 접속(재사용)해버린다(hwp_report.py의 HwpReport가 이미
+    문서화한, 이 프로젝트에서 여러 번 확인된 동작). F12에서 채팅 프로그램이
+    HwpReport로 보고서를 이미 열어둔 상태(new=True로 독립 실행됨)에서
+    run_verification이 이 함수를 호출하면, 위 hwp가 그 "이미 열려있는 보고서"의
+    프로세스에 붙어버리고, finally의 hwp.quit()이 그 공유 프로세스 전체를
+    종료시켜 사용자가 보고 있던 보고서 창까지 함께 꺼져버리는 게 실제로
+    재현됐다(get_text() 등 이후 호출이 "개체가 열려 있지 않거나 등록되지
+    않았습니다" COM 오류로 실패). new=True를 추가해 이 함수가 항상 독립된
+    새 프로세스에서만 동작하도록 한다.
     """
     from pyhwpx import Hwp
     hwp = None
     try:
-        hwp = Hwp(visible=False)
+        hwp = Hwp(visible=False, new=True)
         if not hwp.open(path):
             return []
         text = hwp.GetTextFile("TEXT", "")
@@ -274,8 +286,28 @@ def _selftest_read_pdf_source_simple_table():
         os.remove(test_path)
 
 
+# (2026-09-01 F12 Task10 최종검증 중 발견 — 치명적, 임시 조치로 .hwp/.hwpx 제외)
+# read_hwp_source는 원본 파일을 읽으려고 임시로 자기만의 Hwp() 인스턴스를 새로
+# 열었다가 다 읽으면 닫는데, pyhwpx의 Hwp.__del__이 어떤 Hwp 객체든 상관없이
+# pythoncom.CoUninitialize()를 무조건 호출하는 것으로 확인됨(pyhwpx 소스
+# core.py 1008-1014행) — 이게 같은 파이썬 프로세스/스레드 안에 있는 "다른"
+# Hwp 인스턴스(F12에서는 채팅 프로그램이 계속 열어두고 있는 보고서 문서,
+# HwpReport)의 COM 연결까지 깨뜨려버리는 게 최소 재현으로 확인됐다 — new=True
+# 로 독립 인스턴스를 만들어도, quit() 후 제대로 정리해도 마찬가지였고,
+# pythoncom.CoInitialize()를 다시 호출해 복구를 시도해도 안 됐다(마샬링된
+# 인터페이스 프록시 자체가 죽어버리는 것으로 보임 — 이건 pyhwpx 자체의
+# 한계이지 이 프로젝트 코드의 버그가 아님). 결과: 원본자료로 .hwp 파일을
+# 첨부하고 검증을 돌리면, 사용자가 보고 있던 보고서 문서 창의 연결이
+# 조용히 끊겨버리는 심각한 문제가 있었다.
+#
+# 근본적인 해결(별도 프로세스로 격리해서 읽기 등)은 이번 1단계 범위를 넘는
+# 아키텍처 변경이라, 이번 라운드에서는 안전한 쪽으로 범위를 좁힌다 — .hwp/
+# .hwpx는 _READERS에서 빼서 다른 미지원 형식(이미지, 워드 등)과 똑같이
+# 조용히 건너뛰게 한다. read_hwp_source() 함수 자체는 그대로 남겨둔다(다른
+# Hwp 인스턴스가 동시에 열려있지 않은 독립 상황에서는 여전히 정상 동작하고,
+# 자체 셀프테스트도 통과함 — F12 다음 라운드에서 프로세스 격리 등으로
+# 다시 붙일 수 있는 여지를 남겨둠).
 _READERS = {".xlsx": read_excel_source, ".xls": read_excel_source,
-            ".hwp": read_hwp_source, ".hwpx": read_hwp_source,
             ".pdf": read_pdf_source}
 
 
