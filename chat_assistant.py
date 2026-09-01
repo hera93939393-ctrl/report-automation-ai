@@ -224,7 +224,14 @@ class ChatAssistant(ctk.CTk):
             if self._pending_clarification is not None:
                 # 되묻기 응답 처리: 이전에 애매했던 원문 + 이번 답변을 합쳐
                 # 같은 라우팅 로직에 다시 태운다 — 별도의 대화상태 기계 없이
-                # "합쳐서 다시 판단"만으로 충분히 동작함.
+                # "합쳐서 다시 판단"만으로 1회 재질문까지는 충분히 동작함(실사용
+                # 검증에서 2메시지 조합 케이스로 확인됨). 다만 이번에도 또
+                # 애매하면 아래 else 분기가 이번 원문만(combined 전체가 아니라)
+                # 다시 pending으로 남기므로, 1라운드 전 내용은 기억되지 않고
+                # "최근 두 메시지"만 유효한 컨텍스트다 — 3회 이상 연속으로
+                # 애매하면 처음 의도는 잊혀지고 사용자가 처음부터 다시 말해야
+                # 한다(2026-09-01 Task9 리뷰에서 확인, 도구가 늘어나는 다음
+                # 라운드에서 누적형으로 재검토할 만함).
                 combined = f"{self._pending_clarification} {text}"
                 tool_name = route_intent(combined)
                 self._pending_clarification = None
