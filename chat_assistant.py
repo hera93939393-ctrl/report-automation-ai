@@ -1,8 +1,12 @@
 """chat_assistant.py — 작고 예쁜 채팅창 + Ollama Qwen3 도구호출 + verify_tool 실행.
 항상 위에 떠 있고 드래그 가능한 CustomTkinter 창."""
+import os
 import customtkinter as ctk
 from tkinter import filedialog
 import ollama
+
+from hwp_report import HwpReport
+from window_layout import position_windows
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
@@ -74,8 +78,8 @@ class ChatAssistant(ctk.CTk):
         self.geometry("320x480")
         self.attributes("-topmost", True)
 
-        self.report_path = None
-        self.source_path = None
+        self.report = None  # HwpReport | None — F12: 문서를 한 번만 열고 계속 재사용
+        self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
         self._busy = False
 
         self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
@@ -97,9 +101,21 @@ class ChatAssistant(ctk.CTk):
 
     def _choose_report(self):
         path = filedialog.askopenfilename(filetypes=[("한글 문서", "*.hwp *.hwpx")])
-        if path:
-            self.report_path = path
-            self._log(f"보고서 선택됨: {path}")
+        if not path:
+            return
+        if self.report is not None:
+            # 이미 다른 문서가 열려있으면 먼저 정리 — F12는 문서 핸들을 하나만
+            # 유지하는 구조라(Task 2), 새 보고서를 고르면 이전 것과 헷갈리지
+            # 않도록 명시적으로 닫는다.
+            self.report.close(save=False)
+        try:
+            self.report = HwpReport(path)
+        except FileNotFoundError as e:
+            self._log(f"도우미: {e}")
+            self.report = None
+            return
+        self._log(f"보고서 선택됨: {path}")
+        position_windows(self.report.get_window_handle(), self)
 
     def _choose_source_file(self):
         path = filedialog.askopenfilename(filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")])
