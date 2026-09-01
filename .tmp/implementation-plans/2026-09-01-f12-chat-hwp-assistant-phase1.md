@@ -559,6 +559,8 @@ git add window_layout.py
 git commit -m "F12: window_layout.py 추가 - 한글75%/채팅25% 화면 자동배치"
 ```
 
+**완료 (2026-09-01, 커밋 `161a785`)**: 위 계획대로 `_calculate_layout`/`position_windows`를 TDD로 구현·커밋함. 단, 계획에 없던 추가 작업 하나: 계획의 self-test(`_selftest_position_windows_calculates_correct_rects`)는 좌표 계산(순수 산술)만 검증하고 `win32gui.MoveWindow` 호출 자체는 검증하지 않으므로, 실제 한글 창을 띄워 `position_windows()`를 끝까지 실행해보고 `win32gui.GetWindowRect()`로 실제 이동 결과를 확인하는 `_selftest_position_windows_moves_real_hwp_window` self-test(및 스텁 `_FakeChatWindow`)를 추가했다. 두 self-test 모두 첫 시도에 통과(exit code 0, HWP COM 관련 재시도 불필요했음). 커밋 후 잔류 `Hwp.exe` 프로세스 없음 확인.
+
 ---
 
 ### Task 5: polish_tool.py — 공문서체 변환 도구
