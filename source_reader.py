@@ -282,10 +282,17 @@ _READERS = {".xlsx": read_excel_source, ".xls": read_excel_source,
 _CELL_ADDRESS_PATTERN = re.compile(r'^[A-Za-z]{1,3}\d+$')
 
 
-def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict], list[dict]]:
-    """폴더 안 모든 파일을 읽되, 처리 가능한 확장자만 실제로 읽고 나머지는 조용히
-    건너뛴다. 서로 다른 엑셀 파일의 "같은 시트!같은 셀 주소"에 다른 값이 있으면
-    충돌로 간주해 별도 리스트로 반환한다 (PRD 12-5).
+def read_source_files(paths: list[str], default_year: int) -> tuple[list[dict], list[dict]]:
+    """경로 리스트(개별 파일과 폴더가 섞여 있어도 됨)를 읽어 정답 풀과 충돌
+    목록을 만든다. F12에서 "+" 버튼으로 파일 여러 개를 개별 선택하거나
+    폴더를 선택하는 두 경우를 하나의 함수로 통일해서 처리하기 위함이다
+    (2026-08-31 이전까지는 read_source_folder가 폴더 하나만 받았음).
+
+    폴더 경로가 섞여 있으면 그 폴더 바로 아래(하위 폴더 재귀 없음, 기존
+    read_source_folder와 동일한 한계) 파일들을 각각 개별 파일처럼 펼쳐서 읽는다.
+    처리 가능한 확장자만 실제로 읽고 나머지는 조용히 건너뛴다. 서로 다른 파일의
+    "같은 시트!같은 셀 주소"에 다른 값이 있으면 충돌로 간주해 별도 리스트로
+    반환한다 (PRD 12-5).
 
     반환: (정답_풀, 충돌_목록)
     충돌_목록 항목 형식: {"location": "Sheet1!A2", "type": "amount", "values": [
@@ -309,13 +316,19 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
     애초에 충돌 탐지 후보에서 제외한다 (범위를 넓히는 게 아니라, "같은 셀 주소"라는
     원래 정의를 정확히 지키기 위한 수정).
     """
+    expanded_paths = []
+    for path in paths:
+        if os.path.isdir(path):
+            expanded_paths.extend(os.path.join(path, name) for name in os.listdir(path))
+        else:
+            expanded_paths.append(path)
+
     pool = []
-    for name in os.listdir(folder_path):
-        ext = os.path.splitext(name)[1].lower()
+    for full_path in expanded_paths:
+        ext = os.path.splitext(full_path)[1].lower()
         reader = _READERS.get(ext)
         if reader is None:
             continue  # 이미지, 워드, 알 수 없는 형식 등 → 조용히 건너뜀
-        full_path = os.path.join(folder_path, name)
         pool.extend(reader(full_path, default_year))
 
     by_location: dict[tuple[str, str], list[dict]] = {}
@@ -345,6 +358,13 @@ def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict],
                 "values": [{"file": f, "normalized": v} for f, v in distinct_files.items()],
             })
     return pool, conflicts
+
+
+def read_source_folder(folder_path: str, default_year: int) -> tuple[list[dict], list[dict]]:
+    """폴더 안 모든 파일을 읽되, 처리 가능한 확장자만 실제로 읽고 나머지는 조용히
+    건너뛴다. `read_source_files`의 얇은 래퍼(폴더 하나만 다루는 이전 시그니처를
+    그대로 유지 — 기존 호출부·테스트 호환을 위해 남겨둠)."""
+    return read_source_files([folder_path], default_year)
 
 
 def _selftest_read_source_folder_conflict():
@@ -390,6 +410,59 @@ def _selftest_read_source_folder_multi_type_cell_no_cross_type_conflict():
         shutil.rmtree("_test_원본폴더2")
 
 
+def _selftest_read_source_files_mixed_list():
+    """폴더 경로 하나와 개별 파일 경로 하나가 섞인 리스트를 줘도 둘 다 읽어서
+    합쳐지는지 확인한다 (F12: "+" 버튼으로 파일 여러 개 또는 폴더를 자유롭게
+    섞어 첨부할 수 있어야 하므로)."""
+    os.makedirs("_test_원본_혼합", exist_ok=True)
+    wb1 = openpyxl.Workbook(); ws1 = wb1.active; ws1.title = "Sheet1"
+    ws1["A1"] = "예산"; ws1["A2"] = 1850000
+    wb1.save("_test_원본_혼합/폴더안파일.xlsx")
+
+    # (구현 중 실제 테스트로 발견) B열을 쓰는 이유: 두 파일 모두 A열을 쓰면
+    # "예산"(파일1)과 "인원"(파일2)이라는 서로 무관한 값인데도 우연히 같은
+    # 셀 주소(Sheet1!A2)에 놓여, 이 혼합 리스트 테스트의 의도(두 출처가 각각
+    # 정상적으로 읽혀 합쳐지는지 확인)와 무관하게 read_source_files의 진짜
+    # 충돌 탐지 로직(같은 위치·다른 값 → 충돌, read_source_folder 시절부터
+    # 있던 의도된 동작)이 걸려 conflicts가 비지 않게 된다. 서로 다른 열을 써서
+    # 이 테스트가 우연한 셀 충돌이 아니라 원래 검증하려던 것(혼합 리스트 병합)만
+    # 확인하도록 한다.
+    wb2 = openpyxl.Workbook(); ws2 = wb2.active; ws2.title = "Sheet1"
+    ws2["B1"] = "인원"; ws2["B2"] = 12
+    wb2.save("_test_원본_개별파일.xlsx")
+
+    try:
+        pool, conflicts = read_source_files(
+            ["_test_원본_혼합", "_test_원본_개별파일.xlsx"], default_year=2026
+        )
+        normalized_values = {item["normalized"] for item in pool}
+        assert "1850000" in normalized_values, pool
+        assert "12" in normalized_values, pool
+        assert conflicts == [], conflicts
+        print("read_source_files(혼합 리스트) 통과:", normalized_values)
+    finally:
+        import shutil
+        shutil.rmtree("_test_원본_혼합")
+        os.remove("_test_원본_개별파일.xlsx")
+
+
+def _selftest_read_source_folder_still_works():
+    """리팩터링 후에도 read_source_folder(폴더 경로 하나)가 기존과 동일하게
+    동작하는지 확인하는 회귀 테스트(기존 _selftest_read_source_folder_conflict와
+    별개로, 함수 시그니처 자체가 안 바뀌었는지 빠르게 확인)."""
+    os.makedirs("_test_원본_회귀", exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save("_test_원본_회귀/원본.xlsx")
+    try:
+        pool, conflicts = read_source_folder("_test_원본_회귀", default_year=2026)
+        assert any(item["normalized"] == "1850000" for item in pool), pool
+        print("read_source_folder(리팩터링 후 회귀) 통과")
+    finally:
+        import shutil
+        shutil.rmtree("_test_원본_회귀")
+
+
 if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
@@ -402,3 +475,5 @@ if __name__ == "__main__":
     _selftest_read_pdf_source_simple_table()
     _selftest_read_source_folder_conflict()
     _selftest_read_source_folder_multi_type_cell_no_cross_type_conflict()
+    _selftest_read_source_files_mixed_list()
+    _selftest_read_source_folder_still_works()
