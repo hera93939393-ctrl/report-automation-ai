@@ -833,6 +833,36 @@ git commit -m "F12: 보고서를 버튼 클릭 시 1회만 열고 창 자동배�
 - 검증 후 `self.report.close(save=False)` 호출 + `app.destroy()`로 정리, 테스트
   `.hwp` 파일도 삭제함. `tasklist`로 Hwp.exe/python.exe 잔류 프로세스 없음 확인.
 
+**추가 수정 (2026-09-01, 커밋 `d9b1f9a`, 코드품질 리뷰 반영)**: 위 완료 기록의
+`_choose_report`에는 리뷰에서 실측 재현된 버그가 있었다 — `except FileNotFoundError`가
+`HwpReport(path)`가 던질 수 있는 예외 중 그 경우 하나만 잡고, `pywintypes.com_error`
+같은 간헐적인 실제 COM/RPC 오류(이 프로젝트에서 이미 여러 차례 확인된 HWP COM 자동화
+환경 불안정성)는 잡지 못해 `_choose_report` 밖으로 그대로 전파됐다. 게다가 `self.report
+= HwpReport(path)`가 예외로 중간에 끊기면, 바로 위에서 이미 `.close()`한 이전 `self.report`
+값이 그대로 남아 — 호출자가 `if self.report is not None:`으로 "문서가 열려있다"고
+잘못 판단하는 죽은 핸들 문제가 있었다.
+
+수정 내용: `self.report = None`을 새 문서를 열기 **전에** 먼저 실행해두고, `HwpReport(path)`
+성공 시에만 `self.report = new_report`로 채우도록 구조를 바꿨다. `except` 절도
+`FileNotFoundError`에서 `Exception`으로 넓혀 COM 오류를 포함한 모든 실패를 잡는다
+(이 파일의 `_on_submit`이 이미 쓰는 `except Exception as e:` 패턴과 동일). 이 구조에서는
+성공 전까지 `self.report`가 항상 `None`이므로, 어떤 예외 타입이 나도 죽은 핸들이 남는
+경로 자체가 없어진다. 부수적으로, 커밋 `4e19884`에서 추가됐지만 파일 어디서도 쓰이지
+않던 `import os`도 함께 제거했다.
+
+검증: `ChatAssistant` 인스턴스를 만들고 `filedialog.askopenfilename`을 몽키패치해
+(1) 유효한 테스트 `.hwp`(pyhwpx로 생성) 선택 → `self.report`가 실제 `HwpReport`
+인스턴스가 됨을 확인, (2) 존재하지 않는 경로(`_no_such_file_12345.hwp`) 선택 →
+`HwpReport.__init__`이 `FileNotFoundError`를 던지고 `self.report`가 `None`이 됨(죽은
+핸들이 아님)과 채팅 로그에 "보고서를 열 수 없습니다" 오류 메시지가 남음을 확인.
+실제 COM 오류(`pywintypes.com_error`)는 결정적으로 재현하기 어려워 인위적으로
+유발하지 않았고, 대신 `inspect.getsource`로 소스 구조를 직접 검사해 `self.report = None`이
+`try` 블록보다 앞에 오고 `self.report = new_report`는 성공 경로에서만 실행됨을
+확인 — 구조상 어떤 예외 타입이든 안전함을 논리적으로 뒷받침. 실행 결과: `STEP2
+PASS`, `STEP3 PASS`(x2), `STEP4 PASS`, `ALL CHECKS PASSED`. 검증 스크립트는
+커밋되지 않은 스크래치패드 파일로, 실행 후 삭제함. 검증 전후 `tasklist`로
+Hwp.exe 잔류 프로세스 없음 확인.
+
 **참고**: `_choose_source_file`/`_choose_source_folder`/`_on_submit`은 이 태스크
 범위 밖이라 의도적으로 손대지 않았다 — 여전히 존재하지 않는
 `self.source_path`를 참조하는 깨진 상태로 남아있음(이번 커밋으로
