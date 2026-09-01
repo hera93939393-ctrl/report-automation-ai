@@ -811,6 +811,37 @@ git add chat_assistant.py
 git commit -m "F12: 보고서를 버튼 클릭 시 1회만 열고 창 자동배치 연동"
 ```
 
+**완료 (2026-09-01, 커밋 `4e19884`)**: 위 Step 1~5 그대로 적용함(계획서와 실제 diff가
+1:1로 일치). 검증은 계획서 Step 4가 제안한 "실제 파일 대화상자 클릭 → 육안 확인"
+전체 GUI 자동화 대신, 태스크 지시가 명시적으로 허용한 대체 방법을 썼다: 실제
+`ChatAssistant` 인스턴스를 만들고 `tkinter.filedialog.askopenfilename`만
+몽키패치해 테스트 파일 경로를 돌려주게 한 뒤 `self._choose_report()`를 직접
+호출 — 대화상자 자체는 F11부터 있던 손대지 않은 코드라 다시 검증할 필요가
+없고, 이 방식으로 `_choose_report()`의 실제 로직(HwpReport 열기 + 로그 +
+`position_windows` 호출)은 100% 실행 경로를 그대로 탔다. 즉 "GUI 대화상자
+클릭 자동화"는 하지 않았고 "메서드 로직 직접 호출" 경로로 검증했음을 밝혀둠.
+
+확인된 값(모니터 작업 영역 `(0, 0, 1920, 1032)` 기준):
+- `app.report`가 `None`에서 `HwpReport` 인스턴스로 바뀜
+- 채팅 로그에 `보고서 선택됨: C:\Users\Public\Documents\ESTsoft\CreatorTemp\_task6_test.hwp` 기록됨
+- 한글 창 rect(`win32gui.GetWindowRect`) = `(0, 0, 1440, 1032)` — 기대값
+  `round(1920*0.75)=1440`과 정확히 일치(작업 영역 왼쪽 75%)
+- 채팅창 rect = `(1448, 31, 1928, 1063)` — 한글 창 바로 오른쪽, 작업 영역
+  안(테두리 오차 감안)에 위치
+- 스크린샷: `.tmp/task6_screenshot.png` (미커밋, 기존 관례대로 untracked 유지) —
+  한글 창(왼쪽, "테스트 문서" 내용 표시)과 채팅창(오른쪽, 로그 메시지 표시) 확인됨
+- 검증 후 `self.report.close(save=False)` 호출 + `app.destroy()`로 정리, 테스트
+  `.hwp` 파일도 삭제함. `tasklist`로 Hwp.exe/python.exe 잔류 프로세스 없음 확인.
+
+**참고**: `_choose_source_file`/`_choose_source_folder`/`_on_submit`은 이 태스크
+범위 밖이라 의도적으로 손대지 않았다 — 여전히 존재하지 않는
+`self.source_path`를 참조하는 깨진 상태로 남아있음(이번 커밋으로
+`__init__`이 `self.source_path` 대신 `self.source_paths`를 선언하도록
+바뀌었기 때문). `_choose_source_file`/`_choose_source_folder`는 Task 7이
+"+" 첨부 버튼으로 완전히 대체하면서 고쳐지고, `_on_submit`은 Task 9가
+종료 처리와 함께 제대로 손본다 — 그 전까지는 이 두 메서드를 호출하면
+`AttributeError`가 난다.
+
 ---
 
 ### Task 7: chat_assistant.py — 원본자료 "+" 첨부 버튼 (파일 여러 개 / 폴더)
