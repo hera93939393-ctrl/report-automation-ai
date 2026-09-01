@@ -199,7 +199,18 @@ git commit -m "F12: source_reader에 read_source_files 추가 - 개별파일+폴
 
 ---
 
-### Task 2: verify_tool.py — 이미 열린 문서 핸들 + 원본자료 리스트를 받도록 리팩터링
+### Task 2: verify_tool.py — 이미 열린 문서 핸들 + 원본자료 리스트를 받도록 리팩터링 ✅ 완료 (커밋 `d47fa53`)
+
+**(2026-09-01 구현 완료)** 계획서 그대로 `verify_tool.py`를 전체 교체함(Step 2에서
+교체 전 구버전 시그니처 `(report_path: str, source_path: str, default_year: int) -> dict`를
+먼저 확인, 새 시그니처 `(report: HwpReport, source_paths: list[str], default_year)`와
+다름을 확인한 뒤 진행). `source_reader.py`의 `read_source_files`는 Task 1 완료 후
+두 차례 내부 견고성 수정(폴더 목록 조회 실패 시 조용히 건너뜀, 중복 경로 제거)이
+있었으나 공개 시그니처/동작 계약은 그대로라 이 태스크의 통합 코드는 변경 불필요.
+
+**검증**: `timeout 90 python verify_tool.py` 1회 시도 만에 통과(재시도 불필요) —
+`run_verification 통과: 1건 확인 필요\n- [amount] '9999999원' 원본에서 확인 안 됨`,
+exit code 0. 실행 전후 `tasklist`로 `Hwp.exe` 프로세스 없음 확인(orphan 없음).
 
 Files
 
