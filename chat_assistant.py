@@ -106,6 +106,7 @@ class ChatAssistant(ctk.CTk):
         self.report = None  # HwpReport | None — F12: 문서를 한 번만 열고 계속 재사용
         self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
         self._busy = False
+        self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
 
         self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
@@ -206,7 +207,7 @@ class ChatAssistant(ctk.CTk):
         self.input_box.delete(0, "end")
         self._log(f"나: {text}")
 
-        if not self.report_path or not self.source_path:
+        if not self.report or not self.source_paths:
             self._log("도우미: 먼저 보고서 파일과 원본자료를 선택해주세요.")
             return
 
@@ -220,13 +221,43 @@ class ChatAssistant(ctk.CTk):
             # 이벤트 큐는 비우지 않아 일부 환경에서 텍스트가 그려지지 않을 수 있다.
             self.update()
 
-            tool_name = route_intent(text)
+            if self._pending_clarification is not None:
+                # 되묻기 응답 처리: 이전에 애매했던 원문 + 이번 답변을 합쳐
+                # 같은 라우팅 로직에 다시 태운다 — 별도의 대화상태 기계 없이
+                # "합쳐서 다시 판단"만으로 충분히 동작함.
+                combined = f"{self._pending_clarification} {text}"
+                tool_name = route_intent(combined)
+                self._pending_clarification = None
+            else:
+                tool_name = route_intent(text)
+
             if tool_name == "verify_numbers":
                 from verify_tool import run_verification
-                result = run_verification(self.report_path, self.source_path, default_year=2026)
+                result = run_verification(self.report, self.source_paths, default_year=2026)
                 self._log(f"도우미: {result['summary']}")
+            elif tool_name == "polish_to_formal_style":
+                from polish_tool import polish_to_formal_style
+                result = polish_to_formal_style(self.report, text)
+                if result["applied"]:
+                    self._log(f"도우미: 다듬었어요 → {result['polished_text']}")
+                else:
+                    # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
+                    # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
+                    # 드물지 않게 발생), 여기서 그걸 무시하고 항상 성공 메시지
+                    # 형태(f"...다듬었어요 → {빈 문자열}")로 로그를 남기면
+                    # "다듬었어요 → " 뒤에 아무것도 없는 채로 찍혀 실제로는
+                    # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
+                    # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
+                    self._log("도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
             else:
-                self._log("도우미: 아직 이 요청은 처리할 수 있는 도구가 없어요. '숫자 검증해줘'라고 말씀해보세요.")
+                # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
+                # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
+                self._pending_clarification = text
+                self._log(
+                    "도우미: 무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
+                    "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고 "
+                    "한 번 더 말씀해주시겠어요?"
+                )
         except Exception as e:
             self._log(f"도우미: 오류가 발생했습니다 - {e}")
         finally:
