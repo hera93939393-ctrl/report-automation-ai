@@ -55,7 +55,13 @@ class HwpReport:
         self.path = path
 
     def get_text(self) -> str:
-        return self.hwp.GetTextFile("TEXT", "")
+        # GetTextFile()은 문서에 지금까지 단 한 글자도 삽입된 적 없는(정말로
+        # 아무 내용도 없는) 문서에서는 빈 문자열("")이 아니라 파이썬 None을
+        # 반환한다(직접 테스트로 확인됨). 이 클래스와 verify_tool.py의
+        # extract_values() 등 모든 호출자가 get_text()는 항상 str을 반환한다고
+        # 가정하므로, None을 여기서 빈 문자열로 정규화한다.
+        text = self.hwp.GetTextFile("TEXT", "")
+        return text if text is not None else ""
 
     def mark_red(self, target_text: str) -> bool:
         """문서 안에서 target_text의 모든 occurrence를 찾아 글자색을 빨간색
