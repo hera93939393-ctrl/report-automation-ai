@@ -149,6 +149,19 @@ class HwpReport:
             colors.append((color_value & 0xFF, (color_value >> 8) & 0xFF, (color_value >> 16) & 0xFF))
         return colors
 
+    def get_window_handle(self) -> int:
+        """이 문서를 보여주는 실제 Win32 창의 HWND(창 핸들)를 반환한다
+        (창 배치 등 win32gui 함수에 바로 넘겨 쓸 수 있음).
+
+        pyhwpx 자신도 get_title() 등에서 이 프로퍼티(hwp.XHwpWindows.
+        Active_XHwpWindow.WindowHandle)로 얻은 핸들을 win32gui에 그대로
+        넘겨 쓰고 있음을 소스에서 확인함 — 창 제목으로 FindWindow하는 것보다
+        안전하다(여러 한글 창이 동시에 떠 있어도 이 인스턴스가 연 그 창을
+        정확히 특정 가능, 제목 문자열은 파일명에 따라 바뀌어 검색 기준으로
+        불안정함).
+        """
+        return self.hwp.XHwpWindows.Active_XHwpWindow.WindowHandle
+
     def close(self, save: bool):
         """한글 문서를 닫는다.
 
@@ -194,5 +207,34 @@ def _selftest_open_and_mark_red():
         os.remove(test_path)
 
 
+def _selftest_get_window_handle():
+    """get_window_handle()이 실제 win32gui 함수에 바로 쓸 수 있는 정수 HWND를
+    돌려주는지 확인한다 (창 배치 기능의 전제 조건)."""
+    import tempfile
+    import win32gui
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_핸들.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("핸들 테스트")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        hwnd = report.get_window_handle()
+        assert isinstance(hwnd, int) and hwnd > 0, hwnd
+        assert win32gui.IsWindow(hwnd), f"win32gui가 인식하지 못하는 핸들: {hwnd}"
+        title = win32gui.GetWindowText(hwnd)
+        assert "한글" in title or "핸들 테스트" in title or title, title
+        print("HwpReport.get_window_handle() 통과:", hwnd, repr(title))
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
     _selftest_open_and_mark_red()
+    _selftest_get_window_handle()
