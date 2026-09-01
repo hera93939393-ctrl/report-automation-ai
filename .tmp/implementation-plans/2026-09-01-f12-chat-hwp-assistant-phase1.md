@@ -1041,7 +1041,7 @@ Files
 
 **배경**: PRD 13-4에 따라 `polish_to_formal_style`을 두 번째 도구로 등록하고, 트리거 키워드를 추가한다. 그리고 "뜻을 이해"하는 역할(로컬 LLM 도구호출)이 실패하고 키워드도 안 겹치면, 그냥 실패로 끝내지 않고 되묻는다 — `route_intent`가 애매한 원문을 기억해뒀다가, 다음 입력과 합쳐서 한 번 더 판단하는 방식으로 구현한다(별도의 복잡한 대화상태 기계 없이, "이전 애매했던 문장 + 이번 답변"을 합쳐 같은 `route_intent` 로직에 다시 태우는 것만으로 충분히 동작함).
 
-- [ ] Step 1: 실패하는 테스트 작성
+- [x] Step 1: 실패하는 테스트 작성
 
 `_TOOLS` 정의를 아래로 교체:
 
@@ -1117,26 +1117,28 @@ def route_intent(user_message: str) -> str | None:
     print("route_intent 통과 (공문서체 변환):", polish_choice)
 ```
 
-- [ ] Step 2: 실패 확인
+- [x] Step 2: 실패 확인
 
 Run: `python -c "from chat_assistant import _selftest_route_intent; _selftest_route_intent()"` (교체 전)
 Expected: 새로 추가한 5번째 assert에서 `AssertionError` 발생 (`polish_to_formal_style`이 아직 등록 안 돼서 `None`이 반환됨)
 
-- [ ] Step 3: 최소 구현
+- [x] Step 3: 최소 구현
 
 Step 1의 교체 내용을 실제로 적용한다.
 
-- [ ] Step 4: 통과 확인
+- [x] Step 4: 통과 확인
 
 Run: `timeout 300 python chat_assistant.py --selftest` (Ollama 호출이 5번으로 늘어나 F11 때(4번)보다 오래 걸림 — 간헐적 HWP COM 이슈는 이 태스크엔 해당 없음, 순수 Ollama 라우팅 테스트라 HWP를 안 띄움)
 Expected: 5개 self-test 모두 통과 메시지 출력, exit code 0
 
-- [ ] Step 5: 커밋
+- [x] Step 5: 커밋
 
 ```bash
 git add chat_assistant.py
 git commit -m "F12: route_intent에 polish_to_formal_style 등록, 키워드 확장"
 ```
+
+**완료 (2026-09-01, 커밋 `b532c8c`)**: `_TOOLS`에 `polish_to_formal_style` 등록, `_POLISH_KEYWORDS` 추가, `route_intent`/`_selftest_route_intent` 계획대로 교체. 실행 전 빠른 확인으로 `ollama.chat`을 mock(tool_calls 없는 응답 고정)해서 새 키워드 매칭 로직만 즉시 검증(8개 케이스 모두 통과) — 오늘 측정된 Ollama 추론 저속(~3 tok/초, CPU-only, thinking 모델) 때문에 실제 호출 전 로직 자체의 정확성을 먼저 빠르게 확인하기 위함. 이후 실제 Ollama 호출 5회로 `_selftest_route_intent()`를 그대로 실행 — **실제 소요시간 약 4분 6초**(18:55:00 시작 → 18:59:06 종료), 계획 문서의 최악 예상치(15~30분 이상)보다 훨씬 빨랐음(이날 시스템 부하가 이전 측정 시점보다 낮았던 것으로 추정). 5개 assert 모두 통과, exit code 0. `Hwp.exe`는 이 태스크에서 전혀 뜨지 않음(순수 Ollama 라우팅 테스트라 예상대로).
 
 ---
 
