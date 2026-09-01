@@ -152,6 +152,51 @@ def _selftest_insert_table_from_source_colored_header():
         os.remove(report_path)
 
 
+def _selftest_insert_table_from_source_no_excel_source():
+    """원본자료에 엑셀 파일이 하나도 없으면(예: 이미지/한글 파일만 첨부됐거나
+    원본자료 자체를 안 붙인 경우) 예외 없이 inserted=False를 반환하고 문서를
+    전혀 건드리지 않는지 확인한다 (코드품질 검토에서 지적된 회귀테스트 공백을
+    메움 — _first_excel_source 자체의 None 반환은 이미 확인됐지만, 그 결과를
+    받은 insert_table_from_source가 실제로 문서를 안전하게 스킵하는지는
+    아직 테스트가 없었음)."""
+    import os, tempfile
+    from pyhwpx import Hwp
+    from hwp_report import HwpReport
+
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표없음.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.save_as(report_path)  # 빈 문서
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        # 엑셀이 하나도 없는 상황(빈 리스트, 그리고 비엑셀 파일만 있는 경우 둘 다)
+        result_empty = insert_table_from_source(report, source_paths=[], style="default")
+        assert result_empty == {"inserted": False, "reason": "원본자료 중 엑셀 파일이 없습니다"}, result_empty
+
+        non_excel_path = os.path.join(tempfile.gettempdir(), "_test_표없음_원본.txt")
+        with open(non_excel_path, "w", encoding="utf-8") as f:
+            f.write("엑셀 아님")
+        try:
+            result_non_excel = insert_table_from_source(
+                report, source_paths=[non_excel_path], style="default"
+            )
+            assert result_non_excel["inserted"] is False, result_non_excel
+        finally:
+            os.remove(non_excel_path)
+
+        # 문서가 실제로 전혀 건드려지지 않았는지 확인 — 표가 생겼다면 get_text()에
+        # 뭔가 내용이 생겼을 것이다.
+        assert report.get_text() == "", repr(report.get_text())
+        print("insert_table_from_source(엑셀 없음) 통과: 문서 안 건드리고 inserted=False")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_insert_table_from_source_default_style()
     _selftest_insert_table_from_source_colored_header()
+    _selftest_insert_table_from_source_no_excel_source()
