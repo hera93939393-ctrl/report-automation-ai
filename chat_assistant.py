@@ -1,6 +1,5 @@
 """chat_assistant.py — 작고 예쁜 채팅창 + Ollama Qwen3 도구호출 + verify_tool 실행.
 항상 위에 떠 있고 드래그 가능한 CustomTkinter 창."""
-import os
 import customtkinter as ctk
 from tkinter import filedialog
 import ollama
@@ -108,12 +107,22 @@ class ChatAssistant(ctk.CTk):
             # 유지하는 구조라(Task 2), 새 보고서를 고르면 이전 것과 헷갈리지
             # 않도록 명시적으로 닫는다.
             self.report.close(save=False)
+        self.report = None
+        # (코드품질 검토 후 수정) self.report를 먼저 None으로 비워두고, 새 문서를
+        # 여는 데 성공했을 때만 채운다 — HwpReport(path)는 파일이 없을 때
+        # FileNotFoundError를 던지지만, 그 외에도 간헐적인 실제 COM/RPC 오류
+        # (pywintypes.com_error 등, 이 프로젝트에서 이미 여러 번 확인된 HWP COM
+        # 자동화 환경 불안정성)로도 실패할 수 있다는 게 리뷰에서 실측 재현됐다.
+        # 이전 코드처럼 self.report = HwpReport(path)를 먼저 시도해버리면, 이
+        # 대입이 예외로 중간에 끊겼을 때 self.report가 방금 닫아버린 죽은
+        # 핸들을 계속 가리키게 되는 문제가 있었다 — 지금 구조는 그 문제가 아예
+        # 생길 수 없다(성공 전까지 항상 None).
         try:
-            self.report = HwpReport(path)
-        except FileNotFoundError as e:
-            self._log(f"도우미: {e}")
-            self.report = None
+            new_report = HwpReport(path)
+        except Exception as e:
+            self._log(f"도우미: 보고서를 열 수 없습니다 - {e}")
             return
+        self.report = new_report
         self._log(f"보고서 선택됨: {path}")
         position_windows(self.report.get_window_handle(), self)
 
