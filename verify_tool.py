@@ -1,7 +1,11 @@
 """verify_tool.py — verify_numbers.py/source_reader.py를 엮어 "숫자검증" 도구
 하나로 만든다. F12: 이미 열려있는 HwpReport 핸들과 원본자료 경로 리스트를 받는다
 (F11 시절엔 이 함수가 문서를 직접 열었으나, 도구 호출마다 문서가 새로 열리는
-문제가 있어 호출자(chat_assistant.py)가 한 번만 연 핸들을 넘겨주는 구조로 변경)."""
+문제가 있어 호출자(chat_assistant.py)가 한 번만 연 핸들을 넘겨주는 구조로 변경).
+run_verification()은 같은 핸들에 대한 반복 호출을 전제로 설계되어 있고
+(한 채팅 세션에서 "숫자 검증해줘"를 여러 번), 매 호출이 멱등적이도록
+호출마다 문서 색을 리셋한 뒤 현재 대조 결과만 다시 표시한다(자세한 내용은
+run_verification 함수 docstring 참고)."""
 import os
 import tempfile
 import openpyxl
@@ -27,10 +31,30 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         불일치는 "불일치 값 개수"와 성격이 달라 같은 숫자에 합산하지 않음).
       - summary: str — 채팅창에 그대로 보여줄 사람이 읽는 요약 텍스트.
       - conflicts: list — read_source_files가 찾은 원본 파일 간 불일치 목록.
+
+    반복 호출 계약(F12의 핵심 전제, 2026-09-01 코드품질 리뷰로 수정됨): 이
+    함수는 같은 HwpReport 핸들에 대해 한 채팅 세션 안에서 여러 번 호출되도록
+    설계되어 있다 — 사용자가 "숫자 검증해줘"를 반복하거나, 원본을 고치거나
+    새 원본을 첨부한 뒤 다시 검증을 요청하는 흐름이 그것이다. 이 함수는 매
+    호출마다 먼저 report.reset_colors()로 문서 전체 글자색을 검정으로
+    되돌린 뒤, 이번 호출에서 실제로 확인된 불일치만 다시 빨갛게 표시한다.
+    그래서 매 호출은 이전 호출의 결과에 의존하지 않는 멱등적(idempotent)
+    동작이 된다 — "지금 이 순간의 대조 결과"만 문서에 반영되고, 이전에
+    남긴 빨간 표시가 더 이상 유효하지 않은데도 잔류하는 일이 없다. (이전엔
+    아무것도 지우지 않아 재검증 후 "이상 없음"이라 답하면서도 문서엔 빨간
+    글자가 그대로 남는 버그가 있었다 — 코드품질 검토에서 재현·확인됨.)
+    이 계약은 Task 9의 _on_submit 통합 등 이 함수를 호출하는 쪽 어디서든
+    똑같이 성립한다: 매번 새로 열지 않고 같은 핸들을 재사용해도 안전하다.
+
+    알려진 후속 과제(이번 라운드에서 의도적으로 손대지 않음): report.get_text()가
+    이미 닫힌/죽은 COM 핸들에 대해 호출되면 pywintypes.com_error가 그대로
+    올라온다 — 사용자 친화적인 한글 오류 메시지로 감싸는 작업은 별도
+    라운드로 미뤄둔다.
     """
     answer_pool, conflicts = read_source_files(source_paths, default_year)
 
     report_text = report.get_text()
+    report.reset_colors()  # 재검증 시 이전 호출이 남긴 빨간 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
     report_values = extract_values(report_text, default_year)
     mismatches = compare_values(report_values, answer_pool)
 
@@ -81,5 +105,59 @@ def _selftest_run_verification():
         os.remove(report_path)
 
 
+def _selftest_run_verification_clears_stale_marks_on_rerun():
+    """회귀테스트 — 코드품질 리뷰에서 재현된 버그: 이전 호출이 남긴 빨간 표시가
+    재검증 후에도 지워지지 않던 문제. 시나리오:
+    1) 원본에 없는 값으로 1차 검증 → 빨간색으로 표시됨을 확인
+    2) 문서는 그대로 두고, 원본 쪽을 고쳐 그 값이 더 이상 불일치가 아니게 만듦
+       (사용자가 원본을 수정한 뒤 같은 채팅 세션에서 재검증을 요청하는 F12 시나리오)
+    3) 같은 HwpReport 핸들로 재검증 → "이상 없음"이면서 글자색도 검정으로
+       돌아와 있어야 한다(둘 다 확인 — 요약 텍스트만 맞고 화면은 안 맞는
+       이번 버그가 재발하면 바로 잡히도록).
+    """
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_f12_rerun")
+    os.makedirs(test_dir, exist_ok=True)
+    source_path = os.path.join(test_dir, "원본.xlsx")
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(source_path)
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_f12_rerun.hwp")
+    setup = Hwp(visible=False)
+    setup.insert_text("예산은 9999999원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)  # 채팅 세션 내내 재사용되는 F12 핸들 시뮬레이션
+
+        result1 = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result1["mismatch_count"] == 1, result1
+        color_after_first = report.get_char_color_at("9999999")
+        assert color_after_first == (255, 0, 0), color_after_first
+
+        # 원본을 고쳐서(사용자가 원본자료를 수정한 상황) 더 이상 불일치가 아니게 만든다.
+        # 문서 텍스트는 그대로 "9999999원"이지만, 이제 원본과 일치한다.
+        wb2 = openpyxl.Workbook(); ws2 = wb2.active; ws2.title = "Sheet1"
+        ws2["A1"] = "예산"; ws2["A2"] = 9999999
+        wb2.save(source_path)
+
+        result2 = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result2["mismatch_count"] == 0, result2
+        assert "이상 없음" in result2["summary"], result2["summary"]
+        color_after_second = report.get_char_color_at("9999999")
+        assert color_after_second == (0, 0, 0), color_after_second
+        print("run_verification 재검증 회귀테스트 통과: 재검증 후 이전 빨간표시가 검정으로 리셋됨")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
+    _selftest_run_verification_clears_stale_marks_on_rerun()

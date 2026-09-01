@@ -78,6 +78,38 @@ class HwpReport:
             found_any = True
         return found_any
 
+    def reset_colors(self) -> None:
+        """문서 전체의 글자색을 기본값(검정, RGB 0,0,0)으로 초기화한다.
+
+        mark_red()가 남긴 빨간 표시는 아무 것도 자동으로 지워주지 않는다 —
+        run_verification()이 같은 문서 핸들에 대해 여러 번(예: 사용자가 원본을
+        고치거나 새 원본을 첨부한 뒤 재검증) 반복 호출될 수 있게 되면서
+        (F12), 이전 호출에서 남긴 빨간 표시가 이번엔 더 이상 틀리지 않은
+        값인데도 그대로 남아있는 문제가 실제로 재현됨(코드품질 검토에서
+        확인) — "이상 없음"이라고 채팅창은 답하는데 문서엔 빨간 글자가
+        남아있는 모순이 생김. 매 검증 실행 전에 문서 전체를 검정으로
+        되돌린 뒤 이번 실행에서 실제로 확인된 값만 다시 빨갛게 표시하면,
+        호출할 때마다 항상 "지금 진짜로 틀린 것만" 빨갛게 남는 상태가
+        보장된다(멱등성).
+
+        구현 메모: SelectAll() + set_font(TextColor=...) + Cancel() 조합은
+        이 프로젝트가 새로 지어낸 패턴이 아니라, pyhwpx 자체가 core.py에서
+        문서 전체에 스타일을 적용할 때 쓰는 것과 동일한 패턴이다(예:
+        get_used_style_dict(), remove_unused_styles()가 SelectAll() 후
+        작업하고 Cancel()로 선택을 해제함). mark_red()가 이미 find()로 찾은
+        블록에 set_font(TextColor=...)를 적용하는 것을 검증했으므로, 그
+        대상이 find()의 블록이든 SelectAll()의 전체 선택이든 set_font()
+        동작 자체는 같다.
+
+        알려진 한계: 사용자가 이 도구와 무관하게 직접 다른 색으로 칠해둔
+        글자가 있었다면 그것도 함께 검정으로 초기화된다 — 이 도구의
+        범위(숫자검증 표시)를 벗어나는 시나리오라 이번 라운드에서는
+        받아들이는 트레이드오프로 문서화만 해둔다.
+        """
+        self.hwp.SelectAll()
+        self.hwp.set_font(TextColor=self.hwp.RGBColor(0, 0, 0))
+        self.hwp.Cancel()
+
     def get_char_color_at(self, target_text: str):
         """target_text 위치의 현재 글자색을 (R,G,B) 튜플로 반환한다 (테스트 검증용).
 
