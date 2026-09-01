@@ -561,6 +561,16 @@ git commit -m "F12: window_layout.py 추가 - 한글75%/채팅25% 화면 자동�
 
 **완료 (2026-09-01, 커밋 `161a785`)**: 위 계획대로 `_calculate_layout`/`position_windows`를 TDD로 구현·커밋함. 단, 계획에 없던 추가 작업 하나: 계획의 self-test(`_selftest_position_windows_calculates_correct_rects`)는 좌표 계산(순수 산술)만 검증하고 `win32gui.MoveWindow` 호출 자체는 검증하지 않으므로, 실제 한글 창을 띄워 `position_windows()`를 끝까지 실행해보고 `win32gui.GetWindowRect()`로 실제 이동 결과를 확인하는 `_selftest_position_windows_moves_real_hwp_window` self-test(및 스텁 `_FakeChatWindow`)를 추가했다. 두 self-test 모두 첫 시도에 통과(exit code 0, HWP COM 관련 재시도 불필요했음). 커밋 후 잔류 `Hwp.exe` 프로세스 없음 확인.
 
+**버그 수정 (2026-09-01, 커밋 `b6e0793`)**: 코드품질 리뷰에서 실제 버그 발견 — `_calculate_layout`/`position_windows`가 `win32api.GetSystemMetrics(SM_CXSCREEN, SM_CYSCREEN)`로 얻은 전체 모니터 크기(이 머신 1920x1080)를 그대로 썼는데, 실제 작업표시줄을 뺀 작업 영역은 더 작음(실측 1920x1032, 작업표시줄이 48px 차지). 한글 창은 우연히 작업 영역에 맞춰 스스로 줄어들어(요청 1080 → 실제 1032) 문제가 가려졌지만, 채팅창(CustomTkinter)은 그런 보정이 없어 실제로 모니터 오른쪽 경계를 넘고 작업표시줄 영역까지 침범하는 창이 만들어짐(리뷰에서 실측: 요청 좌표로 실제 만든 창의 `GetWindowRect`가 `(1440, 0, 1936, 1100)`으로 1920 폭과 1032 작업 영역 높이를 모두 넘어감). 기존 self-test(`_selftest_position_windows_moves_real_hwp_window`)는 채팅창을 `geometry()` 문자열만 기록하는 `_FakeChatWindow` 스텁으로 대체해 실제 결과 창을 만들지 않았기 때문에 이 문제를 잡지 못했음.
+
+수정 내용:
+- `win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))['Work']`로 작업 영역(work area) 사각형을 구하는 `_get_work_area()` 헬퍼 추가(`win32gui.SystemParametersInfo(SPI_GETWORKAREA)`는 설치된 pywin32 빌드에서 `NotImplementedError`를 던져 사용 불가 확인). 작업 영역의 원점이 항상 `(0,0)`이라 가정하지 않고 `left`/`top`을 그대로 사용하도록 일반화.
+- `_calculate_layout`은 화면 전체 크기 대신 작업 영역의 원점/크기(`work_left, work_top, work_width, work_height`)를 받도록 시그니처 변경, `position_windows`가 `_get_work_area()` 결과를 넘겨줌.
+- `_selftest_position_windows_calculates_correct_rects`도 기대값을 동일하게 `GetMonitorInfo` 기반 작업 영역으로 계산하도록 수정(예전엔 전체 화면 기준으로 기대값을 계산해서 작업표시줄 침범도 통과시켰음).
+- `_selftest_position_windows_moves_real_hwp_window`에서 `_FakeChatWindow` 스텁을 제거하고 실제 프로덕션에서 쓰는 `customtkinter.CTk()` 인스턴스를 띄워 `win32gui.GetWindowRect(chat_window.winfo_id())`로 실제 결과 rect를 확인, 작업 영역 경계를 넘지 않는지(허용 오차 40px — Windows에서 Tk 계열 창이 갖는 타이틀바/테두리 chrome으로 인한 실측 차이, 이 머신에서 세로 약 31px/가로 약 8px 확인) 검증하는 assertion 추가. 테스트 종료 시 `chat_window.destroy()`로 정리.
+- 수정 후 3개 self-test 모두 1회차에 통과(재시도 불필요). 실측 결과: 작업 영역 `(0, 0, 1920, 1032)`, 한글 창 실제 rect `(0, 0, 1440, 1032)`(작업 영역과 정확히 일치, 오버플로 없음), 채팅창 실제 rect `(1448, 31, 1928, 1063)`(작업 영역 대비 우측 +8px/하단 +31px — Tk 창 chrome에 의한 것으로 허용 오차 40px 이내, 수정 전 버그(하단 약 60~68px 침범)와는 규모가 다름을 확인).
+- 커밋 후 잔류 `Hwp.exe` 프로세스 없음 확인.
+
 ---
 
 ### Task 5: polish_tool.py — 공문서체 변환 도구
