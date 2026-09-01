@@ -882,6 +882,8 @@ Files
 
 **배경**: PRD 13-1에 따라 기존 "원본자료 선택(파일)"/"원본자료 선택(폴더)" 버튼 2개를 클로드 채팅창 같은 "+" 버튼 하나로 통합한다. tkinter의 파일 대화상자는 "파일이든 폴더든 한 화면에서 고르기"를 지원하지 않으므로, "+" 클릭 시 작은 선택창(파일 여러 개 / 폴더)을 띄우는 방식으로 구현한다.
 
+**(2026-09-01 사용자 피드백 반영 — 위치 변경)** "+" 버튼은 채팅창 위쪽(보고서 선택 버튼 옆)이 아니라, **입력창 바로 옆(채팅창 맨 아래)**에 둔다 — 클로드 등 실제 채팅 UI들이 흔히 쓰는 배치와 같다. 입력창과 "+" 버튼을 같은 가로줄(`CTkFrame`)에 나란히 넣는다.
+
 - [ ] Step 1: 실패하는 테스트 작성 (GUI 흐름 변경 — 육안 확인으로 대체)
 
 `ChatAssistant.__init__`에서 아래 두 버튼 정의:
@@ -894,11 +896,28 @@ Files
         self.source_folder_button.pack(pady=4, padx=10, fill="x")
 ```
 
-을 아래로 교체:
+을 통째로 삭제한다(더 이상 채팅창 위쪽엔 원본자료 버튼이 없음).
+
+그 다음, 기존의
 
 ```python
-        self.attach_button = ctk.CTkButton(self, text="+ 원본자료 첨부", command=self._attach_source)
-        self.attach_button.pack(pady=4, padx=10, fill="x")
+        self.input_box = ctk.CTkEntry(self, placeholder_text="예: 숫자 검증해줘")
+        self.input_box.pack(pady=(0, 10), padx=10, fill="x")
+        self.input_box.bind("<Return>", self._on_submit)
+```
+
+을 아래로 교체(입력창을 가로줄 프레임 안으로 옮기고, 그 줄 왼쪽에 "+" 버튼을 추가):
+
+```python
+        self.input_row = ctk.CTkFrame(self, fg_color="transparent")
+        self.input_row.pack(pady=(0, 10), padx=10, fill="x")
+
+        self.attach_button = ctk.CTkButton(self.input_row, text="+", width=32, command=self._attach_source)
+        self.attach_button.pack(side="left", padx=(0, 6))
+
+        self.input_box = ctk.CTkEntry(self.input_row, placeholder_text="예: 숫자 검증해줘")
+        self.input_box.pack(side="left", fill="x", expand=True)
+        self.input_box.bind("<Return>", self._on_submit)
 ```
 
 `_choose_source_file`/`_choose_source_folder` 메서드 두 개를 아래로 교체:
@@ -956,8 +975,8 @@ Step 1의 교체 내용을 실제로 적용한다.
 
 Run: `python chat_assistant.py`
 
-1. "+ 원본자료 첨부" 버튼 하나만 보이고, 기존 2개 버튼은 사라졌는지 확인
-2. 클릭 → "파일 선택 (여러 개 가능)" / "폴더 선택" 작은 선택창이 뜨는지 확인
+1. 채팅창 위쪽엔 "보고서 파일 선택" 버튼만 남고, 기존 원본자료 버튼 2개는 사라졌는지 확인
+2. 채팅창 맨 아래, 입력창 왼쪽에 작은 "+" 버튼이 나란히 있는지 확인. 클릭 → "파일 선택 (여러 개 가능)" / "폴더 선택" 작은 선택창이 뜨는지 확인
 3. "파일 선택" 클릭 후 파일 2~3개를 Ctrl+클릭으로 다중 선택 → 채팅 로그에 "📎 원본자료 N개 첨부됨: ..."이 정확한 개수로 뜨는지 확인
 4. 다시 "+" 클릭 → "폴더 선택" → 폴더 선택 → "📎 원본자료(폴더) 첨부됨: ..." 확인
 5. 스크린샷으로 이 흐름을 캡처
