@@ -23,7 +23,11 @@ Tech stack: Python 3.13, pyhwpx, pywin32(`win32gui`, `win32con`), CustomTkinter,
 
 ---
 
-### Task 1: source_reader.py — 개별 파일 목록 지원 (`read_source_files`)
+### Task 1: source_reader.py — 개별 파일 목록 지원 (`read_source_files`) ✅ 완료 (커밋 `76a51dd`)
+
+**(2026-09-01 구현 중 발견)** 계획서 원안의 `_selftest_read_source_files_mixed_list` 테스트 픽스처가 두 엑셀 파일 모두 A1/A2 셀에 값을 넣게 되어 있어, 서로 무관한 두 파일(예산/인원)이 우연히 같은 셀 주소(`Sheet1!A2`)에서 충돌한 것으로 오탐되어 `assert conflicts == []`가 실패했다 — `read_source_files` 자체의 버그가 아니라 테스트 픽스처 버그. 두 번째 픽스처를 B1/B2로 옮겨 수정.
+
+**검증 방식**: 새 함수(`read_source_files`, `read_source_folder`)는 격리 실행(`python -c`로 두 신규 self-test만 직접 호출)으로 통과 확인함(exit 0, 정확한 결과값 확인). `python source_reader.py`로 파일 전체(기존 한글 자동화 테스트 포함 약 13개)를 한 번에 돌리는 건 이번 태스크가 건드리지 않은 기존 `_selftest_read_hwp_source` 계열에서 간헐적 hang(exit 124, 재시도 3회 모두 실패)이 발생해 끝까지 확인하지 못함 — 이 프로젝트에 밤새 반복 기록된 한글 COM 자동화 환경 불안정성과 같은 종류로 판단, 새로 추가한 코드 자체의 결함이 아님을 격리 테스트로 확인한 뒤 진행함.
 
 Files
 
