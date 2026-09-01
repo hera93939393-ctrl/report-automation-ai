@@ -79,6 +79,16 @@ def route_intent(user_message: str) -> str | None:
     for phrase in _FALSE_POSITIVE_DENYLIST:
         cleaned_message = cleaned_message.replace(phrase, "")
 
+    # (2026-09-01 Task8 리뷰에서 발견) 한 문장에 두 키워드 목록이 동시에 걸리는
+    # 경우(예: "이거 검토해서 공문서체로 다듬어줘" — "검토"와 "다듬어" 둘 다 걸림)
+    # 는 verify_numbers가 항상 이긴다 — 순서상 우연이 아니라 의도적으로 정한
+    # 우선순위다. 근거: _VERIFY_KEYWORDS는 검증 도구를 놓치는 게 가장 위험하다는
+    # 판단(오탐지보다 미탐지가 더 나쁨, F11 12-6 성공기준 참고)이 깔려있고, 이
+    # 우선순위 덕에 최악의 경우도 "공문서체 변환 대신 검증이 한 번 더 도는" 정도로
+    # 그친다(자동저장 없어 비파괴적). 다만 이 tie-break는 두 키워드가 실제로
+    # 겹치는 드문 입력에서만 작동하고, 문장 끝의 동사(예: "다듬어줘")가 진짜
+    # 의도를 더 잘 나타내는 경우도 있어 완벽하진 않음 — 다음 라운드에서 도구가
+    # 더 늘어나면 재검토 대상.
     if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
