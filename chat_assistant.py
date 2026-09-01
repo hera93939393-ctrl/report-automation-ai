@@ -12,14 +12,24 @@ from window_layout import position_windows
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
 
-_TOOLS = [{
-    "type": "function",
-    "function": {
-        "name": "verify_numbers",
-        "description": "지금 열려있는 한글 보고서의 금액/날짜/시간/전화번호를 원본데이터와 대조해서 틀린 부분을 빨간색으로 표시한다",
-        "parameters": {"type": "object", "properties": {}, "required": []},
+_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_numbers",
+            "description": "지금 열려있는 한글 보고서의 금액/날짜/시간/전화번호를 원본데이터와 대조해서 틀린 부분을 빨간색으로 표시한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
     },
-}]
+    {
+        "type": "function",
+        "function": {
+            "name": "polish_to_formal_style",
+            "description": "선택된 문장을 공문서체로 다듬거나, 새 문장을 공문서체로 만들어 커서 위치에 삽입한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+]
 
 
 _VERIFY_KEYWORDS = [
@@ -28,6 +38,11 @@ _VERIFY_KEYWORDS = [
     # 자연어 표현으로 20회 넘게 쓰고 있는데도 원래 목록에 빠져 있었음(예: "형식검토",
     # "최종 검토"). "점검"/"검사"/"오류"도 비개발자가 같은 요청을 할 법한 표현이라 추가.
     "검토", "점검", "검사", "오류",
+]
+
+_POLISH_KEYWORDS = [
+    "공문서", "다듬어", "정리해", "써줘", "작성해", "바꿔줘", "고쳐줘",
+    "손봐줘", "매끄럽게", "격식있게",
 ]
 
 # 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
@@ -42,19 +57,14 @@ _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 
 
 def route_intent(user_message: str) -> str | None:
-    """사용자의 자연어 입력이 verify_numbers 도구를 원하는지 판단한다.
-    Ollama qwen3.5:2b의 도구호출을 우선 시도하지만, 실측 결과 이 모델의
-    도구호출 신뢰도가 낮아(3회 중 1회만 성공, 각 호출 ~1분45초 소요 — 재시도로
-    신뢰도를 높이면 채팅 UI가 5분 이상 멈춘 것처럼 느껴짐) 도구호출이 비어있어도
-    명백한 검증 요청 키워드가 있으면 verify_numbers로 보내는 안전망을 둔다.
-    지금은 등록된 도구가 하나뿐이라 이 방식이 안전하다 — 도구가 여러 개로 늘어나면
-    이 키워드 안전망은 재설계가 필요하다(TODO 아님, 다음 라운드에서 다룰 설계 결정).
+    """사용자의 자연어 입력이 verify_numbers/polish_to_formal_style 중 어느
+    도구를 원하는지 판단한다. "뜻을 이해"하는 역할은 로컬 LLM(qwen3.5:2b)의
+    도구호출이 담당하고, 키워드 목록은 그 도구호출이 실패했을 때의 안전망이다
+    (F11에서 실측된 도구호출 성공률 약 33% — 코드만으로 완전한 자유 이해를
+    만들 수는 없고, 이는 결국 로컬 모델 성능/하드웨어에 달린 문제).
 
-    키워드 매칭은 여전히 bare substring 매칭이라 원리적으로 오탐 가능성이 남아있다
-    (예: 새로운 복합어). 실측된 오탐 두 건은 `_FALSE_POSITIVE_DENYLIST`로 막았지만,
-    이건 화이트리스트가 아니라 알려진 사례에 대한 대응이므로 이 정도 잔여 리스크는
-    감내한다 — 최악의 경우도 "검증이 한 번 더 돌고 화면이 빨갛게 표시되는" 정도이고
-    (자동저장이 없어 파괴적이지 않음) 사용자가 바로 알아챌 수 있는 수준이다.
+    키워드 매칭은 bare substring 매칭이라 오탐 가능성이 남아있다. 실측된
+    오탐 두 건은 `_FALSE_POSITIVE_DENYLIST`로 막는다(F11에서 이미 검증됨).
     """
     response = ollama.chat(
         model="qwen3.5:2b",
@@ -64,11 +74,15 @@ def route_intent(user_message: str) -> str | None:
     tool_calls = response.get("message", {}).get("tool_calls") or []
     if tool_calls:
         return tool_calls[0]["function"]["name"]
+
     cleaned_message = user_message
     for phrase in _FALSE_POSITIVE_DENYLIST:
         cleaned_message = cleaned_message.replace(phrase, "")
+
     if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
+    if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
+        return "polish_to_formal_style"
     return None
 
 
@@ -237,6 +251,11 @@ def _selftest_route_intent():
     fp_card = route_intent("체크카드로 결제했어요")
     assert fp_card is None, fp_card
     print("route_intent 통과 (오탐 방지: 체크카드로 결제했어요):", fp_card)
+
+    # 5) F12: 새로 추가된 polish_to_formal_style 도구도 키워드로 잡히는지 확인
+    polish_choice = route_intent("이 문장 공문서체로 다듬어줘")
+    assert polish_choice == "polish_to_formal_style", polish_choice
+    print("route_intent 통과 (공문서체 변환):", polish_choice)
 
 
 if __name__ == "__main__":
