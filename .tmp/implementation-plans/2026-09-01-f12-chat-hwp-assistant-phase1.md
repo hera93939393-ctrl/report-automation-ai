@@ -182,6 +182,21 @@ git add source_reader.py
 git commit -m "F12: source_reader에 read_source_files 추가 - 개별파일+폴더 혼합 리스트 지원"
 ```
 
+**(2026-09-01 코드품질 리뷰 반영, 커밋 `60f5411`)** 리뷰에서 `read_source_files`의
+두 가지 실제 이슈가 지적되어 수정함: (1) 폴더 펼치기(`os.listdir`)가 try/except
+없이 노출되어 있어 권한 문제 등으로 예외가 터지면 이 모듈의 "절대 안 죽고 조용히
+건너뜀" 관례가 깨지는 문제 — `except OSError: continue`로 감쌈. (2) 같은 경로가
+리스트에 두 번 들어오거나(다중 선택 파일 대화상자 중복 선택) 상대/절대경로로 각각
+한 번씩 들어오면 같은 파일을 두 번 읽어 정답 풀이 조용히 배로 부풀려지는 문제 —
+펼쳐진 경로 목록을 `os.path.normpath(os.path.abspath(...))` 기준으로 순서를 유지한
+채 중복 제거해서 해결. 두 케이스 모두 새 self-test로 회귀 방지 커버(권한 오류는
+`unittest.mock.patch`로 `os.listdir` 실패를 시뮬레이션, dedup은 같은 파일을 두 번
+넣었을 때 한 번 넣은 것과 개수가 같은지 비교). 격리 검증(`python -c`로 새 self-test
+2개만 직접 호출) 통과 확인함; 전체 `python source_reader.py`는 이 태스크와 무관한
+기존 HWP self-test 계열의 간헐적 hang(exit 124)으로 끝까지 못 돌리는 건 Task 1
+최초 구현 때와 동일 — 새 self-test 및 기존 `read_source_files` 관련 self-test들은
+개별 호출로 전부 통과 확인함.
+
 ---
 
 ### Task 2: verify_tool.py — 이미 열린 문서 핸들 + 원본자료 리스트를 받도록 리팩터링
