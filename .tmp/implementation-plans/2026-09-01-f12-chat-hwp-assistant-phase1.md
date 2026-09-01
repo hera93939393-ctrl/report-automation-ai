@@ -212,6 +212,30 @@ git commit -m "F12: source_reader에 read_source_files 추가 - 개별파일+폴
 `run_verification 통과: 1건 확인 필요\n- [amount] '9999999원' 원본에서 확인 안 됨`,
 exit code 0. 실행 전후 `tasklist`로 `Hwp.exe` 프로세스 없음 확인(orphan 없음).
 
+**(2026-09-01 코드품질 리뷰 반영, 커밋 `893b130`)** 리뷰에서 실제로 재현·확인된
+버그: `run_verification`이 이전 호출에서 남긴 빨간 표시를 아무것도 지우지
+않아서, 같은 `HwpReport` 핸들로 재검증(F12의 핵심 시나리오 — 사용자가 원본을
+고치거나 새 원본을 첨부한 뒤 "다시 검증해줘")했을 때 값이 더 이상 불일치가
+아닌데도 문서엔 빨간 글자가 그대로 남고, 채팅창은 "이상 없음"이라고 답하는
+모순이 있었음. `hwp_report.py`에 `HwpReport.reset_colors()`(`SelectAll()` +
+`set_font(TextColor=검정)` + `Cancel()` — pyhwpx core.py의
+`get_used_style_dict()`/`remove_unused_styles()`가 쓰는 것과 동일한
+전체선택→작업→선택해제 패턴)를 추가하고, `run_verification` 시작부에서
+`report_text = report.get_text()` 직후 호출해 매 실행이 "리셋 후 현재
+대조결과만 재표시"하는 멱등적 동작이 되도록 수정. 회귀테스트
+`_selftest_run_verification_clears_stale_marks_on_rerun`(같은 핸들로 1차
+검증→빨간색 확인→원본 수정→2차 검증→`mismatch_count == 0` 및 글자색
+`(0,0,0)` 복귀 확인)을 추가하고 기존 `_selftest_run_verification`과 함께
+`timeout 90 python verify_tool.py` 1회 시도 만에 둘 다 통과(exit code 0,
+`Hwp.exe` orphan 없음). 두 함수의 docstring에 "같은 핸들 반복 호출" 계약을
+명시해 Task 9의 `_on_submit` 통합 구현자가 재발견할 필요 없게 함.
+
+**의도적으로 미룬 항목(리뷰 finding #2)**: `report.get_text()`가 이미
+닫힌/죽은 COM 핸들에 대해 호출되면 `pywintypes.com_error`가 그대로 올라오는
+문제는 이번 라운드에서 다루지 않음(별도 후속 과제로 `run_verification`
+docstring에 한 줄 남겨둠) — 실제 버그이지만 이번 수정과 성격이 다르고
+리뷰에서도 별도 라운드로 미루는 것이 합리적이라 판단됨.
+
 Files
 
 - Modify: `verify_tool.py` (전체 재작성 — 아래 Step 3 참고)
