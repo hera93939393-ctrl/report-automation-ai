@@ -1,5 +1,7 @@
 """chat_assistant.py — 작고 예쁜 채팅창 + Ollama Qwen3 도구호출 + verify_tool 실행.
 항상 위에 떠 있고 드래그 가능한 CustomTkinter 창."""
+import os
+
 import customtkinter as ctk
 from tkinter import filedialog
 import ollama
@@ -84,18 +86,18 @@ class ChatAssistant(ctk.CTk):
         self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
 
-        self.source_button = ctk.CTkButton(self, text="원본자료 선택 (파일)", command=self._choose_source_file)
-        self.source_button.pack(pady=4, padx=10, fill="x")
-
-        self.source_folder_button = ctk.CTkButton(self, text="원본자료 선택 (폴더)", command=self._choose_source_folder)
-        self.source_folder_button.pack(pady=4, padx=10, fill="x")
-
         self.chat_log = ctk.CTkTextbox(self, height=280)
         self.chat_log.pack(pady=10, padx=10, fill="both", expand=True)
         self.chat_log.configure(state="disabled")
 
-        self.input_box = ctk.CTkEntry(self, placeholder_text="예: 숫자 검증해줘")
-        self.input_box.pack(pady=(0, 10), padx=10, fill="x")
+        self.input_row = ctk.CTkFrame(self, fg_color="transparent")
+        self.input_row.pack(pady=(0, 10), padx=10, fill="x")
+
+        self.attach_button = ctk.CTkButton(self.input_row, text="+", width=32, command=self._attach_source)
+        self.attach_button.pack(side="left", padx=(0, 6))
+
+        self.input_box = ctk.CTkEntry(self.input_row, placeholder_text="예: 숫자 검증해줘")
+        self.input_box.pack(side="left", fill="x", expand=True)
         self.input_box.bind("<Return>", self._on_submit)
 
     def _choose_report(self):
@@ -126,17 +128,44 @@ class ChatAssistant(ctk.CTk):
         self._log(f"보고서 선택됨: {path}")
         position_windows(self.report.get_window_handle(), self)
 
-    def _choose_source_file(self):
-        path = filedialog.askopenfilename(filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")])
-        if path:
-            self.source_path = path
-            self._log(f"원본자료(파일) 선택됨: {path}")
+    def _attach_source(self):
+        """"+" 버튼 클릭 시 파일 여러 개 또는 폴더 중 고르는 작은 선택창을 띄운다.
+        tkinter의 파일 대화상자는 "파일이든 폴더든 한 화면에서 고르기"를 지원하지
+        않아, 이 작은 중간 선택창으로 두 경로를 하나의 "+" 진입점으로 통합한다."""
+        choice_window = ctk.CTkToplevel(self)
+        choice_window.title("원본자료 첨부")
+        choice_window.geometry("240x110")
+        choice_window.attributes("-topmost", True)
 
-    def _choose_source_folder(self):
+        def pick_files():
+            choice_window.destroy()
+            self._pick_source_files()
+
+        def pick_folder():
+            choice_window.destroy()
+            self._pick_source_folder()
+
+        ctk.CTkButton(choice_window, text="파일 선택 (여러 개 가능)", command=pick_files).pack(
+            pady=(10, 4), padx=10, fill="x")
+        ctk.CTkButton(choice_window, text="폴더 선택", command=pick_folder).pack(
+            pady=4, padx=10, fill="x")
+
+    def _pick_source_files(self):
+        paths = filedialog.askopenfilenames(
+            filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
+        )
+        if not paths:
+            return
+        self.source_paths = list(paths)
+        names = ", ".join(os.path.basename(p) for p in self.source_paths)
+        self._log(f"📎 원본자료 {len(self.source_paths)}개 첨부됨: {names}")
+
+    def _pick_source_folder(self):
         path = filedialog.askdirectory()
-        if path:
-            self.source_path = path
-            self._log(f"원본자료(폴더) 선택됨: {path}")
+        if not path:
+            return
+        self.source_paths = [path]
+        self._log(f"📎 원본자료(폴더) 첨부됨: {path}")
 
     def _log(self, message: str):
         self.chat_log.configure(state="normal")
