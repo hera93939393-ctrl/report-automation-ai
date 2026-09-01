@@ -365,7 +365,17 @@ git commit -m "F12: run_verification이 이미 열린 HwpReport 핸들과 원본
 
 ---
 
-### Task 3: hwp_report.py — 창 핸들(HWND) 가져오기
+### Task 3: hwp_report.py — 창 핸들(HWND) 가져오기 ✅ 완료 (커밋 `387b808`)
+
+**(2026-09-01 구현 완료)** 계획서 그대로 진행. Step 2에서 `AttributeError:
+type object 'HwpReport' has no attribute 'get_window_handle'` 확인 후 `get_window_handle()`을
+`close()` 바로 위에 추가하고, `_selftest_get_window_handle()`을 `if __name__ ==
+"__main__":` 블록에 추가.
+
+**검증**: `timeout 60 python hwp_report.py` 1회 시도 만에 통과(재시도 불필요) —
+`HwpReport 통과: 텍스트 읽기 + 모든 occurrence 빨간색 표시 확인` 및
+`HwpReport.get_window_handle() 통과: 18484556 '내 문서 1 - 한글'` 출력, exit code 0.
+실행 전후 `tasklist`로 `Hwp.exe` 프로세스 없음 확인(orphan 없음).
 
 Files
 
