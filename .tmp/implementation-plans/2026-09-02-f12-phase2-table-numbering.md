@@ -22,7 +22,11 @@ PRD 참고: `PRD.md` "## 14. F12 — 2단계" (14-1~14-6). 특히 14-2(비목표
 
 ---
 
-### Task 1: table_tool.py — 원본자료를 표로 변환하는 순수 로직
+### Task 1: table_tool.py — 원본자료를 표로 변환하는 순수 로직 ✅ 완료 (커밋 0cecfa8, 코드품질 리뷰 반영 45033d1)
+
+**구현 시 변경사항**: Step 3의 "헤더 행 수동 블록선택(TableCellBlockRow 등)" 코드는 실제로 필요 없었다 — pyhwpx의 `table_from_data()`가 이미 `cell_fill` 파라미터를 내장하고 있어(직접 소스 5087번 줄 확인) `report.hwp.table_from_data(excel_path, header=True, index=False, header_bold=True, cell_fill=header_fill or False)` 한 줄로 대체함. `TableCellBlockRow`라는 메서드는 pyhwpx에 존재하지 않음을 확인함(계획서가 예상한 불확실 지점이 실재했음).
+
+**코드품질 리뷰 반영**: "엑셀 없음" 경로에 대한 회귀 테스트가 없어서 `_selftest_insert_table_from_source_no_excel_source()` 추가.
 
 Files
 
