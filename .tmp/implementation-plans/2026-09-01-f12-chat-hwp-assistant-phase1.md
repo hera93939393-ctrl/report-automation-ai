@@ -1241,6 +1241,25 @@ git add chat_assistant.py
 git commit -m "F12: _on_submit 최종 통합 - 두 도구 실행 + 애매하면 되묻기"
 ```
 
+**(2026-09-01, 커밋 `909ec67`) ✅ Task 9 완료.** 계획서 원안 코드를 거의 그대로 적용(커밋 메시지는 원안과 문구만 다르게 씀, 내용은 동일). 원안 대비 한 가지 의도적 추가가 있음:
+
+- **`polish_to_formal_style` 결과의 `applied=False` 분기 추가** (원안엔 `f"도우미: 다듬었어요 → {result['polished_text']}"` 한 줄뿐이었음): `polish_tool.py`가 이미 LLM 빈 응답을 `applied=False`로 명시적으로 구분해 돌려주는데, 이를 무시하고 항상 성공 메시지 형태로 로그를 남기면 `applied=False`일 때 "다듬었어요 → " 뒤에 아무것도 없이 찍혀 실패를 성공처럼 보이게 하는 문제가 있었다. `if result["applied"]:` 분기를 추가해, 실패 시엔 "도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요."를 대신 출력하도록 함. 아래 실사용 검증에서 이 분기가 실제로 두 번 탔음(우연히 두 번 다 LLM이 빈 응답을 줌) — 그래서 이번 검증 회차에서는 "다듬어진 문장으로 실제 교체"되는 성공 경로 자체는 못 봤지만, 정직한 실패 메시지가 정확히 의도대로 나오는 것은 실증됨(계획서에 이미 "둘 다 인정되는 증거"로 명시된 경우).
+
+**실사용 시나리오 검증 방법**: 서브에이전트 환경이라 네이티브 파일 대화상자 자체의 클릭은 불가능하므로(F11 Task13/15와 동일한 제약), `tkinter.filedialog.askopenfilename`/`askopenfilenames`만 몽키패치로 테스트 파일 경로를 반환하도록 우회하고, 그 외의 모든 것 — `ChatAssistant` 인스턴스 생성, `_choose_report()`/`_pick_source_files()`/`_on_submit()` 호출, Ollama 라우팅/생성 호출, HWP COM 자동화 — 는 전부 실제 코드 경로를 그대로 실행하는 인프로세스 드라이버 스크립트(`ChatAssistant()`를 만들고 `mainloop()` 대신 각 단계 사이 `app.update()`로 이벤트를 직접 처리)로 검증함. HWP 보안 대화상자 대비용으로 완전히 독립된 감시 프로세스(`subprocess.Popen`, `EnumWindows`+`PostMessage`로 Enter 전송)를 미리 띄워뒀으나, 이번 실행에서는 실제로 뜨지 않았음(간헐적 현상이라 안 뜬 것도 정상 범위).
+
+1. `pyhwpx`+`openpyxl`로 `verify_tool._selftest_run_verification`과 동일 패턴의 테스트 보고서(`예산은 185만원이며, 오타는 9999999원입니다. 이번 사업은 성과가 좋았음.`)와 원본 엑셀(A2=1850000) 생성.
+2. `app._choose_report()` 실행(파일 대화상자만 몽키패치) → `app.report`가 실제로 채워짐, 채팅로그에 "보고서 선택됨: ..." 확인, 한글 창이 실제로 `(0, 0, 1440, 1032)`로 이동함을 `win32gui.GetWindowRect`로 확인(작업영역 1920 폭의 75% = 1440, 계획대로).
+3. `app._pick_source_files()` 실행 → 채팅로그에 "📎 원본자료 1개 첨부됨: 원본.xlsx" 확인, `app.source_paths == [원본.xlsx 경로]` 확인.
+4. 입력창에 "숫자 검증해줘"를 넣고 `app._on_submit(None)` 실제 호출(Ollama route_intent + `run_verification` 실제 실행, 44.8초 소요) → 채팅로그에 "1건 확인 필요\n- [amount] '9999999원' 원본에서 확인 안 됨" 확인, `report.get_char_color_at("9999999")`가 실제로 `(255, 0, 0)` — 빨간색 표시 실증.
+5. `report.hwp.find("이번 사업은 성과가 좋았음", direction="AllDoc")`로 문장 선택(`SelectionMode=1` 확인) 후 "공문서체로 다듬어줘" 제출(525.1초 소요, 이 PC의 Ollama가 이번엔 느렸음) → `applied=False`(LLM 빈 응답)라서 "도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요." 정확히 출력됨.
+6. "이거 손 좀 봐줄래"(계획서가 제안한 예시 문장 그대로) 제출 → 첫 시도에 바로 되묻기 발동, `app._pending_clarification == '이거 손 좀 봐줄래'`, 채팅로그에 "무슨 뜻인지 잘 모르겠어요..." 확인(대체 문장 재시도 불필요했음).
+7. 후속 답변 "공문서체" 제출 → `_pending_clarification`이 `None`으로 리셋됨, "이전 원문 + 이번 답변"이 합쳐져 `polish_to_formal_style`로 정확히 라우팅됨(다시 LLM 빈 응답이라 정직한 실패 메시지 출력, 위와 같은 이유로 성공 경로는 이번 회차에 관측 못함).
+8. 채팅창 전체 대화 스크린샷: `.tmp/task9_screenshot.png` (미추적, Task13 관례 유지) — 검증/다듬기 실패 메시지/되묻기 전체 흐름이 한 화면에 다 보임.
+9. 한글 문서 스크린샷: `.tmp/task9_hwp_screenshot.png` — "185만원"은 검정, "9999999원"만 빨간색, "이번 사업은 성과가 좋았음"이 선택(반전) 상태로 남아있음(다듬기가 실패해 대체되지 않았으므로 선택만 남은 것이 정확한 상태).
+10. 정리: `report.close(save=False)`, `app.destroy()`, 테스트 파일/폴더 삭제, 보안 대화상자 감시 프로세스 종료. 검증 전후 `tasklist`로 `Hwp.exe`/`python.exe` 잔류 프로세스 없음 확인.
+
+**드라이버 스크립트는 스크래치패드에만 존재하고 저장소에는 커밋하지 않음** (F11 Task15 관례와 동일).
+
 ---
 
 ### Task 10: 실사용 통합 회귀 테스트 + PRD 성공기준 확인
