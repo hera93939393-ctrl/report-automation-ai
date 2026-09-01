@@ -981,12 +981,55 @@ Run: `python chat_assistant.py`
 4. 다시 "+" 클릭 → "폴더 선택" → 폴더 선택 → "📎 원본자료(폴더) 첨부됨: ..." 확인
 5. 스크린샷으로 이 흐름을 캡처
 
-- [ ] Step 5: 커밋
+- [x] Step 5: 커밋
 
 ```bash
 git add chat_assistant.py
 git commit -m "F12: 원본자료 버튼 2개를 '+' 첨부(파일 여러개/폴더) 하나로 통합"
 ```
+
+**완료 (2026-09-01, 커밋 `9609f74`)**: 위 Step 1~3(옛 버튼 2개 삭제, 입력줄을
+`input_row` 프레임 + "+" `attach_button`으로 교체, `_choose_source_file`/
+`_choose_source_folder`를 `_attach_source`/`_pick_source_files`/
+`_pick_source_folder` 3개로 교체)을 계획서 코드 그대로 적용함. `os.path.basename`이
+새로 필요해져 Task 6 리뷰에서 제거됐던 `import os`를 다시 추가함(실제 사용처 확인 후
+추가 — 다시 죽은 import가 되지 않도록 `_pick_source_files`에서 바로 사용).
+
+검증은 Task 13/15가 세운 전례(`FindWindowW`+실제 OS 마우스 이벤트, 합성 Tk 이벤트
+아님)를 그대로 따르되, 이번 태스크는 시각적 배치 확인이 핵심이라 실제 렌더링된
+창을 대상으로 진행함:
+
+1. 드라이버 스크립트로 실제 `ChatAssistant()`를 띄우고(파일 대화상자만
+   `filedialog.askopenfilenames`/`askdirectory` 몽키패치로 우회 — 태스크 지시가
+   명시적으로 허용한 대체 방법, OS 네이티브 다이얼로그 자체는 이전 태스크들에서
+   이미 검증된 손대지 않은 코드), `win32api.SetCursorPos`+`mouse_event`로 진짜
+   마우스 클릭을 보냈다.
+2. 위젯 좌표 확인: `report_button` y=197(맨 위), `attach_button`/`input_box`
+   y=629(맨 아래, 두 값 동일)로 같은 줄에 있음을 확인. `attach_button`이
+   `input_box`보다 왼쪽(x 더 작음)에 위치. `hasattr(app, "source_button")` /
+   `"source_folder_button")` 모두 `False` — 옛 버튼 완전히 제거됨.
+3. "+" 버튼 실제 클릭 → `CTkToplevel` 선택창이 실제로 뜸(제목 "원본자료 첨부",
+   버튼 텍스트 ["파일 선택 (여러 개 가능)", "폴더 선택"] 확인).
+4. "파일 선택" 버튼 실제 클릭 → 몽키패치된 `askopenfilenames`가 가짜 파일 3개
+   경로를 반환 → `app.source_paths`가 정확히 그 3개 리스트로 채워짐, 채팅 로그에
+   "📎 원본자료 3개 첨부됨: fake_source1.xlsx, fake_source2.xlsx,
+   fake_source3.hwp" 정확히 찍힘.
+5. "+" 재클릭 → "폴더 선택" 실제 클릭 → 몽키패치된 `askdirectory`가 가짜 폴더
+   경로 반환 → `app.source_paths == ["...fake_source_folder"]`로 교체됨(파일
+   선택 이후에도 폴더 선택 시 리스트가 새로 덮어써짐 확인), 로그에 "📎
+   원본자료(폴더) 첨부됨: ..." 정확히 찍힘.
+6. 실제 창을 `win32gui.GetWindowRect`로 캡처한 스크린샷:
+   `.tmp/task7_screenshot.png` (미커밋, 기존 관례대로 untracked 유지) — "보고서
+   파일 선택" 버튼만 맨 위에 있고, 맨 아래에 "+" 버튼과 입력창("예: 숫자
+   검증해줘")이 나란히 한 줄에 있는 최종 레이아웃을 육안으로 확인함.
+7. 검증 후 `app.destroy()`로 정리, `tasklist`로 `python.exe`/`Hwp.exe` 잔류
+   프로세스 없음 확인(애초에 이 태스크는 HWP를 열지 않음).
+
+1회차 시도에서 팝업 내부 버튼 클릭이 반응하지 않는 문제가 있었음 — 새로 뜬
+`CTkToplevel`이 포그라운드로 활성화되기 전에 클릭이 가서 "창 활성화만 되고
+클릭은 씹히는" 현상으로 추정. `win32gui.SetForegroundWindow`로 팝업을 명시적으로
+포그라운드로 올린 뒤 클릭하도록 드라이버를 수정해서 해결(재시도 1회, 앱 코드
+자체의 문제 아니라 자동화 스크립트 쪽 타이밍 이슈였음).
 
 ---
 
