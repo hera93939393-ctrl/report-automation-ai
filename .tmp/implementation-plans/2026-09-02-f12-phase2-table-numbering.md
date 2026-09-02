@@ -780,9 +780,20 @@ report.close(save=False) 완료
 
 ### 7. 미해결 이슈 요약 (숨기지 않고 전부 기록)
 
-- `chat_assistant.py --selftest`와 `polish_tool.py`를 명령 그대로 실행해 exit 0까지 완주시키는 데 오늘 밤 끝내 실패했다(각각 4회 이상 재시도, 매번 ollama.chat() 호출 중 무응답으로 멈춤 → 강제종료). 아침에 사용자가 직접 재실행해 확인이 필요하다.
 - `.tmp/screenshots/task3_table_style_picker_zoom.png`가 git에 커밋되지 않은 채 남아있다(Task 3 범위라 이번엔 손대지 않음).
 - ollama.chat() 연속 호출 시 멈추는 근본 원인 미상.
+
+### 8. 사용자 확인 및 후속 조치 (2026-09-02 아침, 사용자와 함께 진행)
+
+사용자가 아침에 직접 `chat_assistant.py --selftest`와 `polish_tool.py`를 실행해 확인했다:
+
+- **ollama.chat() 무한대기 현상은 재현 안 됨** — 9개 호출 전부 정상 완주(exit 0 자체는 아니었지만 멈추지 않고 끝까지 실행됨). 지난밤 현상은 일시적 환경 문제였던 것으로 보인다.
+- 대신 두 가지 다른 실패가 나왔는데, 둘 다 새 버그가 아니라 기존에 이미 알려진 로컬 LLM(qwen3.5:2b) 불안정성이었다:
+  1. `chat_assistant.py --selftest`의 tie-break 테스트(#8, "표에 번호 매겨줘")가 실패 — 이번엔 LLM이 스스로 도구호출에 성공해서(`insert_numbering`) 키워드 우선순위 안전망(`insert_table`)을 아예 거치지 않음. **본문 2절에 이미 이 비결정성이 기록돼 있었음.**
+  2. `polish_tool.py`가 LLM 빈 응답으로 실패 — F12 1단계부터 알려진 기존 특성(노트북 하드웨어 업그레이드 논의의 배경이 된 바로 그 문제), 이번 라운드에서 변경한 코드가 아님.
+- 사용자가 "더 안정적으로" 고쳐달라고 요청 → **`_route_by_keywords()`로 리팩터링**(커밋 `3e88fbf`): 키워드 안전망 로직을 `route_intent()`에서 순수 함수로 분리했다. `_selftest_route_intent()`의 9개 assertion을 전부 `_route_by_keywords()`를 직접 호출하도록 바꿔서, **self-test가 이제 ollama.chat()을 한 번도 부르지 않는다** — LLM의 성공/실패와 무관하게 항상 같은 결과가 나온다(3회 연속 실행으로 결정성 확인, 매번 즉시 통과). `route_intent()`(LLM+키워드 통합) 자체는 실사용 흐름에서 그대로 쓰이며 변경 없음 — 이건 self-test 방식만 고친 것이지, 실사용 중 LLM이 여전히 스스로 도구를 잘못 고를 가능성 자체를 없앤 건 아니다(그건 로컬 모델 성능의 근본적 한계, PRD 13-4에 이미 명시됨).
+- `table_tool.py`/`numbering_tool.py`/`verify_tool.py`/`source_reader.py`/`hwp_report.py`/`window_layout.py`/`chat_assistant.py --selftest` 전부 재실행해 회귀 없음(exit 0) 재확인.
+- `polish_tool.py`의 LLM 빈 응답 문제는 이번 세션에서 고치지 않았다 — 로컬 모델 품질 자체의 한계로, 하드웨어/모델 업그레이드 이후 재검토 대상(사용자와 이미 별도로 논의됨).
 
 ---
 
