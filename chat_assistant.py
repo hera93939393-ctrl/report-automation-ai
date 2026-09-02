@@ -304,7 +304,15 @@ class ChatAssistant(ctk.CTk):
         팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다."""
         from table_tool import TABLE_STYLES, insert_table_from_source
 
-        picker = self._make_topmost_popup("표 스타일 선택", "360x260")
+        # (F12 2단계, 사용자 요청으로 UI 다듬기) 팝업 높이를 늘려 안내 문구가
+        # 들어갈 공간을 확보했다 — 버튼 3개만 덩그러니 있던 것보다 "무엇을
+        # 선택하는 화면인지"가 한눈에 보이도록.
+        picker = self._make_topmost_popup("표 스타일 선택", "360x290")
+
+        ctk.CTkLabel(
+            picker, text="원본자료를 표로 삽입합니다. 아래에서 스타일을 선택하세요:",
+            font=ctk.CTkFont(size=12),
+        ).pack(pady=(10, 4), padx=10, anchor="w")
 
         def choose(style_key):
             picker.destroy()
@@ -322,12 +330,21 @@ class ChatAssistant(ctk.CTk):
 
             # 축소 모형: 2열짜리 미니 표를 Label 격자로 직접 그린다. 헤더 행에만
             # header_fill 색을 적용해 실제 표 삽입 결과와 시각적으로 대응시킨다.
+            #
+            # (사용자 요청으로 수정) "기본형(테두리만)" 스타일은 실제 삽입 시
+            # header_fill=None이라 table_tool.py가 cell_fill()을 아예 호출하지
+            # 않는다 — 즉 실제 결과는 배경색이 전혀 안 입혀진 흰 헤더다. 이전
+            # 버전은 여기서 임의로 짙은 회색("#3a3a3a")을 칠해 미리보기가 실제
+            # 결과와 다르게 보였다(마치 짙은 배경 헤더가 적용되는 것처럼 오해
+            # 소지). fg_color를 안 주면 CTkLabel이 부모(preview 프레임)와 같은
+            # 배경으로 그려져, "배경색 없음"이 실제로 배경색 없이 보인다 — 미리보기와
+            # 실제 삽입 결과를 정확히 일치시켰다.
             preview = ctk.CTkFrame(row)
             preview.pack(side="left", padx=(0, 10))
             header_color = style_info["header_fill"]
-            header_hex = "#{:02x}{:02x}{:02x}".format(*header_color) if header_color else "#3a3a3a"
+            header_kwargs = {"fg_color": "#{:02x}{:02x}{:02x}".format(*header_color)} if header_color else {}
             for col, text in enumerate(["항목", "금액"]):
-                ctk.CTkLabel(preview, text=text, fg_color=header_hex, width=50, height=20).grid(row=0, column=col, padx=1, pady=1)
+                ctk.CTkLabel(preview, text=text, width=50, height=20, **header_kwargs).grid(row=0, column=col, padx=1, pady=1)
             for col, text in enumerate(["인건비", "1,000,000"]):
                 ctk.CTkLabel(preview, text=text, width=50, height=20).grid(row=1, column=col, padx=1, pady=1)
 
@@ -343,7 +360,17 @@ class ChatAssistant(ctk.CTk):
         공통 처리된다 — 두 헬퍼의 docstring에 상세 근거가 있다."""
         from numbering_tool import NUMBERING_STYLES, insert_numbering_prefix
 
-        picker = self._make_topmost_popup("번호서식 선택", "280x200")
+        # (F12 2단계, 사용자 요청으로 UI 다듬기) 안내 문구가 들어갈 공간만큼
+        # 높이를 늘렸다 — 표 스타일 팝업과 동일한 개선. 폭도 280→320으로
+        # 넓혔다: 처음 280 그대로 뒀더니 안내 문구 왼쪽 글자("커")가 창
+        # 경계에 잘려 보이는 게 스크린샷으로 직접 확인됨(CTkLabel이 자동
+        # 줄바꿈을 안 해서 텍스트 폭이 좁은 창 폭을 넘어섬) — 실측 후 수정.
+        picker = self._make_topmost_popup("번호서식 선택", "320x230")
+
+        ctk.CTkLabel(
+            picker, text="커서 위치에 번호를 삽입합니다. 서식을 선택하세요:",
+            font=ctk.CTkFont(size=12),
+        ).pack(pady=(10, 4), padx=10, anchor="w")
 
         def choose(style_key):
             picker.destroy()
