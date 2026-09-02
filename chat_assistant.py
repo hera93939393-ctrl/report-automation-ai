@@ -76,25 +76,32 @@ _NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식"
 _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 
 
-def route_intent(user_message: str) -> str | None:
-    """사용자의 자연어 입력이 verify_numbers/polish_to_formal_style 중 어느
-    도구를 원하는지 판단한다. "뜻을 이해"하는 역할은 로컬 LLM(qwen3.5:2b)의
-    도구호출이 담당하고, 키워드 목록은 그 도구호출이 실패했을 때의 안전망이다
-    (F11에서 실측된 도구호출 성공률 약 33% — 코드만으로 완전한 자유 이해를
-    만들 수는 없고, 이는 결국 로컬 모델 성능/하드웨어에 달린 문제).
+def _route_by_keywords(user_message: str) -> str | None:
+    """키워드 안전망만으로 도구를 판단한다(로컬 LLM 호출 없음, 순수 함수).
+
+    route_intent()의 도구호출이 실패했을 때 쓰이는 바로 그 로직이지만, 이
+    함수 자체는 ollama를 전혀 부르지 않는다 — 그래서 결정적(deterministic)이다.
+
+    (F12 2단계, 사용자 요청으로 안정화) 원래는 이 로직이 route_intent() 안에
+    있었고, self-test(_selftest_route_intent)도 route_intent()를 통해서만
+    검증했다. 그런데 route_intent()는 키워드 판단 전에 먼저 실제로 로컬
+    LLM(qwen3.5:2b)의 도구호출을 시도하고, 그게 성공하면(즉 LLM이 스스로
+    맞든 틀리든 뭔가 하나를 골라내면) 아래 키워드 로직을 아예 거치지 않고
+    그 결과를 그대로 반환해버린다. 그래서 "표에 번호 매겨줘" 같은 tie-break
+    케이스를 route_intent()로 테스트하면, 실행할 때마다 LLM이 그 문장을
+    스스로 맞히는지 여부에 따라 결과가 달라지는 게 실측 확인됐다(F12 2단계
+    Task5 최종검증에서 재현, 그리고 사용자가 직접 실행했을 때도 같은 현상
+    재현됨) — 키워드 우선순위 코드 자체는 정확히 구현돼 있는데도 테스트
+    결과만 흔들리는 상황이었다. 키워드 로직을 이 별도 함수로 뽑아내고
+    self-test가 이 함수를 직접 부르도록 바꾸면, LLM의 성공/실패 여부와
+    무관하게 "키워드 안전망 코드 자체가 맞는 우선순위로 짜여있는지"만
+    순수하게 검증할 수 있다 — 부수 효과로 self-test 전체가 ollama.chat()을
+    한 번도 안 부르게 되어, 이 세션에서 반복 재현됐던 "연속 호출 시 멈춤"
+    현상의 영향도 받지 않는다.
 
     키워드 매칭은 bare substring 매칭이라 오탐 가능성이 남아있다. 실측된
     오탐 두 건은 `_FALSE_POSITIVE_DENYLIST`로 막는다(F11에서 이미 검증됨).
     """
-    response = ollama.chat(
-        model="qwen3.5:2b",
-        messages=[{"role": "user", "content": user_message}],
-        tools=_TOOLS,
-    )
-    tool_calls = response.get("message", {}).get("tool_calls") or []
-    if tool_calls:
-        return tool_calls[0]["function"]["name"]
-
     cleaned_message = user_message
     for phrase in _FALSE_POSITIVE_DENYLIST:
         cleaned_message = cleaned_message.replace(phrase, "")
@@ -131,6 +138,30 @@ def route_intent(user_message: str) -> str | None:
     if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
         return "insert_numbering"
     return None
+
+
+def route_intent(user_message: str) -> str | None:
+    """사용자의 자연어 입력이 어느 도구(verify_numbers/polish_to_formal_style/
+    insert_table/insert_numbering)를 원하는지 판단한다. "뜻을 이해"하는
+    역할은 로컬 LLM(qwen3.5:2b)의 도구호출이 담당하고, `_route_by_keywords()`는
+    그 도구호출이 실패했을 때의 안전망이다(F11에서 실측된 도구호출 성공률
+    약 33% — 코드만으로 완전한 자유 이해를 만들 수는 없고, 이는 결국 로컬
+    모델 성능/하드웨어에 달린 문제).
+
+    이 함수 자체는 매 호출마다 ollama.chat()을 실제로 부르므로 결정적이지
+    않다(LLM 응답에 따라 같은 입력도 다른 결과가 나올 수 있음) — 그래서
+    self-test는 이 함수가 아니라 `_route_by_keywords()`를 직접 검증한다
+    (아래 _selftest_route_intent 참고). 이 함수는 실사용 흐름(chat_assistant
+    실행 후 채팅 입력)에서 쓰인다."""
+    response = ollama.chat(
+        model="qwen3.5:2b",
+        messages=[{"role": "user", "content": user_message}],
+        tools=_TOOLS,
+    )
+    tool_calls = response.get("message", {}).get("tool_calls") or []
+    if tool_calls:
+        return tool_calls[0]["function"]["name"]
+    return _route_by_keywords(user_message)
 
 
 class ChatAssistant(ctk.CTk):
@@ -429,54 +460,60 @@ class ChatAssistant(ctk.CTk):
 
 
 def _selftest_route_intent():
-    # Ollama가 실제로 설치되어 있어야 통과한다 (Phase 0 사전준비 완료 전제)
-    # 1) 검증 요청 -> verify_numbers (LLM 도구호출이 실패해도 키워드 안전망이 잡아줘야 함)
-    tool_called = route_intent("숫자 검증해줘")
+    """키워드 안전망(_route_by_keywords)만 검증한다 — ollama.chat()을 전혀
+    부르지 않으므로 결정적이고, 로컬 LLM 서버가 안 떠 있어도 실행 가능하다
+    (F12 2단계, 사용자 요청으로 안정화: route_intent()를 통해 검증하면 LLM이
+    스스로 도구호출에 성공/실패하는지에 따라 결과가 흔들리는 게 실측
+    확인됐음 — _route_by_keywords 함수 docstring에 상세 경위 기록).
+    route_intent() 자체(LLM 통합 포함)는 이 self-test 범위가 아니고, 실제
+    `python chat_assistant.py` 실행 후 채팅 입력으로 확인한다."""
+    # 1) 검증 요청 -> verify_numbers
+    tool_called = _route_by_keywords("숫자 검증해줘")
     assert tool_called == "verify_numbers", tool_called
     print("route_intent 통과 (검증 요청):", tool_called)
 
     # 2) 무관한 요청 -> None (안전망이 과도하게 넓지 않은지 확인)
-    unrelated = route_intent("오늘 날씨 어때")
+    unrelated = _route_by_keywords("오늘 날씨 어때")
     assert unrelated is None, unrelated
     print("route_intent 통과 (무관한 요청):", unrelated)
 
     # 3) 2026-08-31 Task14 리뷰 반영: 새로 추가된 키워드(검토/점검/오류/검사)도
     # 안전망에서 잡히는지 확인 (PRD.md가 "검토"를 이런 요청에 20회 넘게 쓰는데
     # 정작 원래 키워드 목록에는 빠져 있었던 커버리지 공백에 대한 회귀 테스트)
-    new_keywords = route_intent("이거 검토 점검하고 오류 있는지 검사해줘")
+    new_keywords = _route_by_keywords("이거 검토 점검하고 오류 있는지 검사해줘")
     assert new_keywords == "verify_numbers", new_keywords
     print("route_intent 통과 (검토/점검/오류/검사):", new_keywords)
 
     # 4) 2026-08-31 Task14 리뷰 반영: 실측된 오탐 두 건이 denylist로 막히는지 확인
-    fp_choice = route_intent("파일 선택 확인했어")
+    fp_choice = _route_by_keywords("파일 선택 확인했어")
     assert fp_choice is None, fp_choice
     print("route_intent 통과 (오탐 방지: 파일 선택 확인했어):", fp_choice)
 
-    fp_card = route_intent("체크카드로 결제했어요")
+    fp_card = _route_by_keywords("체크카드로 결제했어요")
     assert fp_card is None, fp_card
     print("route_intent 통과 (오탐 방지: 체크카드로 결제했어요):", fp_card)
 
     # 5) F12: 새로 추가된 polish_to_formal_style 도구도 키워드로 잡히는지 확인
-    polish_choice = route_intent("이 문장 공문서체로 다듬어줘")
+    polish_choice = _route_by_keywords("이 문장 공문서체로 다듬어줘")
     assert polish_choice == "polish_to_formal_style", polish_choice
     print("route_intent 통과 (공문서체 변환):", polish_choice)
 
     # 6) F12 2단계: 새로 추가된 insert_table 도구가 키워드로 잡히는지 확인
-    table_choice = route_intent("이 데이터로 표 만들어줘")
+    table_choice = _route_by_keywords("이 데이터로 표 만들어줘")
     assert table_choice == "insert_table", table_choice
     print("route_intent 통과 (표 삽입):", table_choice)
 
     # 7) F12 2단계: 새로 추가된 insert_numbering 도구가 키워드로 잡히는지 확인
-    numbering_choice = route_intent("이 목록에 번호 매겨줘")
+    numbering_choice = _route_by_keywords("이 목록에 번호 매겨줘")
     assert numbering_choice == "insert_numbering", numbering_choice
     print("route_intent 통과 (번호서식):", numbering_choice)
 
     # 8) F12 2단계 Task4 코드품질 검토 반영: "표"와 "번호"가 한 문장에 동시에
     # 걸리는 경우(예: "표에 번호 매겨줘") insert_table이 이긴다는 현재 우선순위를
     # 회귀 테스트로 고정해둔다 — Task8에서 verify_numbers/polish_to_formal_style
-    # tie-break를 테스트로 고정한 것과 같은 맥락(route_intent의 if/elif 순서를
-    # 코드 리딩만으로 유추해야 하는 상태를 남겨두지 않기 위함).
-    table_numbering_tie = route_intent("표에 번호 매겨줘")
+    # tie-break를 테스트로 고정한 것과 같은 맥락. _route_by_keywords를 직접
+    # 부르므로 이제 LLM이 이 문장을 스스로 맞히든 말든 결과가 항상 같다.
+    table_numbering_tie = _route_by_keywords("표에 번호 매겨줘")
     assert table_numbering_tie == "insert_table", table_numbering_tie
     print("route_intent 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
 
