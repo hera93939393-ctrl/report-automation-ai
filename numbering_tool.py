@@ -17,16 +17,27 @@ NUMBERING_STYLES = {
 
 def insert_numbering_prefix(report: HwpReport, style: str) -> dict:
     """style에 해당하는 프리픽스 문자열을 커서 위치에 삽입한다.
-    선택된 텍스트가 있으면(F12 1단계 polish_to_formal_style과 같은 관례로)
-    그 앞에 프리픽스만 덧붙이는 것이 아니라, 프리픽스를 그대로 삽입 지점에
-    끼워넣는다 — insert_text()의 기본 동작(선택 영역 앞에 삽입되지 않고
-    선택 영역을 대체함)과 혼동하지 않도록, 이 함수는 항상 "선택 없음" 상태를
-    전제로 한다(미리보기 팝업 플로우에서 선택 여부를 별도로 다루지 않음,
-    PRD 14-2 범위 밖)."""
+
+    insert_text()는 문서에 선택된 텍스트가 있으면 그 선택 영역을 통째로 지우고
+    대체해버리는 부작용이 있다(F12 1단계 polish_tool.py에서 이미 검증된 pyhwpx
+    동작 — 직접 재현: "가나다라마바사"에서 "다라마"를 선택한 채 이 함수를
+    호출하면 "다라마"가 사라지고 "가나1. 바사"가 됨). 미리보기 팝업 플로우
+    (PRD 14-2, chat_assistant.py)는 사용자가 문서에서 뭔가 드래그해 선택해둔
+    채로 이 도구를 실행하는 상황을 막지 않으므로, 이 함수가 스스로 방어해야
+    한다.
+
+    그래서 삽입 직전에 항상 report.hwp.Cancel()로 선택을 해제한다 — 선택이
+    없었으면 no-op이고, 선택이 있었으면 그 콘텐츠는 그대로 보존된 채 선택만
+    풀린다. 직접 테스트로 확인한 바, Cancel() 이후 커서는 선택 영역의
+    "끝점"에 남는다(시작점이 아님) — 예: "다라마"를 선택하고 Cancel() 하면
+    커서는 "마"와 "바" 사이에 위치한다. 따라서 프리픽스는 선택했던 콘텐츠
+    바로 뒤에 삽입된다.
+    """
     if style not in NUMBERING_STYLES:
         raise ValueError(f"알 수 없는 번호서식: {style}")
 
     prefix = NUMBERING_STYLES[style]["prefix"]
+    report.hwp.Cancel()
     applied = report.hwp.insert_text(prefix)
     return {"inserted": bool(applied), "style": style}
 
@@ -89,6 +100,51 @@ def _selftest_all_styles_have_correct_prefix():
     print("insert_numbering_prefix 4종 스타일 전부 통과")
 
 
+def _selftest_insert_numbering_prefix_preserves_selection():
+    """회귀 테스트(스펙 검토에서 발견된 버그): 문서에 선택된 텍스트가 있는 채로
+    insert_numbering_prefix()를 호출해도 그 선택된 콘텐츠가 사라지면 안 된다.
+
+    insert_text()는 선택 영역이 있으면 그 선택 영역을 통째로 지우고 대체해버리는
+    부작용이 있다(F12 1단계 polish_tool.py에서 이미 검증된 pyhwpx 동작). 이 함수의
+    이전 구현은 이 부작용을 막는 가드가 전혀 없어서, 사용자가 문서에서 뭔가
+    드래그해 선택해둔 채로 "번호 매겨줘"를 실행하면 선택된 콘텐츠가 조용히
+    사라지는 실사용 위험이 있었다(직접 재현: "가나다라마바사"에서 "다라마"를
+    선택한 채 호출하면 "가나1) 바사"가 되어 "다라마"가 사라짐).
+    """
+    import os, tempfile
+    from pyhwpx import Hwp
+    from hwp_report import HwpReport
+
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_번호_선택유지.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("가나다라마바사")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        found = report.hwp.find("다라마", direction="AllDoc")
+        assert found, "테스트 문장에서 '다라마'를 못 찾음"
+        assert report.hwp.SelectionMode != 0, "선택이 안 된 상태로 테스트가 시작됨"
+
+        result = insert_numbering_prefix(report, style="arabic_dot")
+        assert result["inserted"] is True, result
+
+        final_text = report.get_text()
+        assert "다라마" in final_text, (
+            "선택된 콘텐츠('다라마')가 사라짐 — insert_text()가 선택 영역을 "
+            f"대체해버리는 버그가 재현됨: {final_text!r}"
+        )
+        assert "1. " in final_text, final_text
+        print("insert_numbering_prefix(선택 있음, 콘텐츠 보존) 통과:", repr(final_text))
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_insert_numbering_prefix()
     _selftest_all_styles_have_correct_prefix()
+    _selftest_insert_numbering_prefix_preserves_selection()
