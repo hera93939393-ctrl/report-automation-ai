@@ -51,6 +51,24 @@ def insert_table_from_source(report: HwpReport, source_paths: list[str], style: 
 
     원본자료에 엑셀 파일이 하나도 없으면 문서를 건드리지 않고
     inserted=False를 반환한다.
+
+    회귀 테스트로 확인된 크래시 방지: 문서에 텍스트가 선택된 상태로 이 함수를
+    호출해도 크래시하지 않는다. table_from_data() 호출 직전에 항상
+    report.hwp.Cancel()로 선택을 해제하기 때문이다(선택이 없었으면 no-op).
+    이 가드가 없으면, 선택된 상태에서 table_from_data()가 내부적으로 실행하는
+    "TableCreate" HAction이 COM 에러를 던지고 pyhwpx의 create_table()이
+    ctrl=None에 .Properties를 대입하려다 AttributeError로 이어지는 크래시가
+    결정적으로(재현성 100%) 발생한다 — numbering_tool.py의
+    insert_numbering_prefix()가 이미 같은 철학(삽입 직전 Cancel())으로 방어한
+    것과 동일한 안전장치를 여기에도 맞춘 것이다. numbering_tool.py의 텍스트
+    프리픽스 케이스와 달리 표는 새로 삽입되는 콘텐츠라서(기존 텍스트를
+    대체하는 게 아니라 커서 위치에 새 표를 끼워넣음), 선택했던 텍스트가
+    사라지거나 대체될 위험 자체가 원래 없었다 — Cancel()은 오직
+    table_from_data/create_table이 COM 에러 없이 안정적으로 동작하게 만들기
+    위한 방어일 뿐이다. Cancel() 이후 커서는 선택 영역의 끝점에 남고, 표는
+    바로 그 커서 위치(선택했던 콘텐츠 바로 뒤)에 삽입된다 — 선택했던 텍스트
+    자체는 문서에 그대로 남는다(직접 재현 테스트로 확인,
+    _selftest_insert_table_from_source_with_selection_does_not_crash 참고).
     """
     if style not in TABLE_STYLES:
         raise ValueError(f"알 수 없는 표 스타일: {style}")
@@ -63,6 +81,23 @@ def insert_table_from_source(report: HwpReport, source_paths: list[str], style: 
     # cell_fill 파라미터는 False(배경색 없음) 또는 (R,G,B) 튜플을 받는다.
     # header_fill이 None이면 False를 넘겨 table_from_data가 cell_fill()을
     # 아예 호출하지 않게 한다(기본형 스타일은 배경색을 적용하지 않아야 함).
+    #
+    # 코드품질 검토에서 발견된 크래시 버그 수정: 문서에 텍스트가 선택된 채로
+    # table_from_data()를 호출하면, 그 내부의 create_table()이 실행하는
+    # "TableCreate" HAction이 COM 에러(pywintypes.com_error, -2147417851)를
+    # 던지고, 이어서 pyhwpx core.py의 create_table() finally 블록에서
+    # `ctrl = self.hwp.CurSelectedCtrl or self.hwp.ParentCtrl` 결과가 None인
+    # 채로 `ctrl.Properties = pset`를 실행하다 AttributeError로 이어져
+    # 프로그램이 크래시한다(직접 재현 확인, 두 번 연속 동일 스택트레이스 —
+    # 간헐적 COM 불안정성이 아니라 선택 상태에 의해 결정적으로 재현됨).
+    # numbering_tool.py의 insert_numbering_prefix()가 이미 같은 부류의
+    # "선택된 콘텐츠" 위험에 대해 삽입 직전 Cancel()로 방어한 것과 동일한
+    # 철학으로, 여기서도 표 생성 직전에 선택을 항상 해제한다 — 선택이
+    # 없었으면 no-op이고, 선택이 있었으면 그 콘텐츠는 그대로 보존된 채
+    # 선택만 풀린다(표는 커서 위치에 새로 삽입되는 콘텐츠이므로, 선택했던
+    # 텍스트가 지워지거나 대체될 위험 자체가 없다 — Cancel()은 오직
+    # table_from_data가 안정적으로 동작하게 만드는 방어일 뿐이다).
+    report.hwp.Cancel()
     report.hwp.table_from_data(
         excel_path,
         header=True,
@@ -196,7 +231,63 @@ def _selftest_insert_table_from_source_no_excel_source():
         os.remove(report_path)
 
 
+def _selftest_insert_table_from_source_with_selection_does_not_crash():
+    """회귀 테스트(코드품질 검토에서 발견된 크래시 버그): 문서에 텍스트가 선택된
+    채로 insert_table_from_source()를 호출해도 크래시하면 안 되고, 표가 정상
+    삽입되어야 한다.
+
+    선택된 상태로 report.hwp.table_from_data(...)를 호출하면 내부적으로 실행하는
+    "TableCreate" HAction이 COM 에러(-2147417851)를 던지고, 이어서 pyhwpx의
+    create_table() 내부 finally 블록(site-packages/pyhwpx/core.py, 5916번 줄 근처)의
+    `ctrl = self.hwp.CurSelectedCtrl or self.hwp.ParentCtrl; ... ctrl.Properties = pset`
+    에서 표 생성 자체가 실패해 ctrl이 None인 채로 남아 AttributeError로 이어지는
+    크래시가 재현된다(직접 재현 확인, 두 번 연속 동일 스택트레이스 — 결정적 버그).
+    이 함수의 이전 구현은 이 상태를 막는 가드가 없었다.
+    """
+    import os, tempfile, openpyxl
+    from pyhwpx import Hwp
+    from hwp_report import HwpReport
+
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_표선택유지")
+    os.makedirs(test_dir, exist_ok=True)
+    source_path = os.path.join(test_dir, "원본.xlsx")
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws.append(["항목", "금액"])
+    ws.append(["인건비", 1000000])
+    wb.save(source_path)
+
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표선택.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("가나다라마바사")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        found = report.hwp.find("다라마", direction="AllDoc")
+        assert found, "테스트 문장에서 '다라마'를 못 찾음"
+        assert report.hwp.SelectionMode != 0, "선택이 안 된 상태로 테스트가 시작됨"
+
+        result = insert_table_from_source(report, source_paths=[source_path], style="default")
+        assert result["inserted"] is True, result
+
+        final_text = report.get_text()
+        assert "다라마" in final_text, (
+            "선택된 콘텐츠('다라마')가 사라짐: " + repr(final_text)
+        )
+        assert "인건비" in final_text, final_text
+        print("insert_table_from_source(선택 있음, 크래시 없음) 통과:", repr(final_text))
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_insert_table_from_source_default_style()
     _selftest_insert_table_from_source_colored_header()
     _selftest_insert_table_from_source_no_excel_source()
+    _selftest_insert_table_from_source_with_selection_does_not_crash()

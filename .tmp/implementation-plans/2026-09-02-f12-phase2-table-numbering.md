@@ -28,6 +28,8 @@ PRD 참고: `PRD.md` "## 14. F12 — 2단계" (14-1~14-6). 특히 14-2(비목표
 
 **코드품질 리뷰 반영**: "엑셀 없음" 경로에 대한 회귀 테스트가 없어서 `_selftest_insert_table_from_source_no_excel_source()` 추가.
 
+**코드품질 재검토에서 발견된 크래시 버그 수정**: 문서에 텍스트가 선택된 상태로 `insert_table_from_source()`를 호출하면 프로그램이 크래시하는 결정적(재현성 100%) 버그가 발견됨. 원인: 선택된 상태로 `report.hwp.table_from_data(...)`를 호출하면, 그 내부의 `create_table()`이 실행하는 "TableCreate" HAction이 `pywintypes.com_error: (-2147417851, ...)`를 던지고, 이어서 pyhwpx `core.py`의 `create_table()` finally 블록(5916번 줄 근처)에서 `ctrl = self.hwp.CurSelectedCtrl or self.hwp.ParentCtrl`가 표 생성 실패로 인해 `None`인 채로 `ctrl.Properties = pset`을 실행하다 `AttributeError: 'NoneType' object has no attribute 'Properties'`로 이어짐. TDD로 먼저 회귀 테스트 `_selftest_insert_table_from_source_with_selection_does_not_crash()`를 추가해 수정 전 실제로 이 크래시(동일 스택트레이스)가 재현되는 것을 직접 실행으로 확인한 뒤, `insert_table_from_source()`에서 `report.hwp.table_from_data(...)` 호출 직전에 `report.hwp.Cancel()`을 추가해 고쳤다 — numbering_tool.py의 `insert_numbering_prefix()`(커밋 7e228e9)가 이미 같은 부류의 "선택된 콘텐츠" 위험에 대해 적용한 것과 동일한 방어 철학. numbering_tool.py의 텍스트 프리픽스 케이스와 달리 표는 새로 삽입되는 콘텐츠라 선택했던 텍스트가 지워지거나 대체될 위험 자체는 원래 없었다(Cancel()은 오직 table_from_data/create_table이 COM 에러 없이 안정적으로 동작하게 만들기 위한 방어). 수정 후 회귀 테스트로 직접 확인한 동작: "가나다라마바사"에서 "다라마"를 선택([find](AllDoc))한 채 표를 삽입하면, 결과 문서는 `가나다라마` + [표: 항목/금액/인건비/1000000] + `바사`가 된다 — 선택했던 "다라마"는 그대로 보존되고, 표는 Cancel() 이후 커서가 남는 위치(선택 영역의 끝점, "마"와 "바" 사이)에 삽입된다. 수정 후 기존 self-test 3종 + 신규 회귀 테스트 1종 전부(`python table_tool.py`) 통과 확인(exit code 0).
+
 Files
 
 - Create: `table_tool.py`
