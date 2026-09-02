@@ -224,11 +224,14 @@ class ChatAssistant(ctk.CTk):
     def _attach_source(self):
         """"+" 버튼 클릭 시 파일 여러 개 또는 폴더 중 고르는 작은 선택창을 띄운다.
         tkinter의 파일 대화상자는 "파일이든 폴더든 한 화면에서 고르기"를 지원하지
-        않아, 이 작은 중간 선택창으로 두 경로를 하나의 "+" 진입점으로 통합한다."""
-        choice_window = ctk.CTkToplevel(self)
-        choice_window.title("원본자료 첨부")
-        choice_window.geometry("240x110")
-        choice_window.attributes("-topmost", True)
+        않아, 이 작은 중간 선택창으로 두 경로를 하나의 "+" 진입점으로 통합한다.
+
+        (F12 2단계 다음 라운드 후보였던 것을 사용자 요청으로 지금 반영) 이
+        창도 Task 3/4에서 발견된 topmost 가려짐 버그와 같은 취약점을 갖고
+        있었다 — 단순히 `attributes("-topmost", True)`만 설정하면 메인
+        ChatAssistant 창(역시 topmost)에 가려질 수 있다. `_make_topmost_popup()`로
+        통일해 같은 안전장치(after(50, lift/focus_force))를 적용한다."""
+        choice_window = self._make_topmost_popup("원본자료 첨부", "240x110")
 
         def pick_files():
             choice_window.destroy()
