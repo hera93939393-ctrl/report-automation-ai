@@ -199,6 +199,23 @@ class ChatAssistant(ctk.CTk):
         picker.title("표 스타일 선택")
         picker.geometry("360x260")
         picker.attributes("-topmost", True)
+        # (스펙 준수 검토 중 재현/수정) 메인 ChatAssistant 창도 -topmost=True라서,
+        # 단순히 CTkToplevel을 만들기만 하면 팝업이 메인 창 뒤에 가려질 수 있음이
+        # win32gui로 실측 재현됐다(포그라운드 창이 메인 창으로 계속 남음) — 팝업이
+        # 안 보이면 "표 만들어줘"를 입력해도 무반응처럼 보여 F12 1단계의
+        # "무반응보다 되묻는 게 낫다" 원칙에 반한다.
+        #
+        # lift()/focus_force()를 여기서 바로(동기적으로) 호출하는 것만으로는
+        # 고쳐지지 않는다: CTkToplevel.__init__ 내부(Windows용 다크 타이틀바
+        # 처리, customtkinter/windows/ctk_toplevel.py의 _windows_set_titlebar_color)가
+        # 생성자 안에서 self.withdraw()로 창을 일단 숨겨두고, self.after(5, ...)로
+        # 5ms 뒤에야 deiconify()로 다시 보이게 만든다. 그래서 CTkToplevel(self)
+        # 생성 직후 곧바로 lift()/focus_force()를 호출하면 그 시점엔 창이 아직
+        # (혹은 다시) 숨겨진 상태라 효과가 없다 — 실측으로 확인(win32gui로
+        # foreground를 찍어보면 lift/focus_force 직후 호출로는 여전히 메인
+        # 창이 foreground로 남아있음). 그 5ms 창보다 더 뒤에 실행되도록
+        # after()로 예약해야 실제로 맨 앞에 나타난다.
+        picker.after(50, lambda: (picker.lift(), picker.focus_force()))
 
         def choose(style_key):
             picker.destroy()
