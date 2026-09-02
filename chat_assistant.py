@@ -37,6 +37,14 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "insert_numbering",
+            "description": "번호서식(1. / 1) / (1) / ① 등)을 미리보기에서 고른 뒤 커서 위치에 삽입한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -54,6 +62,8 @@ _POLISH_KEYWORDS = [
 ]
 
 _TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
+
+_NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식", "순번"]
 
 # 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
 # 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
@@ -105,6 +115,8 @@ def route_intent(user_message: str) -> str | None:
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
         return "insert_table"
+    if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
+        return "insert_numbering"
     return None
 
 
@@ -255,6 +267,48 @@ class ChatAssistant(ctk.CTk):
 
             ctk.CTkButton(row, text=style_info["label"], command=lambda k=style_key: choose(k)).pack(side="left", fill="x", expand=True)
 
+    def _show_numbering_style_picker(self):
+        """"번호 매겨줘" 요청 시 뜨는 서식 미리보기 팝업. 각 서식이 실제로
+        어떻게 보이는지 예시 문장으로 직접 보여준 뒤, 고른 프리픽스를
+        커서 위치에 삽입한다.
+
+        Task 3(_show_table_style_picker)에서 발견·수정된 버그 2건을 이번에는
+        처음부터 반영한다:
+        1) CTkToplevel이 생성자 내부에서 withdraw() 후 5ms 뒤 deiconify()하는
+           타이밍 때문에, topmost 메인 창 뒤에 팝업이 가려지는 현상이 실측
+           재현됐다(win32gui) — 그 5ms보다 뒤에 실행되도록 after(50, ...)로
+           lift()/focus_force()를 예약한다(생성 직후 동기 호출로는 효과 없음).
+        2) choose() 콜백은 _on_submit()의 try/except 범위 밖에서(버튼 클릭
+           시점에 별도로) 실행되므로, insert_numbering_prefix가 pyhwpx COM
+           자동화의 간헐적 불안정성(pywintypes.com_error 등)으로 예외를
+           던지면 이 가드가 없을 경우 채팅창에 아무 표시 없이 조용히
+           실패한다 — insert_table과 동일하게 정직하게 실패를 알린다."""
+        from numbering_tool import NUMBERING_STYLES, insert_numbering_prefix
+
+        picker = ctk.CTkToplevel(self)
+        picker.title("번호서식 선택")
+        picker.geometry("280x200")
+        picker.attributes("-topmost", True)
+        picker.after(50, lambda: (picker.lift(), picker.focus_force()))
+
+        def choose(style_key):
+            picker.destroy()
+            try:
+                result = insert_numbering_prefix(self.report, style_key)
+            except Exception as e:
+                self._log(f"도우미: 오류가 발생했습니다 - {e}")
+                return
+            if result["inserted"]:
+                self._log(f"도우미: 번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})")
+            else:
+                self._log("도우미: 번호 삽입에 실패했어요.")
+
+        for style_key, style_info in NUMBERING_STYLES.items():
+            example = f"{style_info['prefix']}예시 항목입니다"
+            ctk.CTkButton(
+                picker, text=example, command=lambda k=style_key: choose(k)
+            ).pack(pady=4, padx=10, fill="x")
+
     def _pick_source_files(self):
         paths = filedialog.askopenfilenames(
             filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
@@ -338,6 +392,8 @@ class ChatAssistant(ctk.CTk):
                     self._log("도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
+            elif tool_name == "insert_numbering":
+                self._show_numbering_style_picker()
             else:
                 # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
                 # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
@@ -391,6 +447,11 @@ def _selftest_route_intent():
     table_choice = route_intent("이 데이터로 표 만들어줘")
     assert table_choice == "insert_table", table_choice
     print("route_intent 통과 (표 삽입):", table_choice)
+
+    # 7) F12 2단계: 새로 추가된 insert_numbering 도구가 키워드로 잡히는지 확인
+    numbering_choice = route_intent("이 목록에 번호 매겨줘")
+    assert numbering_choice == "insert_numbering", numbering_choice
+    print("route_intent 통과 (번호서식):", numbering_choice)
 
 
 if __name__ == "__main__":
