@@ -680,6 +680,112 @@ git commit -m "F12 2단계: 최종 통합 검증 결과 기록"
 
 ---
 
+## 최종 검증 결과 (Task 5, 2026-09-02 야간)
+
+### 1. Task 1~4 스펙 준수 / 코드 품질 리뷰 종합
+
+| Task | 구현 | 스펙 검토 | 코드품질 검토 | 발견된 버그 |
+|---|---|---|---|---|
+| Task1 table_tool.py | 0cecfa8 | (구현에 포함) | 45033d1 (엑셀없음 회귀테스트 추가) | **크래시 버그**: 텍스트 선택 상태로 `insert_table_from_source()` 호출 시 `table_from_data()` 내부 `create_table()`이 COM 에러(`pywintypes.com_error`) 후 `ctrl.Properties` AttributeError로 이어져 100% 재현 크래시. `report.hwp.Cancel()`을 `table_from_data()` 호출 직전에 추가해 수정(44e4c83). TDD로 회귀 테스트 선행 확인. |
+| Task2 numbering_tool.py | 02faa94 | 7e228e9에서 발견·수정 | (스펙검토에 통합) | **데이터 손실 버그**: 선택된 텍스트가 있는 상태로 `insert_numbering_prefix()` 호출 시 `insert_text()`가 선택 영역을 통째로 삭제·대체("다라마"가 사라지고 "가나1. 바사"가 됨). `Cancel()`을 삽입 직전에 추가해 수정. Cancel() 이후 커서는 선택 시작점이 아니라 끝점에 남는다는 것도 직접 테스트로 확인. |
+| Task3 chat_assistant.py (표 팝업) | 65697f8 | 2b006ca | aa8cb61 | **버그 2건**: (1) `CTkToplevel`이 생성자 내부에서 `withdraw()` 후 5ms 뒤 `deiconify()`하는 타이밍 때문에 topmost 메인 창 뒤로 팝업이 가려짐 → `picker.after(50, lambda: (picker.lift(), picker.focus_force()))`로 수정. (2) 팝업 `choose()` 콜백이 `_on_submit()`의 try/except 범위 밖에 있어 `insert_table_from_source` 예외가 조용히 삼켜짐 → 콜백 내부에 자체 try/except 추가. |
+| Task4 chat_assistant.py (번호 팝업) | 4049781 | (Task3 패턴 재사용, 5개 시나리오로 재현조사: 8/8 성공, 코드수정 불필요 결론) | e861f22 (팝업 보일러플레이트를 `_make_topmost_popup()`/`_run_tool_safely()`로 공통화, tie-break 회귀 테스트 추가) | 신규 버그 없음 — Task3의 두 패턴을 처음부터 반영해 구현. "다음 라운드 후보"로 `_attach_source()`의 `choice_window`도 동일한 topmost 취약점이 잠재할 수 있다고 명시(이번 범위 밖, 손 안 댐). |
+
+### 2. Step 1: 전체 self-test 재실행 결과 — **일부 미완료(중요)**
+
+| 파일 | 결과 |
+|---|---|
+| `table_tool.py` | ✅ exit 0 (3개 self-test 전부 통과) |
+| `numbering_tool.py` | ✅ exit 0 (3개 self-test 전부 통과) |
+| `verify_tool.py` | ✅ exit 0 |
+| `source_reader.py` | ✅ exit 0 |
+| `hwp_report.py` | ✅ exit 0 |
+| `window_layout.py` | ✅ exit 0 |
+| `chat_assistant.py --selftest` | ⚠️ **완주 실패** — 아래 상세 참고 |
+| `polish_tool.py` | ⚠️ **완주 실패** — 아래 상세 참고 |
+
+**정직하게 기록**: `chat_assistant.py --selftest`와 `polish_tool.py`는 오늘 밤 여러 번(각 4회 이상) 재시도했으나 끝까지 완주하는 exit 0을 한 번도 얻지 못했다. 원인을 추적한 결과:
+
+- **1차 시도**(`chat_assistant.py --selftest`, 백그라운드 전환 없이 완주)에서는 실제로 끝까지 실행됐지만, 2번째 테스트케이스(`route_intent("오늘 날씨 어때")`는 `None`이어야 함)에서 `AssertionError: verify_numbers`로 실패했다. `route_intent()`는 로컬 LLM(qwen3.5:2b)의 도구호출을 먼저 시도하고(코드 주석에 "F11에서 실측된 도구호출 성공률 약 33%"라고 이미 명시됨), 실패했을 때만 키워드 안전망으로 넘어가는 구조인데, 이번엔 LLM이 "오늘 날씨 어때"에 대해 엉뚱하게 `verify_numbers` 도구를 호출해버렸다. 같은 문장을 격리된 새 프로세스에서 다시 호출하니 정상적으로 `None`이 나왔다 — **코드 버그가 아니라 로컬 LLM 도구호출의 알려진 비결정성**으로 판단.
+- **2차~4차 시도**(전체 self-test를 처음부터 끝까지 다시 실행)에서는 매번 정확히 **7번째 ollama.chat() 호출**(`route_intent("이 데이터로 표 만들어줘")` 차례) 지점에서 프로세스가 완전히 멈췄다 — CPU 사용량이 몇 초 뒤로 전혀 늘지 않고(`TotalProcessorTime` 고정), 5~13분을 기다려도 응답이 없어 강제 종료함. 동일한 현상이 `chat_assistant.py`의 전체 실행 2회 + 별도로 작성한 진단 스크립트(9개 메시지를 순서대로 호출) 1회, 총 **3회 독립 재현**됐다. 반면 그 7번째 메시지만 새 프로세스에서 단독으로 호출하면 즉시 정상 응답(`insert_table`)이 왔다. 즉 **같은 프로세스에서 ollama.chat()을 여러 번 연속 호출하면 특정 시점(오늘 밤은 7번째)에서 멈추는 문제**로 보이며, 새로 추가된 라우팅 로직 자체의 결함이 아니라 이 환경(로컬 ollama 서버/클라이언트)의 세션 안정성 문제로 판단된다.
+- `polish_tool.py`도 같은 양상이었다 — 4번 재시도 모두 **첫 번째** `ollama.chat()` 호출(`_generate_formal_style()` 내부, `polish_to_formal_style` 자체는 F12 1단계에 이미 있던 기존 코드로 이번 라운드에 손대지 않음)에서 멈췄다. 재시도 사이에 `ollama ps`로 서버 상태를 확인했고, 한 번은 모델이 `Stopping...` 상태였다가 곧 정상(`4 minutes from now`)으로 돌아왔음을 확인한 뒤 바로 재시도했는데도 다시 멈췄다. `ollama run qwen3.5:2b "1+1"` 같은 단순 CLI 호출은 그 사이사이 항상 정상적으로 빠르게 응답했다 — 즉 ollama 서버 자체는 살아있지만, 파이썬 `ollama` 패키지의 `chat()` 호출이 이 세션에서 간헐적으로 멈추는 것으로 보인다.
+- 강제 종료한 프로세스는 모두 `Stop-Process -Force`로 정리했고, 남은 임시 `.hwp` 파일이나 좀비 `Hwp.exe`가 없는지 확인했다(각 self-test의 `finally` 블록이 `report.close()` + `os.remove()`를 수행하므로, 강제종료 시 정리가 안 될 수 있어 별도 확인함 — 확인 결과 파일 잠금 문제는 없었음).
+
+**격리된 개별 호출로 대신 확인한 결과** (실제 프로덕션 코드는 그대로 두고, 각각 새 프로세스에서 `route_intent()`/`polish_to_formal_style()`을 직접 호출):
+
+```
+route_intent("숫자 검증해줘") → verify_numbers  ✅
+route_intent("오늘 날씨 어때") → None  ✅ (격리 실행 시 정상 — 위 1차 시도의 실패는 LLM 비결정성)
+route_intent("이거 검토 점검하고 오류 있는지 검사해줘") → verify_numbers  ✅
+route_intent("파일 선택 확인했어") → None  ✅
+route_intent("체크카드로 결제했어요") → None  ✅
+route_intent("이 문장 공문서체로 다듬어줘") → polish_to_formal_style  ✅
+route_intent("이 데이터로 표 만들어줘") → insert_table  ✅
+route_intent("이 목록에 번호 매겨줘") → insert_numbering  ✅
+route_intent("표에 번호 매겨줘") → insert_numbering  ⚠️ (아래 참고)
+```
+
+**새로 발견한 이슈(코드 결함은 아니지만 자기테스트의 근본적 한계)**: 계획서 Task4의 tie-break 회귀 테스트는 `route_intent("표에 번호 매겨줘")`가 항상 `insert_table`을 반환한다고 가정한다(`_TABLE_KEYWORDS`가 `_NUMBERING_KEYWORDS`보다 먼저 체크되므로). 그런데 이 우선순위는 **LLM 도구호출이 실패했을 때만** 적용되는 안전망이다. 오늘 밤 격리 실행에서는 LLM이 이 문장에 대해 스스로 도구호출에 성공해서 `insert_numbering`을 선택해버렸다 — 키워드 우선순위 로직 자체는 코드 그대로 정확하게 구현돼 있지만(직접 코드 읽기로 확인, `_TABLE_KEYWORDS` 체크가 `_NUMBERING_KEYWORDS` 체크보다 앞에 있음), **LLM이 도구호출에 성공하느냐 실패하느냐에 따라 이 self-test의 결과가 실행마다 달라질 수 있다**는 뜻이다. 새로 만든 버그는 아니고 F11부터 있던 "LLM 우선, 키워드는 안전망" 설계의 연장선이지만, 도구가 2개(F12 1단계)에서 4개(F12 2단계)로 늘면서 이런 식으로 tie-break 테스트가 흔들릴 여지도 함께 커졌다 — 다음 라운드에서 self-test를 "키워드 로직만 직접 호출해서 검증"하는 방식으로 분리하는 걸 검토할 만하다.
+
+`polish_to_formal_style`은 `find()`/`SelectionMode` 감지까지는 격리 실행으로 정상 확인했으나, 정작 핵심인 LLM 생성 호출 자체가 격리 실행에서도 멈춰서 `applied=True` 끝까지의 결과는 오늘 밤 확인하지 못했다(이 함수는 F12 1단계 기존 코드로 이번 라운드에서 변경하지 않았다).
+
+**결론**: table_tool.py/numbering_tool.py(이번 라운드 신규 코드)와 chat_assistant.py의 키워드 라우팅 로직은 실제 동작을 개별 확인했고 문제없다. 다만 `chat_assistant.py --selftest`와 `polish_tool.py`를 명령 그대로 실행해 마지막 줄까지 exit 0을 받는 것은 오늘 밤 끝내 성공하지 못했다 — 이는 로컬 ollama 세션의 환경적 불안정성으로 보이며, 아침에 사용자가 직접 `python chat_assistant.py --selftest`와 `python polish_tool.py`를 한 번 더 돌려서 정상 완주하는지 확인해주시는 게 가장 확실하다.
+
+### 3. Step 2: 실사용 시나리오 통합 검증 — ✅ 성공 (ollama 미사용 경로라 위 불안정성의 영향 없음)
+
+`table_tool.py`/`numbering_tool.py`는 ollama를 전혀 쓰지 않으므로(순수 pyhwpx 조작), 계획서가 요구한 통합 시나리오는 깨끗하게 한 번에 성공했다.
+
+실행 흐름: 임시 엑셀(항목/금액 2열, 인건비/운영비 2행) 생성 → 빈 hwp 문서 생성 후 `HwpReport`로 열기 → `insert_table_from_source(report, [엑셀경로], "blue_header")` → `report.hwp.MoveDocEnd()` → `insert_numbering_prefix(report, "circled")` → `win32gui.GetWindowRect()`로 한글 창 bbox만 정확히 잘라 스크린샷 → `report.close(save=False)`.
+
+실제 출력(원문 그대로):
+
+```
+insert_table_from_source 결과: {'inserted': True, 'style': 'blue_header', 'source_file': 'C:\\Users\\Public\\Documents\\ESTsoft\\CreatorTemp\\_test_task5_통합검증\\원본.xlsx'}
+표 삽입 후 get_text():
+'\r\n항목\r\n금액\r\n인건비\r\n1000000\r\n운영비\r\n500000\r\n\r\n'
+insert_numbering_prefix 결과: {'inserted': True, 'style': 'circled'}
+번호서식 삽입 후 get_text() (최종):
+'\r\n항목\r\n금액\r\n인건비\r\n1000000\r\n운영비\r\n500000\r\n\r\n① '
+한글 창 rect: (0, 0, 1440, 1032)
+스크린샷 후보 저장: D:\보고서자동화\.worktrees\f12-phase2-table-numbering\.tmp\screenshots\_task5_raw_candidate.png (1440, 1032)
+최종 문서 텍스트 (참고용 전체):
+'\r\n항목\r\n금액\r\n인건비\r\n1000000\r\n운영비\r\n500000\r\n\r\n① '
+report.close(save=False) 완료
+```
+
+표(파란 헤더)와 원문자 번호(①)가 실제 문서에 삽입됐고, `report.close(save=False)`도 정상 완료됨을 확인했다.
+
+### 4. 스크린샷
+
+- 경로: `.tmp/screenshots/task5_integration_table_and_numbering.png`
+- 촬영 방법: `report.get_window_handle()` → `win32gui.GetWindowRect(hwnd)`로 **한글 창의 정확한 좌표(bbox)만** 얻어 `PIL.ImageGrab.grab(bbox=rect)`로 캡처 — 화면 전체나 임의 좌표를 찍지 않았다.
+- **저장 전 직접 이미지를 열어 확인**: 한글 문서 창 하나만 보이고, 개인정보나 무관한 화면(브라우저 등)은 전혀 없음을 확인한 뒤 최종 파일명(`task5_integration_table_and_numbering.png`)으로 저장했다. 내용은 파란 헤더 표(항목/금액/인건비/1000000/운영비/500000) + 그 아래 원문자 "①" — 위 get_text() 출력과 일치.
+- 참고: `.tmp/screenshots/task3_table_style_picker_zoom.png`는 Task 3에서 만들어진 파일인데 아직 git에 커밋되지 않은 상태(untracked)로 남아있는 것을 이번에 발견했다. 직접 열어서 확인한 결과 표 스타일 팝업 3종(기본형/회색헤더/파란헤더)만 보이고 개인정보는 없었으나, 화면 맨 왼쪽 끝에 다른 창의 것으로 보이는 텍스트("모델")가 살짝 잘려 들어가 있다 — 채팅 도우미 자체 창의 일부로 추정되며 개인정보는 아니지만, 완전히 깔끔한 크롭은 아니다. 이번 Task 5 범위가 아니라 손대지 않았으니, 아침에 확인 시 참고 바란다.
+
+### 5. PRD 14-2 축소 지점 재확인 (아침에 가장 먼저 확인해야 할 부분)
+
+이번 라운드는 사용자의 원래 기대와 다를 수 있는 지점들이 있다 — PRD.md "## 14. F12 — 2단계"의 14-2에 이미 적혀있지만 다시 강조한다:
+
+1. **차트 자동삽입은 이번에 없다.** matplotlib 의존성/무인 디버깅 리스크 때문에 제외, 표 삽입만 안정화했다.
+2. **번호서식은 진짜 개요번호(자동 채번) 객체가 아니라 텍스트 프리픽스 삽입이다.** "1. ", "1) ", "(1) ", "① " 를 텍스트로 그냥 끼워넣는 방식이라, 항목 순서가 바뀌어도 번호가 자동으로 재정렬되지 않는다.
+3. **표 스타일은 기본형/회색 헤더/파란 헤더 3종으로 한정**돼 있다(배경색+헤더 굵게 조합). 테두리 두께나 선 스타일 다양화는 없다.
+4. **미리보기는 실제 한글 렌더링이 아니라 CustomTkinter 위젯으로 그린 축소 모형**이다(표는 격자 Label, 번호서식은 예시 문장 버튼).
+5. 원본자료에 엑셀이 여러 개 첨부돼 있어도 **항상 첫 번째 엑셀 파일만** 표로 변환된다 — 고르는 UI는 없다.
+
+### 6. 다음 라운드 후보로 남긴 것
+
+- `_attach_source()`의 `choice_window`(원본자료 첨부 선택창)에 Task3에서 발견한 것과 같은 topmost 가려짐 버그가 잠재할 수 있음 — `_make_topmost_popup()` 공통 헬퍼로 통일 검토 필요(Task4 완료 기록에서 이미 명시, 이번 Task5에서도 손대지 않음).
+- `_selftest_route_intent()`의 tie-break 테스트(및 유사한 LLM 우선 테스트들)가 LLM 도구호출 성공 여부에 따라 결과가 흔들릴 수 있음이 이번에 실측됨 — 다음 라운드에서 "키워드 안전망 로직만 별도 함수로 분리해 LLM 호출 없이 직접 테스트"하는 리팩터링을 검토할 만하다.
+- 오늘 밤 반복 재현된 "동일 프로세스에서 ollama.chat() 연속 호출 시 특정 시점에서 멈춤" 현상의 근본 원인은 밝혀내지 못했다 — ollama 파이썬 클라이언트의 연결 재사용/keep-alive 문제인지, 로컬 서버 리소스(CPU 전용 추론, 2.4GB 모델) 한계인지 추가 조사가 필요하다.
+
+### 7. 미해결 이슈 요약 (숨기지 않고 전부 기록)
+
+- `chat_assistant.py --selftest`와 `polish_tool.py`를 명령 그대로 실행해 exit 0까지 완주시키는 데 오늘 밤 끝내 실패했다(각각 4회 이상 재시도, 매번 ollama.chat() 호출 중 무응답으로 멈춤 → 강제종료). 아침에 사용자가 직접 재실행해 확인이 필요하다.
+- `.tmp/screenshots/task3_table_style_picker_zoom.png`가 git에 커밋되지 않은 채 남아있다(Task 3 범위라 이번엔 손대지 않음).
+- ollama.chat() 연속 호출 시 멈추는 근본 원인 미상.
+
+---
+
 ## 사용자 아침 확인 체크리스트 (구현 완료 후 이 섹션은 그대로 남겨둘 것)
 
 아침에 확인하실 때 특히 아래 순서로 봐주시면 빠르게 판단하실 수 있습니다:
