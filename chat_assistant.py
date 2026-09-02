@@ -29,6 +29,14 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "insert_table",
+            "description": "첨부된 원본자료(엑셀)를 표로 변환해 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -44,6 +52,8 @@ _POLISH_KEYWORDS = [
     "공문서", "다듬어", "정리해", "써줘", "작성해", "바꿔줘", "고쳐줘",
     "손봐줘", "매끄럽게", "격식있게",
 ]
+
+_TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
 
 # 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
 # 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
@@ -93,6 +103,8 @@ def route_intent(user_message: str) -> str | None:
         return "verify_numbers"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
         return "polish_to_formal_style"
+    if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
+        return "insert_table"
     return None
 
 
@@ -175,6 +187,44 @@ class ChatAssistant(ctk.CTk):
         ctk.CTkButton(choice_window, text="폴더 선택", command=pick_folder).pack(
             pady=4, padx=10, fill="x")
 
+    def _show_table_style_picker(self):
+        """"표 만들어줘" 요청 시 뜨는 스타일 미리보기 팝업. 실제 한글 문서를
+        미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의 축소 모형을 직접
+        그려서 보여준다(PRD 14-2 — 위젯 모형으로 "직접 보고 선택"이라는
+        목표를 달성). 스타일을 고르면 즉시 insert_table_from_source를 실행하고
+        팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다."""
+        from table_tool import TABLE_STYLES, insert_table_from_source
+
+        picker = ctk.CTkToplevel(self)
+        picker.title("표 스타일 선택")
+        picker.geometry("360x260")
+        picker.attributes("-topmost", True)
+
+        def choose(style_key):
+            picker.destroy()
+            result = insert_table_from_source(self.report, self.source_paths, style_key)
+            if result["inserted"]:
+                self._log(f"도우미: 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
+            else:
+                self._log(f"도우미: 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+
+        for style_key, style_info in TABLE_STYLES.items():
+            row = ctk.CTkFrame(picker)
+            row.pack(pady=6, padx=10, fill="x")
+
+            # 축소 모형: 2열짜리 미니 표를 Label 격자로 직접 그린다. 헤더 행에만
+            # header_fill 색을 적용해 실제 표 삽입 결과와 시각적으로 대응시킨다.
+            preview = ctk.CTkFrame(row)
+            preview.pack(side="left", padx=(0, 10))
+            header_color = style_info["header_fill"]
+            header_hex = "#{:02x}{:02x}{:02x}".format(*header_color) if header_color else "#3a3a3a"
+            for col, text in enumerate(["항목", "금액"]):
+                ctk.CTkLabel(preview, text=text, fg_color=header_hex, width=50, height=20).grid(row=0, column=col, padx=1, pady=1)
+            for col, text in enumerate(["인건비", "1,000,000"]):
+                ctk.CTkLabel(preview, text=text, width=50, height=20).grid(row=1, column=col, padx=1, pady=1)
+
+            ctk.CTkButton(row, text=style_info["label"], command=lambda k=style_key: choose(k)).pack(side="left", fill="x", expand=True)
+
     def _pick_source_files(self):
         paths = filedialog.askopenfilenames(
             filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
@@ -256,6 +306,8 @@ class ChatAssistant(ctk.CTk):
                     # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
                     # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
                     self._log("도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
+            elif tool_name == "insert_table":
+                self._show_table_style_picker()
             else:
                 # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
                 # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
@@ -304,6 +356,11 @@ def _selftest_route_intent():
     polish_choice = route_intent("이 문장 공문서체로 다듬어줘")
     assert polish_choice == "polish_to_formal_style", polish_choice
     print("route_intent 통과 (공문서체 변환):", polish_choice)
+
+    # 6) F12 2단계: 새로 추가된 insert_table 도구가 키워드로 잡히는지 확인
+    table_choice = route_intent("이 데이터로 표 만들어줘")
+    assert table_choice == "insert_table", table_choice
+    print("route_intent 통과 (표 삽입):", table_choice)
 
 
 if __name__ == "__main__":
