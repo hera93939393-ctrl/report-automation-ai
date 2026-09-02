@@ -364,7 +364,13 @@ git commit -m "F12 2단계: numbering_tool.py 추가 - 번호서식 프리픽스
 
 ---
 
-### Task 3: chat_assistant.py — 표 스타일 미리보기 팝업 + route_intent 등록
+### Task 3: chat_assistant.py — 표 스타일 미리보기 팝업 + route_intent 등록 ✅ 완료 (커밋 65697f8, 스펙검토 반영 2b006ca, 코드품질 반영 aa8cb61)
+
+**발견·수정된 버그 2건**:
+1. `CTkToplevel`이 내부적으로 생성자에서 `self.withdraw()` 후 5ms 뒤 `deiconify()`하는 타이밍 때문에, 팝업이 topmost 메인 창 뒤에 가려지는 현상이 실제로 재현됨(win32gui로 실측) → `picker.after(50, lambda: (picker.lift(), picker.focus_force()))`로 수정. **Task 4의 번호서식 팝업도 이 패턴을 그대로 적용할 것.**
+2. `choose()` 콜백(버튼 클릭 시 실행)이 `_on_submit()`의 try/except 범위 밖이라, `insert_table_from_source`가 예외를 던지면 채팅창에 아무 표시 없이 조용히 실패하던 문제 → 콜백 안에 자체 try/except 추가. **Task 4에도 동일하게 적용할 것.**
+
+첫 스크린샷 시도에서 `ImageGrab.grab()`을 bbox 없이 호출해 사용자의 개인 브라우저 화면(강의 페이지 등)이 그대로 찍힌 사고가 있었음(오케스트레이터가 발견해 파일 삭제) — **이후 스크린샷은 반드시 bbox로 앱 창 좌표만 좁혀서 찍고, 저장 전 직접 열어 개인정보 없는지 확인할 것.**
 
 Files
 
