@@ -774,7 +774,7 @@ report.close(save=False) 완료
 
 ### 6. 다음 라운드 후보로 남긴 것
 
-- `_attach_source()`의 `choice_window`(원본자료 첨부 선택창)에 Task3에서 발견한 것과 같은 topmost 가려짐 버그가 잠재할 수 있음 — `_make_topmost_popup()` 공통 헬퍼로 통일 검토 필요(Task4 완료 기록에서 이미 명시, 이번 Task5에서도 손대지 않음).
+- ~~`_attach_source()`의 `choice_window`(원본자료 첨부 선택창)에 Task3에서 발견한 것과 같은 topmost 가려짐 버그가 잠재할 수 있음~~ **✅ 2026-09-02 아침, 사용자 요청으로 해결(커밋 a8aa6bb)** — `_make_topmost_popup()`으로 통일해 세 팝업(원본자료 첨부/표 스타일/번호서식) 모두 같은 안전장치를 갖게 됨. selftest 회귀 없음, 팝업 인스턴스화 직접 확인.
 - `_selftest_route_intent()`의 tie-break 테스트(및 유사한 LLM 우선 테스트들)가 LLM 도구호출 성공 여부에 따라 결과가 흔들릴 수 있음이 이번에 실측됨 — 다음 라운드에서 "키워드 안전망 로직만 별도 함수로 분리해 LLM 호출 없이 직접 테스트"하는 리팩터링을 검토할 만하다.
 - 오늘 밤 반복 재현된 "동일 프로세스에서 ollama.chat() 연속 호출 시 특정 시점에서 멈춤" 현상의 근본 원인은 밝혀내지 못했다 — ollama 파이썬 클라이언트의 연결 재사용/keep-alive 문제인지, 로컬 서버 리소스(CPU 전용 추론, 2.4GB 모델) 한계인지 추가 조사가 필요하다.
 
