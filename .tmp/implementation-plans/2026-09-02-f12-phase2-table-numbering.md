@@ -505,7 +505,13 @@ git commit -m "F12 2단계: insert_table 도구 등록 + 표 스타일 미리보
 
 ---
 
-### Task 4: chat_assistant.py — 번호서식 미리보기 팝업 + route_intent 등록
+### Task 4: chat_assistant.py — 번호서식 미리보기 팝업 + route_intent 등록 ✅ 완료 (커밋 4049781, 코드품질 리뷰 반영 e861f22)
+
+Task 3에서 발견된 두 패턴(팝업 topmost 가려짐 방지, 콜백 예외처리)을 처음부터 반영해 구현함. 스펙검토에서 "팝업이 foreground 전환 안 됨" 의심을 5가지 시나리오로 재현 조사 — 실사용 시나리오(마우스 조작 전제) 8/8 성공, 문제는 비현실적 테스트 타이밍에서만 나타나는 아티팩트로 결론(코드 수정 불필요).
+
+**코드품질 리뷰 반영**: `_show_table_style_picker`/`_show_numbering_style_picker`의 중복 보일러플레이트를 `_make_topmost_popup()`/`_run_tool_safely()` 공통 헬퍼로 추출. `_selftest_route_intent()`에 표/번호서식 동시 등장 tie-break 회귀 테스트 추가("표에 번호 매겨줘" → insert_table 우선, F12 1단계 Task8과 같은 맥락).
+
+**다음 라운드 후보로 남긴 것**: `_attach_source()`의 `choice_window`(원본자료 첨부 선택창)도 topmost 가려짐 버그가 잠재할 수 있으나 이번 Task 4 범위 밖이라 손대지 않음 — `_make_topmost_popup()`으로 통일 검토 필요.
 
 Files
 
