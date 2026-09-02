@@ -115,6 +115,19 @@ def route_intent(user_message: str) -> str | None:
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
         return "insert_table"
+    # (F12 2단계 Task4 코드품질 검토에서 발견) "표"와 "번호" 두 키워드가 동시에
+    # 걸리는 문장(예: "표에 번호 매겨줘" — 실제로는 번호서식을 원하는데 "표"라는
+    # 단어가 스쳐 지나가듯 들어있는 경우)에서는 위 순서상 insert_table이 항상
+    # 이긴다. 이 우선순위를 verify_numbers/polish_to_formal_style 사이의
+    # tie-break(F12 1단계 Task8)처럼 의도적으로 설계한 건 아니고, 코드에 먼저
+    # 등장한 순서가 그대로 우선순위가 된 것 — 다만 두 팝업 모두 스타일 버튼을
+    # 누르기 전까지는 문서를 전혀 건드리지 않으므로(비파괴적), 어느 쪽이 먼저
+    # 떠도 사용자가 원치 않는 팝업임을 보고 창을 닫은 뒤 다시 명확히 말하면
+    # 복구 가능하다 — 이 정도 무해함을 근거로 순서를 그대로 두고 회귀
+    # 테스트로만 고정해둔다(_selftest_route_intent 8번 참고). "표"가 실제로는
+    # 그냥 스쳐가는 명사이고 "번호"가 진짜 동사인 경우가 흔할 수 있어 이
+    # 우선순위가 항상 최선은 아니다 — 도구가 더 늘어나는 다음 라운드에서
+    # 재검토 대상.
     if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
         return "insert_numbering"
     return None
@@ -199,6 +212,56 @@ class ChatAssistant(ctk.CTk):
         ctk.CTkButton(choice_window, text="폴더 선택", command=pick_folder).pack(
             pady=4, padx=10, fill="x")
 
+    def _make_topmost_popup(self, title: str, geometry: str) -> ctk.CTkToplevel:
+        """스타일 미리보기 팝업(CTkToplevel)을 만들어 메인 창 뒤에 가려지지
+        않도록 앞으로 띄운다. _show_table_style_picker/_show_numbering_style_picker가
+        공유하는 보일러플레이트 — Task 4 코드품질 검토에서 두 메서드가 이
+        부분을 그대로 복붙하고 있는 걸 발견해 뽑아냈다.
+
+        (스펙 준수 검토 중 재현/수정, Task 3) 메인 ChatAssistant 창도
+        -topmost=True라서, 단순히 CTkToplevel을 만들기만 하면 팝업이 메인 창
+        뒤에 가려질 수 있음이 win32gui로 실측 재현됐다(포그라운드 창이 메인
+        창으로 계속 남음) — 팝업이 안 보이면 사용자에게는 무반응처럼 보여
+        F12 1단계의 "무반응보다 되묻는 게 낫다" 원칙에 반한다.
+
+        lift()/focus_force()를 여기서 바로(동기적으로) 호출하는 것만으로는
+        고쳐지지 않는다: CTkToplevel.__init__ 내부(Windows용 다크 타이틀바
+        처리, customtkinter/windows/ctk_toplevel.py의 _windows_set_titlebar_color)가
+        생성자 안에서 self.withdraw()로 창을 일단 숨겨두고, self.after(5, ...)로
+        5ms 뒤에야 deiconify()로 다시 보이게 만든다. 그래서 CTkToplevel(self)
+        생성 직후 곧바로 lift()/focus_force()를 호출하면 그 시점엔 창이 아직
+        (혹은 다시) 숨겨진 상태라 효과가 없다 — 실측으로 확인(win32gui로
+        foreground를 찍어보면 lift/focus_force 직후 호출로는 여전히 메인
+        창이 foreground로 남아있음). 그 5ms 창보다 더 뒤에 실행되도록
+        after(50, ...)로 예약해야 실제로 맨 앞에 나타난다."""
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry(geometry)
+        popup.attributes("-topmost", True)
+        popup.after(50, lambda: (popup.lift(), popup.focus_force()))
+        return popup
+
+    def _run_tool_safely(self, fn, *args):
+        """미리보기 팝업의 choose() 콜백에서 실제 도구 함수(예:
+        insert_table_from_source/insert_numbering_prefix)를 실행한다. 예외가
+        나면 채팅창에 정직하게 실패를 알리고 None을 반환한다 —
+        _show_table_style_picker/_show_numbering_style_picker가 각자 갖고
+        있던 동일한 try/except를 Task 4 코드품질 검토에서 뽑아냈다.
+
+        (코드품질 검토에서 발견) 이 콜백들은 _on_submit()의 try/except 범위
+        밖에서(버튼 클릭 시점에 별도로) 실행된다 — _show_*_picker() 자체는
+        팝업만 띄우고 곧바로 리턴하므로, _on_submit()의 try 블록은 실제 도구
+        실행이 일어나기 전에 이미 끝나 있다. 이 프로젝트에서 이미 여러 번
+        실측된 pyhwpx COM 자동화의 간헐적 불안정성(pywintypes.com_error 등)이
+        여기서 터지면, 이 가드가 없을 경우 verify_numbers/polish_to_formal_style과
+        달리 채팅 로그에 아무 메시지도 안 남고 조용히 실패해 사용자가 원인을
+        알 수 없다 — 다른 도구들과 동일하게 정직하게 실패를 알린다."""
+        try:
+            return fn(*args)
+        except Exception as e:
+            self._log(f"도우미: 오류가 발생했습니다 - {e}")
+            return None
+
     def _show_table_style_picker(self):
         """"표 만들어줘" 요청 시 뜨는 스타일 미리보기 팝업. 실제 한글 문서를
         미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의 축소 모형을 직접
@@ -207,43 +270,12 @@ class ChatAssistant(ctk.CTk):
         팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다."""
         from table_tool import TABLE_STYLES, insert_table_from_source
 
-        picker = ctk.CTkToplevel(self)
-        picker.title("표 스타일 선택")
-        picker.geometry("360x260")
-        picker.attributes("-topmost", True)
-        # (스펙 준수 검토 중 재현/수정) 메인 ChatAssistant 창도 -topmost=True라서,
-        # 단순히 CTkToplevel을 만들기만 하면 팝업이 메인 창 뒤에 가려질 수 있음이
-        # win32gui로 실측 재현됐다(포그라운드 창이 메인 창으로 계속 남음) — 팝업이
-        # 안 보이면 "표 만들어줘"를 입력해도 무반응처럼 보여 F12 1단계의
-        # "무반응보다 되묻는 게 낫다" 원칙에 반한다.
-        #
-        # lift()/focus_force()를 여기서 바로(동기적으로) 호출하는 것만으로는
-        # 고쳐지지 않는다: CTkToplevel.__init__ 내부(Windows용 다크 타이틀바
-        # 처리, customtkinter/windows/ctk_toplevel.py의 _windows_set_titlebar_color)가
-        # 생성자 안에서 self.withdraw()로 창을 일단 숨겨두고, self.after(5, ...)로
-        # 5ms 뒤에야 deiconify()로 다시 보이게 만든다. 그래서 CTkToplevel(self)
-        # 생성 직후 곧바로 lift()/focus_force()를 호출하면 그 시점엔 창이 아직
-        # (혹은 다시) 숨겨진 상태라 효과가 없다 — 실측으로 확인(win32gui로
-        # foreground를 찍어보면 lift/focus_force 직후 호출로는 여전히 메인
-        # 창이 foreground로 남아있음). 그 5ms 창보다 더 뒤에 실행되도록
-        # after()로 예약해야 실제로 맨 앞에 나타난다.
-        picker.after(50, lambda: (picker.lift(), picker.focus_force()))
+        picker = self._make_topmost_popup("표 스타일 선택", "360x260")
 
         def choose(style_key):
             picker.destroy()
-            # (코드품질 검토에서 발견) 이 콜백은 _on_submit()의 try/except 범위
-            # 밖에서(버튼 클릭 시점에 별도로) 실행된다 — _show_table_style_picker()
-            # 자체는 팝업만 띄우고 곧바로 리턴하므로, _on_submit()의 try 블록은
-            # 실제 표 삽입(insert_table_from_source)이 일어나기 전에 이미 끝나
-            # 있다. 이 프로젝트에서 이미 여러 번 실측된 pyhwpx COM 자동화의
-            # 간헐적 불안정성(pywintypes.com_error 등)이 여기서 터지면, 이 가드가
-            # 없을 경우 verify_numbers/polish_to_formal_style과 달리 채팅 로그에
-            # 아무 메시지도 안 남고 조용히 실패해 사용자가 원인을 알 수 없다 —
-            # 다른 두 도구와 동일하게 정직하게 실패를 알린다.
-            try:
-                result = insert_table_from_source(self.report, self.source_paths, style_key)
-            except Exception as e:
-                self._log(f"도우미: 오류가 발생했습니다 - {e}")
+            result = self._run_tool_safely(insert_table_from_source, self.report, self.source_paths, style_key)
+            if result is None:
                 return
             if result["inserted"]:
                 self._log(f"도우미: 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
@@ -272,31 +304,17 @@ class ChatAssistant(ctk.CTk):
         어떻게 보이는지 예시 문장으로 직접 보여준 뒤, 고른 프리픽스를
         커서 위치에 삽입한다.
 
-        Task 3(_show_table_style_picker)에서 발견·수정된 버그 2건을 이번에는
-        처음부터 반영한다:
-        1) CTkToplevel이 생성자 내부에서 withdraw() 후 5ms 뒤 deiconify()하는
-           타이밍 때문에, topmost 메인 창 뒤에 팝업이 가려지는 현상이 실측
-           재현됐다(win32gui) — 그 5ms보다 뒤에 실행되도록 after(50, ...)로
-           lift()/focus_force()를 예약한다(생성 직후 동기 호출로는 효과 없음).
-        2) choose() 콜백은 _on_submit()의 try/except 범위 밖에서(버튼 클릭
-           시점에 별도로) 실행되므로, insert_numbering_prefix가 pyhwpx COM
-           자동화의 간헐적 불안정성(pywintypes.com_error 등)으로 예외를
-           던지면 이 가드가 없을 경우 채팅창에 아무 표시 없이 조용히
-           실패한다 — insert_table과 동일하게 정직하게 실패를 알린다."""
+        Task 3(_show_table_style_picker)에서 발견된 topmost 가려짐 버그와
+        콜백 예외처리 누락은 _make_topmost_popup()/_run_tool_safely()로 이미
+        공통 처리된다 — 두 헬퍼의 docstring에 상세 근거가 있다."""
         from numbering_tool import NUMBERING_STYLES, insert_numbering_prefix
 
-        picker = ctk.CTkToplevel(self)
-        picker.title("번호서식 선택")
-        picker.geometry("280x200")
-        picker.attributes("-topmost", True)
-        picker.after(50, lambda: (picker.lift(), picker.focus_force()))
+        picker = self._make_topmost_popup("번호서식 선택", "280x200")
 
         def choose(style_key):
             picker.destroy()
-            try:
-                result = insert_numbering_prefix(self.report, style_key)
-            except Exception as e:
-                self._log(f"도우미: 오류가 발생했습니다 - {e}")
+            result = self._run_tool_safely(insert_numbering_prefix, self.report, style_key)
+            if result is None:
                 return
             if result["inserted"]:
                 self._log(f"도우미: 번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})")
@@ -452,6 +470,15 @@ def _selftest_route_intent():
     numbering_choice = route_intent("이 목록에 번호 매겨줘")
     assert numbering_choice == "insert_numbering", numbering_choice
     print("route_intent 통과 (번호서식):", numbering_choice)
+
+    # 8) F12 2단계 Task4 코드품질 검토 반영: "표"와 "번호"가 한 문장에 동시에
+    # 걸리는 경우(예: "표에 번호 매겨줘") insert_table이 이긴다는 현재 우선순위를
+    # 회귀 테스트로 고정해둔다 — Task8에서 verify_numbers/polish_to_formal_style
+    # tie-break를 테스트로 고정한 것과 같은 맥락(route_intent의 if/elif 순서를
+    # 코드 리딩만으로 유추해야 하는 상태를 남겨두지 않기 위함).
+    table_numbering_tie = route_intent("표에 번호 매겨줘")
+    assert table_numbering_tie == "insert_table", table_numbering_tie
+    print("route_intent 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
 
 
 if __name__ == "__main__":
