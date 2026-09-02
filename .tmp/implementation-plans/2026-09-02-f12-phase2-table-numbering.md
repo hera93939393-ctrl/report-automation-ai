@@ -760,7 +760,7 @@ report.close(save=False) 완료
 - 경로: `.tmp/screenshots/task5_integration_table_and_numbering.png`
 - 촬영 방법: `report.get_window_handle()` → `win32gui.GetWindowRect(hwnd)`로 **한글 창의 정확한 좌표(bbox)만** 얻어 `PIL.ImageGrab.grab(bbox=rect)`로 캡처 — 화면 전체나 임의 좌표를 찍지 않았다.
 - **저장 전 직접 이미지를 열어 확인**: 한글 문서 창 하나만 보이고, 개인정보나 무관한 화면(브라우저 등)은 전혀 없음을 확인한 뒤 최종 파일명(`task5_integration_table_and_numbering.png`)으로 저장했다. 내용은 파란 헤더 표(항목/금액/인건비/1000000/운영비/500000) + 그 아래 원문자 "①" — 위 get_text() 출력과 일치.
-- 참고: `.tmp/screenshots/task3_table_style_picker_zoom.png`는 Task 3에서 만들어진 파일인데 아직 git에 커밋되지 않은 상태(untracked)로 남아있는 것을 이번에 발견했다. 직접 열어서 확인한 결과 표 스타일 팝업 3종(기본형/회색헤더/파란헤더)만 보이고 개인정보는 없었으나, 화면 맨 왼쪽 끝에 다른 창의 것으로 보이는 텍스트("모델")가 살짝 잘려 들어가 있다 — 채팅 도우미 자체 창의 일부로 추정되며 개인정보는 아니지만, 완전히 깔끔한 크롭은 아니다. 이번 Task 5 범위가 아니라 손대지 않았으니, 아침에 확인 시 참고 바란다.
+- **(오케스트레이터 사후 확인, Task 5 완료 후)**: `.tmp/screenshots/task3_table_style_picker_zoom.png`(위에서 "왼쪽 끝에 다른 창 텍스트 잘림"으로 지적된 그 파일)를 직접 열어 재확인한 결과, 왼쪽 끝의 잘린 글자가 실제로는 사용자의 개인 브라우저 배경 창(다른 탭 제목의 일부)이었음을 확인했다 — 미커밋 상태였으므로 git 이력에는 남지 않고, 파일 자체를 삭제했다. 같은 시점에 Task 3 구현 중 처음 촬영된(bbox 없이 전체화면을 찍은) 스크린샷도 개인 브라우저 화면(강의 페이지 등)이 그대로 찍혀 별도로 이미 삭제된 바 있다 — 두 사고 모두 최종적으로 파일이 남지 않도록 정리됐다. 현재 저장소에 남아있는 스크린샷은 `task4_numbering_style_picker.png`, `task5_integration_table_and_numbering.png` 둘 뿐이며, 둘 다 오케스트레이터가 직접 열어 개인정보 없음을 확인했다.
 
 ### 5. PRD 14-2 축소 지점 재확인 (아침에 가장 먼저 확인해야 할 부분)
 
