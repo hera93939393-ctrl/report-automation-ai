@@ -219,7 +219,20 @@ class ChatAssistant(ctk.CTk):
 
         def choose(style_key):
             picker.destroy()
-            result = insert_table_from_source(self.report, self.source_paths, style_key)
+            # (코드품질 검토에서 발견) 이 콜백은 _on_submit()의 try/except 범위
+            # 밖에서(버튼 클릭 시점에 별도로) 실행된다 — _show_table_style_picker()
+            # 자체는 팝업만 띄우고 곧바로 리턴하므로, _on_submit()의 try 블록은
+            # 실제 표 삽입(insert_table_from_source)이 일어나기 전에 이미 끝나
+            # 있다. 이 프로젝트에서 이미 여러 번 실측된 pyhwpx COM 자동화의
+            # 간헐적 불안정성(pywintypes.com_error 등)이 여기서 터지면, 이 가드가
+            # 없을 경우 verify_numbers/polish_to_formal_style과 달리 채팅 로그에
+            # 아무 메시지도 안 남고 조용히 실패해 사용자가 원인을 알 수 없다 —
+            # 다른 두 도구와 동일하게 정직하게 실패를 알린다.
+            try:
+                result = insert_table_from_source(self.report, self.source_paths, style_key)
+            except Exception as e:
+                self._log(f"도우미: 오류가 발생했습니다 - {e}")
+                return
             if result["inserted"]:
                 self._log(f"도우미: 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
             else:
