@@ -9,8 +9,22 @@ import ollama
 from hwp_report import HwpReport
 from window_layout import position_windows
 
-ctk.set_appearance_mode("system")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
+
+# (2026-09-03, 실사용 디자인 피드백) 채팅창을 CTkTextbox 로그 한 줄이 아니라
+# VS Code Copilot Chat처럼 역할별 말풍선(정렬/색이 다른 CTkFrame)으로 그린다.
+# appearance_mode를 "system"이 아니라 "light"로 고정하는 이유: 목업에서 승인받은
+# 밝고 플랫한 톤을 재현하려는 것인데, "system"으로 두면 다크모드 환경에서 CTk
+# 기본 회색 계열과 섞여 목업과 다르게 보인다 — 나중에 다크모드 지원이 필요하면
+# 별도로 요청받아 색상표를 (light, dark) 튜플로 다시 확장하면 된다.
+_BUBBLE_STYLE = {
+    "user": {"align": "e", "bg": "#DCEAFB", "fg": "#0C447C"},
+    "assistant": {"align": "w", "bg": "#F1EFE8", "fg": "#2C2C2A"},
+    "success": {"align": "w", "bg": "#F1EFE8", "fg": "#3B6D11"},
+    "error": {"align": "w", "bg": "#F1EFE8", "fg": "#A32D2D"},
+}
+_WINDOW_BG = "#FAFAF8"
 
 _TOOLS = [
     {
@@ -170,6 +184,7 @@ class ChatAssistant(ctk.CTk):
         self.title("보고서 도우미")
         self.geometry("320x480")
         self.attributes("-topmost", True)
+        self.configure(fg_color=_WINDOW_BG)
 
         self.report = None  # HwpReport | None — F12: 문서를 한 번만 열고 계속 재사용
         self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
@@ -179,9 +194,11 @@ class ChatAssistant(ctk.CTk):
         self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
 
-        self.chat_log = ctk.CTkTextbox(self, height=280)
-        self.chat_log.pack(pady=10, padx=10, fill="both", expand=True)
-        self.chat_log.configure(state="disabled")
+        # (2026-09-03, 실사용 디자인 피드백) CTkTextbox 한 줄짜리 로그 대신
+        # CTkScrollableFrame 안에 메시지마다 말풍선(CTkFrame)을 쌓는다 — 표/번호
+        # 스타일 선택 카드도 별도 팝업 없이 이 안에 그대로 얹힌다(_log 참고).
+        self.chat_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.chat_scroll.pack(pady=10, padx=6, fill="both", expand=True)
 
         self.input_row = ctk.CTkFrame(self, fg_color="transparent")
         self.input_row.pack(pady=(0, 10), padx=10, fill="x")
@@ -215,7 +232,7 @@ class ChatAssistant(ctk.CTk):
         try:
             new_report = HwpReport(path)
         except Exception as e:
-            self._log(f"도우미: 보고서를 열 수 없습니다 - {e}")
+            self._log(f"보고서를 열 수 없습니다 - {e}", role="error")
             return
         self.report = new_report
         self._log(f"보고서 선택됨: {path}")
@@ -293,157 +310,176 @@ class ChatAssistant(ctk.CTk):
         try:
             return fn(*args)
         except Exception as e:
-            self._log(f"도우미: 오류가 발생했습니다 - {e}")
+            self._log(f"오류가 발생했습니다 - {e}", role="error")
             return None
 
-    def _draw_table_style_rows(self, picker, on_choose):
+    def _draw_table_style_rows(self, parent, on_choose):
         """표 스타일 3종(TABLE_STYLES)을 미니 표 미리보기+버튼 행으로 그려
-        picker 안에 넣는다. _show_table_style_picker와, 선택된 텍스트가
+        parent 안에 넣는다. _show_table_style_picker와, 선택된 텍스트가
         있을 때의 _show_numbering_style_picker가 공유하는 그리기 로직이다
         (2026-09-03, 실사용 피드백 반영 — "번호 매겨줘"도 선택이 있으면
         표를 만드는 동작으로 바뀌면서, 두 팝업이 똑같이 표 스타일을 보여줄
         필요가 생겨 여기로 뽑아냈다). on_choose(style_key)는 버튼 클릭 시
-        호출되며, 실제 삽입은 호출자가 담당한다(이 함수는 UI만 그린다)."""
+        호출되며, 실제 삽입은 호출자가 담당한다(이 함수는 UI만 그린다).
+
+        (2026-09-03, 두 번째 디자인 피드백) parent가 더는 별도 CTkToplevel
+        팝업이 아니라 채팅 말풍선(self._log가 반환한 CTkFrame)이다 — 카드가
+        팝업처럼 사라지지 않고 대화 기록에 그대로 남아있어야 하므로, 버튼을
+        누르면 그 버튼에 파란 테두리를 표시하고 나머지 버튼은 비활성화해
+        "이걸 골랐다"는 게 카드 자체에 남도록 했다(목업 스크린샷의 파란
+        테두리 강조와 동일한 의도). 폭도 팝업(360px) 기준에서 채팅창 실제
+        폭(모니터에 따라 더 좁을 수 있음, window_layout.py 참고)에 맞춰
+        줄였다(라벨 50→38px, 폰트 축소)."""
         from table_tool import TABLE_STYLES
 
+        buttons = []
+
+        def handle_click(style_key, button):
+            # (스크린샷으로 직접 확인) border_width만으로는 버튼 자체가 이미
+            # 파란색이라 테두리 강조가 잘 안 보였다 — 고른 버튼엔 체크마크를
+            # 붙이고, 고르지 않은 나머지는 회색으로 눌러서 "이걸 골랐다"가
+            # 한눈에 보이도록 했다.
+            for b in buttons:
+                if b is button:
+                    b.configure(text=f"✓ {b.cget('text')}")
+                else:
+                    b.configure(fg_color="#B4B2A9")
+                b.configure(state="disabled")
+            on_choose(style_key)
+
         for style_key, style_info in TABLE_STYLES.items():
-            row = ctk.CTkFrame(picker)
-            row.pack(pady=6, padx=10, fill="x")
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(pady=4, padx=8, fill="x")
 
             # 축소 모형: 2열짜리 미니 표를 Label 격자로 직접 그린다. 헤더 행에만
             # header_fill 색을 적용해 실제 표 삽입 결과와 시각적으로 대응시킨다.
             #
             # (사용자 요청으로 수정) "기본형(테두리만)" 스타일은 실제 삽입 시
             # header_fill=None이라 table_tool.py가 cell_fill()을 아예 호출하지
-            # 않는다 — 즉 실제 결과는 배경색이 전혀 안 입혀진 흰 헤더다. 이전
-            # 버전은 여기서 임의로 짙은 회색("#3a3a3a")을 칠해 미리보기가 실제
-            # 결과와 다르게 보였다(마치 짙은 배경 헤더가 적용되는 것처럼 오해
-            # 소지). fg_color를 안 주면 CTkLabel이 부모(preview 프레임)와 같은
-            # 배경으로 그려져, "배경색 없음"이 실제로 배경색 없이 보인다 — 미리보기와
-            # 실제 삽입 결과를 정확히 일치시켰다.
-            preview = ctk.CTkFrame(row)
-            preview.pack(side="left", padx=(0, 10))
+            # 않는다 — 즉 실제 결과는 배경색이 전혀 안 입혀진 흰 헤더다. fg_color를
+            # 흰색으로 고정해(부모가 이제 팝업이 아니라 다른 톤의 말풍선이라
+            # "부모와 같은 배경 물려받기" 방식이 더는 안전하지 않음) "배경색 없음"이
+            # 실제로 흰 배경으로 보이게 했다 — 미리보기와 실제 삽입 결과를 일치시켰다.
+            preview = ctk.CTkFrame(row, fg_color="#FFFFFF")
+            preview.pack(side="left", padx=(0, 8))
             header_color = style_info["header_fill"]
-            header_kwargs = {"fg_color": "#{:02x}{:02x}{:02x}".format(*header_color)} if header_color else {}
+            header_kwargs = {"fg_color": "#{:02x}{:02x}{:02x}".format(*header_color)} if header_color else {"fg_color": "#FFFFFF"}
             for col, text in enumerate(["항목", "금액"]):
-                ctk.CTkLabel(preview, text=text, width=50, height=20, **header_kwargs).grid(row=0, column=col, padx=1, pady=1)
+                ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=10), **header_kwargs).grid(row=0, column=col, padx=1, pady=1)
             for col, text in enumerate(["인건비", "1,000,000"]):
-                ctk.CTkLabel(preview, text=text, width=50, height=20).grid(row=1, column=col, padx=1, pady=1)
+                ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=9), fg_color="#FFFFFF").grid(row=1, column=col, padx=1, pady=1)
 
-            ctk.CTkButton(row, text=style_info["label"], command=lambda k=style_key: on_choose(k)).pack(side="left", fill="x", expand=True)
+            button = ctk.CTkButton(row, text=style_info["label"], height=28)
+            button.configure(command=lambda k=style_key, b=button: handle_click(k, b))
+            button.pack(side="left", fill="x", expand=True)
+            buttons.append(button)
 
     def _show_table_style_picker(self):
-        """"표 만들어줘" 요청 시 뜨는 스타일 미리보기 팝업. 실제 한글 문서를
-        미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의 축소 모형을 직접
-        그려서 보여준다(PRD 14-2 — 위젯 모형으로 "직접 보고 선택"이라는
-        목표를 달성). 스타일을 고르면 즉시 insert_table_from_source를 실행하고
-        팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다.
+        """"표 만들어줘" 요청 시 채팅창 안에 스타일 선택 카드를 바로 추가한다.
+        실제 한글 문서를 미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의
+        축소 모형을 직접 그려서 보여준다(PRD 14-2 — 위젯 모형으로 "직접 보고
+        선택"이라는 목표를 달성). 스타일을 고르면 즉시 insert_table_from_source를
+        실행한다 — 카드가 뜨는 시점까지는 문서를 건드리지 않는다.
 
         (2026-09-03, 실사용 피드백 반영) insert_table_from_source() 자체가
         이제 선택 여부로 내부 분기한다(문서에서 텍스트가 선택돼 있으면 그
         선택 내용을, 없으면 첨부된 엑셀 데이터를 표로 만든다) — 그래서 이
-        팝업의 UI/호출 방식은 바뀌지 않는다, 어느 쪽이든 같은 함수를 그대로
-        호출하면 된다."""
-        from table_tool import TABLE_STYLES, insert_table_from_source
+        카드의 UI/호출 방식은 바뀌지 않는다, 어느 쪽이든 같은 함수를 그대로
+        호출하면 된다.
 
-        # (F12 2단계, 사용자 요청으로 UI 다듬기) 팝업 높이를 늘려 안내 문구가
-        # 들어갈 공간을 확보했다 — 버튼 3개만 덩그러니 있던 것보다 "무엇을
-        # 선택하는 화면인지"가 한눈에 보이도록.
-        picker = self._make_topmost_popup("표 스타일 선택", "360x290")
+        (2026-09-03, 두 번째 디자인 피드백) 별도 CTkToplevel 팝업 대신
+        self._log()가 반환하는 말풍선(CTkFrame) 안에 스타일 버튼을 직접
+        그린다 — 사용자가 "VS Code+Copilot Chat처럼 대화 흐름 안에서
+        선택하고 싶다"고 요청한 것을 반영. 팝업이 사라지는 대신 카드가
+        대화 기록에 그대로 남고, 고른 스타일은 파란 테두리로 표시된다
+        (_draw_table_style_rows 참고)."""
+        from table_tool import TABLE_STYLES, insert_table_from_source
 
         has_selection = self.report is not None and self.report.hwp.SelectionMode != 0
         label_text = (
-            "선택한 텍스트를 표로 삽입합니다. 아래에서 스타일을 선택하세요:"
+            "선택한 텍스트를 표로 삽입합니다. 스타일을 선택하세요:"
             if has_selection else
-            "원본자료를 표로 삽입합니다. 아래에서 스타일을 선택하세요:"
+            "원본자료를 표로 삽입합니다. 스타일을 선택하세요:"
         )
-        ctk.CTkLabel(picker, text=label_text, font=ctk.CTkFont(size=12)).pack(pady=(10, 4), padx=10, anchor="w")
+        card = self._log(label_text, role="assistant")
 
         def choose(style_key):
-            picker.destroy()
             result = self._run_tool_safely(insert_table_from_source, self.report, self.source_paths, style_key)
             if result is None:
                 return
             if result["inserted"]:
-                self._log(f"도우미: ✅ 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
+                self._log(f"표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})", role="success")
             else:
-                self._log(f"도우미: ❌ 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+                self._log(f"표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}", role="error")
 
-        self._draw_table_style_rows(picker, choose)
+        self._draw_table_style_rows(card, choose)
 
     def _show_numbering_style_picker(self):
-        """"번호 매겨줘" 요청 시 뜨는 미리보기 팝업 — 두 가지로 갈린다.
+        """"번호 매겨줘" 요청 시 채팅창 안에 뜨는 카드 — 두 가지로 갈린다.
 
         (2026-09-03, 실사용 피드백 반영) 사용자가 실제로 써보고 준 피드백:
         "번호 매겨줘"로 원한 건 커서에 "1." 하나만 넣는 게 아니라, 선택한
         목록 전체를 번호(1·2·3·4) 붙은 표로 만드는 것이었다. 그래서:
 
-        - 문서에 텍스트가 선택돼 있으면: 표 스타일 팝업과 똑같은 UI를 보여주고
+        - 문서에 텍스트가 선택돼 있으면: 표 스타일 카드와 똑같은 UI를 보여주고
           (_draw_table_style_rows 공유), 고른 스타일로
           insert_numbered_table_from_selection()을 실행해 "번호/내용" 2열
           표를 만든다.
         - 선택이 없으면: 기존 그대로 4종 서식(1./1)/(1)/①) 버튼을 보여주고,
           고른 프리픽스를 커서 위치에 삽입한다(insert_numbering_prefix).
 
-        Task 3(_show_table_style_picker)에서 발견된 topmost 가려짐 버그와
-        콜백 예외처리 누락은 _make_topmost_popup()/_run_tool_safely()로 이미
-        공통 처리된다 — 두 헬퍼의 docstring에 상세 근거가 있다."""
+        (2026-09-03, 두 번째 디자인 피드백) 두 경우 모두 별도 CTkToplevel
+        팝업 대신 self._log()가 반환하는 말풍선 안에 버튼을 직접 그린다 —
+        _show_table_style_picker와 같은 이유. 콜백 예외처리 누락은
+        _run_tool_safely()로 여전히 공통 처리된다."""
         has_selection = self.report is not None and self.report.hwp.SelectionMode != 0
 
         if has_selection:
             from numbering_tool import insert_numbered_table_from_selection
             from table_tool import TABLE_STYLES
 
-            picker = self._make_topmost_popup("표 스타일 선택 (번호 포함)", "360x290")
-            ctk.CTkLabel(
-                picker, text="선택한 목록을 번호 붙은 표로 삽입합니다. 스타일을 선택하세요:",
-                font=ctk.CTkFont(size=12),
-            ).pack(pady=(10, 4), padx=10, anchor="w")
+            card = self._log("선택한 목록을 번호 붙은 표로 삽입합니다. 스타일을 선택하세요:", role="assistant")
 
             def choose_table(style_key):
-                picker.destroy()
                 result = self._run_tool_safely(
                     insert_numbered_table_from_selection, self.report, style_key
                 )
                 if result is None:
                     return
                 if result["inserted"]:
-                    self._log(f"도우미: ✅ 번호 붙은 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']}, {result['row_count']}행)")
+                    self._log(f"번호 붙은 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']}, {result['row_count']}행)", role="success")
                 else:
-                    self._log(f"도우미: ❌ 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+                    self._log(f"표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}", role="error")
 
-            self._draw_table_style_rows(picker, choose_table)
+            self._draw_table_style_rows(card, choose_table)
             return
 
         from numbering_tool import NUMBERING_STYLES, insert_numbering_prefix
 
-        # (F12 2단계, 사용자 요청으로 UI 다듬기) 안내 문구가 들어갈 공간만큼
-        # 높이를 늘렸다 — 표 스타일 팝업과 동일한 개선. 폭도 280→320으로
-        # 넓혔다: 처음 280 그대로 뒀더니 안내 문구 왼쪽 글자("커")가 창
-        # 경계에 잘려 보이는 게 스크린샷으로 직접 확인됨(CTkLabel이 자동
-        # 줄바꿈을 안 해서 텍스트 폭이 좁은 창 폭을 넘어섬) — 실측 후 수정.
-        picker = self._make_topmost_popup("번호서식 선택", "320x230")
+        card = self._log("커서 위치에 번호를 삽입합니다. 서식을 선택하세요:", role="assistant")
+        buttons = []
 
-        ctk.CTkLabel(
-            picker, text="커서 위치에 번호를 삽입합니다. 서식을 선택하세요:",
-            font=ctk.CTkFont(size=12),
-        ).pack(pady=(10, 4), padx=10, anchor="w")
-
-        def choose(style_key):
-            picker.destroy()
+        def choose(style_key, button):
+            for b in buttons:
+                if b is button:
+                    b.configure(text=f"✓ {b.cget('text')}")
+                else:
+                    b.configure(fg_color="#B4B2A9")
+                b.configure(state="disabled")
             result = self._run_tool_safely(insert_numbering_prefix, self.report, style_key)
             if result is None:
                 return
             if result["inserted"]:
-                self._log(f"도우미: ✅ 번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})")
+                self._log(f"번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})", role="success")
             else:
-                self._log("도우미: ❌ 번호 삽입에 실패했어요.")
+                self._log("번호 삽입에 실패했어요.", role="error")
 
         for style_key, style_info in NUMBERING_STYLES.items():
             example = f"{style_info['prefix']}예시 항목입니다"
-            ctk.CTkButton(
-                picker, text=example, command=lambda k=style_key: choose(k)
-            ).pack(pady=4, padx=10, fill="x")
+            button = ctk.CTkButton(card, text=example)
+            button.configure(command=lambda k=style_key, b=button: choose(k, b))
+            button.pack(pady=3, padx=8, fill="x")
+            buttons.append(button)
 
     def _pick_source_files(self):
         paths = filedialog.askopenfilenames(
@@ -462,23 +498,43 @@ class ChatAssistant(ctk.CTk):
         self.source_paths = [path]
         self._log(f"📎 원본자료(폴더) 첨부됨: {path}")
 
-    def _log(self, message: str):
-        self.chat_log.configure(state="normal")
-        self.chat_log.insert("end", message + "\n")
-        self.chat_log.configure(state="disabled")
-        self.chat_log.see("end")
+    def _log(self, message: str, role: str = "assistant"):
+        """대화 내용을 말풍선 하나로 chat_scroll에 추가한다. role은
+        user(오른쪽 파란)/assistant(왼쪽 기본)/success(왼쪽 초록 글자)/
+        error(왼쪽 빨간 글자) 중 하나 — 예전의 "나: "/"도우미: ✅/❌" 같은
+        텍스트 접두사 대신, 정렬과 글자색으로 역할과 결과를 구분한다.
+
+        표/번호 스타일 선택 카드(_show_table_style_picker 등)는 이 함수가
+        반환하는 CTkFrame(말풍선 본체) 안에 버튼을 직접 그려 넣는 방식으로
+        재사용한다 — 팝업 없이 대화 흐름 안에 그대로 남기기 위함
+        (2026-09-03, 두 번째 디자인 피드백)."""
+        style = _BUBBLE_STYLE[role]
+        row = ctk.CTkFrame(self.chat_scroll, fg_color="transparent")
+        row.pack(fill="x", pady=3)
+        bubble = ctk.CTkFrame(row, fg_color=style["bg"], corner_radius=10)
+        bubble.pack(anchor=style["align"], padx=4)
+        ctk.CTkLabel(
+            bubble, text=message, text_color=style["fg"], font=ctk.CTkFont(size=13),
+            wraplength=200, justify="left", anchor="w",
+        ).pack(padx=10, pady=6)
+        self.update_idletasks()
+        # CTkScrollableFrame에는 CTkTextbox의 see("end") 같은 공개 스크롤 API가
+        # 없어, 내부 캔버스(_parent_canvas)를 직접 끝까지 스크롤한다 — 공식
+        # 문서엔 없지만 customtkinter 커뮤니티에서 통용되는 방법(소스로 직접 확인).
+        self.chat_scroll._parent_canvas.yview_moveto(1.0)
+        return bubble
 
     def _on_submit(self, event):
         if self._busy:
-            self._log("도우미: 아직 이전 요청을 처리 중이에요. 잠시만 기다려주세요.")
+            self._log("아직 이전 요청을 처리 중이에요. 잠시만 기다려주세요.")
             return
 
         text = self.input_box.get()
         self.input_box.delete(0, "end")
-        self._log(f"나: {text}")
+        self._log(text, role="user")
 
         if not self.report:
-            self._log("도우미: 먼저 보고서 파일을 선택해주세요.")
+            self._log("먼저 보고서 파일을 선택해주세요.")
             return
         # (2026-09-03, 실사용 피드백 반영) 원래는 여기서 source_paths도 필수로
         # 요구했다 — 그런데 "표 만들어줘"/"번호 매겨줘"를 문서에서 선택한
@@ -491,7 +547,7 @@ class ChatAssistant(ctk.CTk):
         self._busy = True
         self.input_box.configure(state="disabled")
         try:
-            self._log("도우미: 확인 중입니다... (시간이 좀 걸릴 수 있어요)")
+            self._log("확인 중입니다... (시간이 좀 걸릴 수 있어요)")
             # 여러 분이 걸릴 수 있는 블로킹 호출(Ollama/HWP COM) 전에 위 메시지가
             # 실제로 화면에 그려지도록 강제로 갱신한다. update_idletasks()가 아니라
             # update()를 쓰는 이유: update_idletasks()는 대기 중인 draw만 처리하고
@@ -517,16 +573,16 @@ class ChatAssistant(ctk.CTk):
 
             if tool_name == "verify_numbers":
                 if not self.source_paths:
-                    self._log("도우미: 숫자 검증을 하려면 먼저 원본자료를 '+'로 첨부해주세요.")
+                    self._log("숫자 검증을 하려면 먼저 원본자료를 '+'로 첨부해주세요.")
                 else:
                     from verify_tool import run_verification
                     result = run_verification(self.report, self.source_paths, default_year=2026)
-                    self._log(f"도우미: ✅ {result['summary']}")
+                    self._log(result["summary"], role="success")
             elif tool_name == "polish_to_formal_style":
                 from polish_tool import polish_to_formal_style
                 result = polish_to_formal_style(self.report, text)
                 if result["applied"]:
-                    self._log(f"도우미: ✅ 다듬었어요 → {result['polished_text']}")
+                    self._log(f"다듬었어요 → {result['polished_text']}", role="success")
                 else:
                     # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
                     # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
@@ -535,7 +591,7 @@ class ChatAssistant(ctk.CTk):
                     # "다듬었어요 → " 뒤에 아무것도 없는 채로 찍혀 실제로는
                     # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
                     # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
-                    self._log("도우미: ❌ 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
+                    self._log("다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.", role="error")
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
@@ -545,12 +601,12 @@ class ChatAssistant(ctk.CTk):
                 # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
                 self._pending_clarification = text
                 self._log(
-                    "도우미: 무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
+                    "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
                     "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고 "
                     "한 번 더 말씀해주시겠어요?"
                 )
         except Exception as e:
-            self._log(f"도우미: 오류가 발생했습니다 - {e}")
+            self._log(f"오류가 발생했습니다 - {e}", role="error")
         finally:
             self._busy = False
             self.input_box.configure(state="normal")
