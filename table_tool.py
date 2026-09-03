@@ -14,12 +14,24 @@ import pandas as pd
 
 from hwp_report import HwpReport
 
-# PRD 14-2: 표 스타일은 이 3종으로 한정 — 미리보기 팝업(chat_assistant.py)에 쓰이는
+# PRD 14-2가 "표 스타일은 배경색+헤더 굵게 2~3종으로 한정"이라고 명시했던
+# 범위 제한이었고, 사용자가 이후 "표 모양을 더 다양하게" 해달라고 요청해
+# 2026-09-03 이 라운드에서 확장함 — 미리보기 팝업(chat_assistant.py)에 쓰이는
 # 값과 반드시 일치해야 한다. "style" 파라미터는 이 dict의 key만 허용한다.
+#
+# 각 스타일은 header_fill(헤더 행 배경색, None이면 채우지 않음)과
+# stripe_fill(데이터 행 홀수번째에 입힐 옅은 배경색, None이면 줄무늬 없음)
+# 두 축을 조합한다 — 이번 확장에서 "헤더 강조"와 "행 구분(줄무늬)"이 서로
+# 다른 축임을 확인했고(build_table 참고), 굳이 서로 배타적일 필요가 없어
+# 나중에 "파란 헤더 + 줄무늬" 같은 조합도 쉽게 추가할 수 있게 열어뒀다
+# (지금은 조합 스타일까지는 만들지 않고 6종만 우선 제공).
 TABLE_STYLES = {
-    "default": {"label": "기본형 (테두리만)", "header_fill": None},
-    "gray_header": {"label": "회색 헤더", "header_fill": (217, 217, 217)},
-    "blue_header": {"label": "파란 헤더", "header_fill": (198, 224, 241)},
+    "default": {"label": "기본형 (테두리만)", "header_fill": None, "stripe_fill": None},
+    "gray_header": {"label": "회색 헤더", "header_fill": (217, 217, 217), "stripe_fill": None},
+    "blue_header": {"label": "파란 헤더", "header_fill": (198, 224, 241), "stripe_fill": None},
+    "green_header": {"label": "초록 헤더", "header_fill": (200, 230, 201), "stripe_fill": None},
+    "amber_header": {"label": "주황 헤더", "header_fill": (255, 224, 178), "stripe_fill": None},
+    "striped": {"label": "줄무늬(홀짝 구분)", "header_fill": None, "stripe_fill": (240, 240, 240)},
 }
 
 
@@ -151,8 +163,28 @@ def build_table(report: HwpReport, data, style: str) -> None:
     상 모든 셀(헤더/데이터 전부)이 가운데 정렬되는 것을 확인했다.
     ParagraphShapeAlignCenter()는 별도 래퍼가 pyhwpx에 없지만, pyhwpx가
     HAction 이름과 일치하는 메서드를 동적으로 만들어주므로 그대로 호출 가능
-    하다(ParagraphShapeAlignLeft/Right/Justify 등과 동일한 패턴)."""
-    header_fill = TABLE_STYLES[style]["header_fill"]
+    하다(ParagraphShapeAlignLeft/Right/Justify 등과 동일한 패턴).
+
+    (2026-09-03, "표 모양을 더 다양하게" 요청 반영) stripe_fill이 있는
+    스타일("striped")은 데이터 행 중 홀수번째(0, 2, 4...)에 옅은 배경색을
+    입혀 줄무늬를 만든다. 표 전체를 한 번에 블록선택하는 가운데 정렬과
+    달리, 줄무늬는 "한 행씩" 골라 칠해야 해서 다른 방식이 필요했다 — 직접
+    테스트로 확인한 절차: 표 맨 위(헤더) 첫 칸으로 이동 → 데이터 행 수만큼
+    MoveDown(한 칸 아래로, 표 안에서는 같은 열의 다음 행으로 이동하는
+    표준 HAction)을 반복하면서, 그 행 전체를 TableColBegin→
+    TableCellBlockExtendAbs→TableColEnd로 선택해 cell_fill() 적용 후
+    Cancel()로 선택 해제 — 이 조합이 실제로 지정한 행에만(전체가 아니라)
+    정확히 칠해지는 걸 스크린샷으로 확인했다(`.tmp/screenshots/striped_table_test.png`
+    참고, 커밋 시 정식 self-test로도 재확인). 가운데 정렬 블록 이후에는
+    커서/선택이 표의 마지막 셀에 남아있으므로, 줄무늬를 칠하기 전에
+    TableColBegin+TableColPageUp으로 맨 위 첫 칸으로 다시 이동해야 한다 —
+    이 재이동을 빠뜨리면 MoveDown이 표 밖으로 나가버려 줄무늬가 하나도
+    안 칠해지거나 엉뚱한 셀에 칠해진다."""
+    style_info = TABLE_STYLES[style]
+    header_fill = style_info["header_fill"]
+    stripe_fill = style_info.get("stripe_fill")
+    row_count = _data_row_count(data)
+
     report.hwp.Cancel()
     report.hwp.table_from_data(
         data,
@@ -168,6 +200,32 @@ def build_table(report: HwpReport, data, style: str) -> None:
     report.hwp.TableColEnd()
     report.hwp.ParagraphShapeAlignCenter()
     report.hwp.Cancel()
+
+    if stripe_fill is not None:
+        report.hwp.TableColBegin()
+        report.hwp.TableColPageUp()  # 맨 위(헤더) 첫 칸으로 확실히 재이동
+        for i in range(row_count):
+            report.hwp.Run("MoveDown")
+            if i % 2 == 0:
+                report.hwp.TableColBegin()
+                report.hwp.TableCellBlockExtendAbs()
+                report.hwp.TableColEnd()
+                report.hwp.cell_fill(stripe_fill)
+                report.hwp.Cancel()
+                report.hwp.TableColBegin()
+        report.hwp.Cancel()
+
+
+def _data_row_count(data) -> int:
+    """table_from_data에 넘길 data(엑셀 경로 또는 DataFrame)의 실제 데이터
+    행 수(헤더 제외)를 미리 계산한다. table_from_data 내부에도 똑같은
+    변환 로직이 있지만(엑셀 경로면 pd.read_excel/read_csv), pyhwpx가 표
+    생성 후 행 수를 다시 조회하는 공개 API를 제공하지 않아 줄무늬를 몇
+    번 반복할지 미리 알 방법이 없다 — 그래서 표를 만들기 전에 같은 방식으로
+    한 번 더 읽는다(작은 표 하나 분량이라 중복 비용은 무시할 만함)."""
+    if isinstance(data, str):
+        return len(pd.read_excel(data) if ".xls" in data.lower() else pd.read_csv(data))
+    return len(data)
 
 
 def _selftest_insert_table_from_source_default_style():
@@ -406,6 +464,44 @@ def _selftest_insert_table_from_selected_text_multiline():
         os.remove(report_path)
 
 
+def _selftest_build_table_striped_style_colors_odd_rows_only():
+    """(2026-09-03, "표 모양을 더 다양하게" 요청 반영) "striped" 스타일은
+    데이터 행 중 0,2번째(1행,3행)에만 옅은 회색(240,240,240)이 칠해지고
+    1번째(2행)는 안 칠해져야 한다. HParameterSet.HCellBorderFill의
+    FillAttr.WinBrushFaceColor를 직접 읽어 확인한다 — 0xBBGGRR 순서 정수로
+    인코딩되며(직접 프로브로 확인, 240,240,240 → 0xF0F0F0), 안 칠해진
+    셀은 0으로 나온다."""
+    import os, tempfile
+    from pyhwpx import Hwp
+    from hwp_report import HwpReport
+
+    report_path = os.path.join(tempfile.gettempdir(), "_test_표_줄무늬.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        df = pd.DataFrame({"항목": ["A", "B", "C"], "금액": [1, 2, 3]})
+        build_table(report, df, "striped")
+
+        def fill_color_at(text: str) -> int:
+            report.hwp.find(text, direction="AllDoc")
+            pset = report.hwp.HParameterSet.HCellBorderFill
+            report.hwp.HAction.GetDefault("CellFill", pset.HSet)
+            return pset.FillAttr.WinBrushFaceColor
+
+        assert fill_color_at("A") == 0xF0F0F0, fill_color_at("A")
+        assert fill_color_at("B") == 0, fill_color_at("B")
+        assert fill_color_at("C") == 0xF0F0F0, fill_color_at("C")
+        print("build_table(striped, 홀수 데이터행만 줄무늬) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(report_path)
+
+
 def _selftest_build_table_centers_all_cells():
     """(2026-09-03, 실사용 피드백) build_table()로 만든 표는 헤더/데이터 셀
     전부 가운데 정렬이어야 한다. HWP의 문단모양 Alignment 값은
@@ -449,3 +545,4 @@ if __name__ == "__main__":
     _selftest_insert_table_from_source_with_single_line_selection_does_not_crash()
     _selftest_insert_table_from_selected_text_multiline()
     _selftest_build_table_centers_all_cells()
+    _selftest_build_table_striped_style_colors_odd_rows_only()

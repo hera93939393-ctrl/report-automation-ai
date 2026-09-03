@@ -391,14 +391,24 @@ class ChatAssistant(ctk.CTk):
             # 흰색으로 고정해(부모가 이제 팝업이 아니라 다른 톤의 말풍선이라
             # "부모와 같은 배경 물려받기" 방식이 더는 안전하지 않음) "배경색 없음"이
             # 실제로 흰 배경으로 보이게 했다 — 미리보기와 실제 삽입 결과를 일치시켰다.
+            # (2026-09-03, "표 모양을 더 다양하게" 요청 반영) 데이터 행을 1개가
+            # 아니라 2개(홀/짝) 그려서 "striped" 스타일의 줄무늬가 미리보기에도
+            # 보이게 했다 — 데이터 행이 하나뿐이면 header_fill=None인 "기본형"과
+            # "striped"가 미리보기에서 똑같아 보여 구분이 안 됐다.
             preview = ctk.CTkFrame(row, fg_color="#FFFFFF")
             preview.pack(side="left", padx=(0, 8))
             header_color = style_info["header_fill"]
+            stripe_color = style_info.get("stripe_fill")
             header_kwargs = {"fg_color": "#{:02x}{:02x}{:02x}".format(*header_color)} if header_color else {"fg_color": "#FFFFFF"}
             for col, text in enumerate(["항목", "금액"]):
                 ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=10), **header_kwargs).grid(row=0, column=col, padx=1, pady=1)
-            for col, text in enumerate(["인건비", "1,000,000"]):
-                ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=9), fg_color="#FFFFFF").grid(row=1, column=col, padx=1, pady=1)
+            data_rows = [["인건비", "1,000,000"], ["운영비", "500,000"]]
+            for row_idx, values in enumerate(data_rows):
+                # build_table()의 i % 2 == 0 (0번째, 즉 첫 데이터 행)에 줄무늬를
+                # 칠하는 것과 동일한 짝을 맞춘다.
+                row_fill = "#{:02x}{:02x}{:02x}".format(*stripe_color) if stripe_color and row_idx % 2 == 0 else "#FFFFFF"
+                for col, text in enumerate(values):
+                    ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=9), fg_color=row_fill).grid(row=row_idx + 1, column=col, padx=1, pady=1)
 
             button = ctk.CTkButton(row, text=style_info["label"], height=28, **_PICKER_BUTTON)
             button.configure(command=lambda k=style_key, b=button: handle_click(k, b))
