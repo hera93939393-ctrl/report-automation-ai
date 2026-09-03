@@ -296,33 +296,15 @@ class ChatAssistant(ctk.CTk):
             self._log(f"도우미: 오류가 발생했습니다 - {e}")
             return None
 
-    def _show_table_style_picker(self):
-        """"표 만들어줘" 요청 시 뜨는 스타일 미리보기 팝업. 실제 한글 문서를
-        미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의 축소 모형을 직접
-        그려서 보여준다(PRD 14-2 — 위젯 모형으로 "직접 보고 선택"이라는
-        목표를 달성). 스타일을 고르면 즉시 insert_table_from_source를 실행하고
-        팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다."""
-        from table_tool import TABLE_STYLES, insert_table_from_source
-
-        # (F12 2단계, 사용자 요청으로 UI 다듬기) 팝업 높이를 늘려 안내 문구가
-        # 들어갈 공간을 확보했다 — 버튼 3개만 덩그러니 있던 것보다 "무엇을
-        # 선택하는 화면인지"가 한눈에 보이도록.
-        picker = self._make_topmost_popup("표 스타일 선택", "360x290")
-
-        ctk.CTkLabel(
-            picker, text="원본자료를 표로 삽입합니다. 아래에서 스타일을 선택하세요:",
-            font=ctk.CTkFont(size=12),
-        ).pack(pady=(10, 4), padx=10, anchor="w")
-
-        def choose(style_key):
-            picker.destroy()
-            result = self._run_tool_safely(insert_table_from_source, self.report, self.source_paths, style_key)
-            if result is None:
-                return
-            if result["inserted"]:
-                self._log(f"도우미: 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
-            else:
-                self._log(f"도우미: 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+    def _draw_table_style_rows(self, picker, on_choose):
+        """표 스타일 3종(TABLE_STYLES)을 미니 표 미리보기+버튼 행으로 그려
+        picker 안에 넣는다. _show_table_style_picker와, 선택된 텍스트가
+        있을 때의 _show_numbering_style_picker가 공유하는 그리기 로직이다
+        (2026-09-03, 실사용 피드백 반영 — "번호 매겨줘"도 선택이 있으면
+        표를 만드는 동작으로 바뀌면서, 두 팝업이 똑같이 표 스타일을 보여줄
+        필요가 생겨 여기로 뽑아냈다). on_choose(style_key)는 버튼 클릭 시
+        호출되며, 실제 삽입은 호출자가 담당한다(이 함수는 UI만 그린다)."""
+        from table_tool import TABLE_STYLES
 
         for style_key, style_info in TABLE_STYLES.items():
             row = ctk.CTkFrame(picker)
@@ -348,16 +330,91 @@ class ChatAssistant(ctk.CTk):
             for col, text in enumerate(["인건비", "1,000,000"]):
                 ctk.CTkLabel(preview, text=text, width=50, height=20).grid(row=1, column=col, padx=1, pady=1)
 
-            ctk.CTkButton(row, text=style_info["label"], command=lambda k=style_key: choose(k)).pack(side="left", fill="x", expand=True)
+            ctk.CTkButton(row, text=style_info["label"], command=lambda k=style_key: on_choose(k)).pack(side="left", fill="x", expand=True)
+
+    def _show_table_style_picker(self):
+        """"표 만들어줘" 요청 시 뜨는 스타일 미리보기 팝업. 실제 한글 문서를
+        미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의 축소 모형을 직접
+        그려서 보여준다(PRD 14-2 — 위젯 모형으로 "직접 보고 선택"이라는
+        목표를 달성). 스타일을 고르면 즉시 insert_table_from_source를 실행하고
+        팝업을 닫는다 — 팝업이 뜨기 전까지는 문서를 건드리지 않는다.
+
+        (2026-09-03, 실사용 피드백 반영) insert_table_from_source() 자체가
+        이제 선택 여부로 내부 분기한다(문서에서 텍스트가 선택돼 있으면 그
+        선택 내용을, 없으면 첨부된 엑셀 데이터를 표로 만든다) — 그래서 이
+        팝업의 UI/호출 방식은 바뀌지 않는다, 어느 쪽이든 같은 함수를 그대로
+        호출하면 된다."""
+        from table_tool import TABLE_STYLES, insert_table_from_source
+
+        # (F12 2단계, 사용자 요청으로 UI 다듬기) 팝업 높이를 늘려 안내 문구가
+        # 들어갈 공간을 확보했다 — 버튼 3개만 덩그러니 있던 것보다 "무엇을
+        # 선택하는 화면인지"가 한눈에 보이도록.
+        picker = self._make_topmost_popup("표 스타일 선택", "360x290")
+
+        has_selection = self.report is not None and self.report.hwp.SelectionMode != 0
+        label_text = (
+            "선택한 텍스트를 표로 삽입합니다. 아래에서 스타일을 선택하세요:"
+            if has_selection else
+            "원본자료를 표로 삽입합니다. 아래에서 스타일을 선택하세요:"
+        )
+        ctk.CTkLabel(picker, text=label_text, font=ctk.CTkFont(size=12)).pack(pady=(10, 4), padx=10, anchor="w")
+
+        def choose(style_key):
+            picker.destroy()
+            result = self._run_tool_safely(insert_table_from_source, self.report, self.source_paths, style_key)
+            if result is None:
+                return
+            if result["inserted"]:
+                self._log(f"도우미: ✅ 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']})")
+            else:
+                self._log(f"도우미: ❌ 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+
+        self._draw_table_style_rows(picker, choose)
 
     def _show_numbering_style_picker(self):
-        """"번호 매겨줘" 요청 시 뜨는 서식 미리보기 팝업. 각 서식이 실제로
-        어떻게 보이는지 예시 문장으로 직접 보여준 뒤, 고른 프리픽스를
-        커서 위치에 삽입한다.
+        """"번호 매겨줘" 요청 시 뜨는 미리보기 팝업 — 두 가지로 갈린다.
+
+        (2026-09-03, 실사용 피드백 반영) 사용자가 실제로 써보고 준 피드백:
+        "번호 매겨줘"로 원한 건 커서에 "1." 하나만 넣는 게 아니라, 선택한
+        목록 전체를 번호(1·2·3·4) 붙은 표로 만드는 것이었다. 그래서:
+
+        - 문서에 텍스트가 선택돼 있으면: 표 스타일 팝업과 똑같은 UI를 보여주고
+          (_draw_table_style_rows 공유), 고른 스타일로
+          insert_numbered_table_from_selection()을 실행해 "번호/내용" 2열
+          표를 만든다.
+        - 선택이 없으면: 기존 그대로 4종 서식(1./1)/(1)/①) 버튼을 보여주고,
+          고른 프리픽스를 커서 위치에 삽입한다(insert_numbering_prefix).
 
         Task 3(_show_table_style_picker)에서 발견된 topmost 가려짐 버그와
         콜백 예외처리 누락은 _make_topmost_popup()/_run_tool_safely()로 이미
         공통 처리된다 — 두 헬퍼의 docstring에 상세 근거가 있다."""
+        has_selection = self.report is not None and self.report.hwp.SelectionMode != 0
+
+        if has_selection:
+            from numbering_tool import insert_numbered_table_from_selection
+            from table_tool import TABLE_STYLES
+
+            picker = self._make_topmost_popup("표 스타일 선택 (번호 포함)", "360x290")
+            ctk.CTkLabel(
+                picker, text="선택한 목록을 번호 붙은 표로 삽입합니다. 스타일을 선택하세요:",
+                font=ctk.CTkFont(size=12),
+            ).pack(pady=(10, 4), padx=10, anchor="w")
+
+            def choose_table(style_key):
+                picker.destroy()
+                result = self._run_tool_safely(
+                    insert_numbered_table_from_selection, self.report, style_key
+                )
+                if result is None:
+                    return
+                if result["inserted"]:
+                    self._log(f"도우미: ✅ 번호 붙은 표를 삽입했어요 ({TABLE_STYLES[style_key]['label']}, {result['row_count']}행)")
+                else:
+                    self._log(f"도우미: ❌ 표를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}")
+
+            self._draw_table_style_rows(picker, choose_table)
+            return
+
         from numbering_tool import NUMBERING_STYLES, insert_numbering_prefix
 
         # (F12 2단계, 사용자 요청으로 UI 다듬기) 안내 문구가 들어갈 공간만큼
@@ -378,9 +435,9 @@ class ChatAssistant(ctk.CTk):
             if result is None:
                 return
             if result["inserted"]:
-                self._log(f"도우미: 번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})")
+                self._log(f"도우미: ✅ 번호를 삽입했어요 ({NUMBERING_STYLES[style_key]['label']})")
             else:
-                self._log("도우미: 번호 삽입에 실패했어요.")
+                self._log("도우미: ❌ 번호 삽입에 실패했어요.")
 
         for style_key, style_info in NUMBERING_STYLES.items():
             example = f"{style_info['prefix']}예시 항목입니다"
@@ -420,9 +477,16 @@ class ChatAssistant(ctk.CTk):
         self.input_box.delete(0, "end")
         self._log(f"나: {text}")
 
-        if not self.report or not self.source_paths:
-            self._log("도우미: 먼저 보고서 파일과 원본자료를 선택해주세요.")
+        if not self.report:
+            self._log("도우미: 먼저 보고서 파일을 선택해주세요.")
             return
+        # (2026-09-03, 실사용 피드백 반영) 원래는 여기서 source_paths도 필수로
+        # 요구했다 — 그런데 "표 만들어줘"/"번호 매겨줘"를 문서에서 선택한
+        # 텍스트로 실행하는 새 경로는 원본자료(첨부 엑셀)가 전혀 필요 없다
+        # (polish_to_formal_style도 원래부터 필요 없었음). 원본자료가 실제로
+        # 필요한 도구는 verify_numbers뿐이라, 그 검사는 아래 verify_numbers
+        # 분기 안으로 옮겼다 — 여기서 일괄로 막으면 원본자료를 첨부 안 한
+        # 사용자가 선택 기반 표/번호 기능조차 못 쓰게 되는 문제가 있었다.
 
         self._busy = True
         self.input_box.configure(state="disabled")
@@ -452,14 +516,17 @@ class ChatAssistant(ctk.CTk):
                 tool_name = route_intent(text)
 
             if tool_name == "verify_numbers":
-                from verify_tool import run_verification
-                result = run_verification(self.report, self.source_paths, default_year=2026)
-                self._log(f"도우미: {result['summary']}")
+                if not self.source_paths:
+                    self._log("도우미: 숫자 검증을 하려면 먼저 원본자료를 '+'로 첨부해주세요.")
+                else:
+                    from verify_tool import run_verification
+                    result = run_verification(self.report, self.source_paths, default_year=2026)
+                    self._log(f"도우미: ✅ {result['summary']}")
             elif tool_name == "polish_to_formal_style":
                 from polish_tool import polish_to_formal_style
                 result = polish_to_formal_style(self.report, text)
                 if result["applied"]:
-                    self._log(f"도우미: 다듬었어요 → {result['polished_text']}")
+                    self._log(f"도우미: ✅ 다듬었어요 → {result['polished_text']}")
                 else:
                     # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
                     # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
@@ -468,7 +535,7 @@ class ChatAssistant(ctk.CTk):
                     # "다듬었어요 → " 뒤에 아무것도 없는 채로 찍혀 실제로는
                     # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
                     # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
-                    self._log("도우미: 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
+                    self._log("도우미: ❌ 다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.")
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":

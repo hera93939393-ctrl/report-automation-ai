@@ -818,3 +818,50 @@ report.close(save=False) 완료
 2. 이 계획 파일 맨 아래 "## 최종 검증 결과"의 스크린샷을 확인해주세요.
 3. 실제로 `python chat_assistant.py`를 실행해 "표 만들어줘"/"번호 매겨줘"를 직접 입력해보시면 가장 정확합니다.
 4. 마음에 안 드는 부분이 있으면 F11→F12 전환 때처럼 편하게 말씀해주세요 — 이 브랜치(`feature/f12-phase2-table-numbering`)는 아직 master에 병합 안 했습니다.
+
+### 10. 사용자 실사용 피드백 반영 — 표/번호 기능 재설계 (2026-09-03)
+
+사용자가 위 체크리스트대로 실제 `chat_assistant.py`를 써본 뒤 피드백을 줬다. 두 기능(표 만들기/번호 매기기)이 실사용 의도와 다르게 동작하고 있었다:
+
+1. **숫자검증**: 정확하고 좋다는 긍정 피드백 — 손댈 것 없음.
+2. **"표 만들어줘"**: 문서에서 텍스트를 커서로 블록선택한 상태로 요청했는데, 선택 내용을 무시하고 **첨부된 엑셀 데이터**로 표가 만들어짐 — 의도와 다른 엉뚱한 내용.
+3. **"번호 매겨줘"**: 원래 기대는 커서 위치에 "1. " 텍스트 하나만 끼워넣는 게 아니라, **선택한 목록을 번호(1,2,3,4)가 붙은 표로 변환**하는 것이었음.
+4. **완료 표시**: 작업이 끝났을 때 채팅창에 더 명확히 표시해달라는 요청.
+5. **팝업 → 채팅창 통합**: 표/번호서식 선택 팝업을 별도 창이 아니라 채팅창 안으로 녹여낼 수 있는지 — 향후 과제로 별도 확인 필요.
+
+애매한 두 항목(2, 3번)은 `AskUserQuestion`으로 먼저 확인받았다:
+
+- Q1(표의 소스는 뭐로): **"선택 있으면 선택 텍스트로, 없으면 기존처럼 첨부 엑셀로 — 둘 다 지원"**
+- Q2(번호서식 재정의): **"선택 있으면 번호붙은 표로 새로 만들고, 선택 없으면 기존 커서 프리픽스 삽입도 그대로 유지 — 둘 다 필요"**
+
+**구현 결과 (전부 self-test로 직접 검증, 커밋 대기 중):**
+
+- `table_tool.py`의 `insert_table_from_source()`가 `report.hwp.SelectionMode`로 분기하도록 재설계됨. 선택이 있으면 새로 추가한 `_insert_table_from_selected_text()`(선택된 각 줄을 표의 한 행으로 변환)를 타고, 없으면 기존 엑셀 경로를 그대로 탄다. `_build_table` → `build_table`로 이름을 바꿔 공개 함수로 만들어 `numbering_tool.py`에서도 재사용한다.
+- `numbering_tool.py`에 `insert_numbered_table_from_selection()`을 새로 추가했다 — 선택된 목록을 "번호"(1,2,3,4...) + "내용" 2열 표로 변환한다(`build_table` 재사용). 기존 `insert_numbering_prefix()`(선택 없을 때의 커서 프리픽스 삽입)는 그대로 둠.
+- `chat_assistant.py`의 `_show_numbering_style_picker()`가 `SelectionMode`로 분기 — 선택이 있으면 표 스타일 선택 팝업(신규 `insert_numbered_table_from_selection` 호출)을, 없으면 기존 4버튼 프리픽스 팝업을 띄운다. 두 팝업의 표 스타일 미리보기 UI는 `_draw_table_style_rows()`로 공통화했다.
+- `_on_submit()`의 진입 가드가 `if not self.report or not self.source_paths` → `if not self.report`로 완화됨 — 원본자료(엑셀)를 첨부하지 않고 선택 기반 표/번호매기기만 쓰는 흐름을 막지 않기 위함. `source_paths` 필요 여부 체크는 `verify_numbers` 분기 안으로 옮김.
+- 로그 메시지에 ✅/❌ 접두사를 추가해 완료/실패를 시각적으로 구분(위 4번 항목의 1차 대응 — "별도 팝업창"까지는 아직 미구현, 사용자 확인 대기 중).
+- **표 셀 가운데 정렬(사용자 요청 2번의 부가 요청)**: `build_table()`에서 `table_from_data()` 직후 표 전체를 블록선택(`TableColBegin→TableColPageUp→TableCellBlockExtendAbs→TableColPageDown→TableColEnd`)해 `ParagraphShapeAlignCenter()`를 적용하도록 수정. `HParameterSet.HParaShape.AlignType`을 직접 읽어(`3`=가운데) 헤더/데이터 셀 4곳 모두 가운데 정렬임을 self-test로 확인.
+
+**과정에서 발견한 pyhwpx 동작 특성(코드 주석에도 기록):**
+
+- `table_from_data()`를 선택된 상태에서 호출하면 결정적으로(재현율 100%) COM 에러 → `AttributeError`로 이어져 크래시한다 — `Cancel()`을 직전에 호출해 방어.
+- `insert_text("")`는 선택 영역을 신뢰성 있게 지우지 않는다(직접 테스트로 확인, `SelectionMode`가 0으로 안 돌아오는 경우 실측) — 그래서 원본 선택 텍스트는 지우지 않고 표를 선택 영역 뒤에 새로 삽입하는 방식을 택함.
+- `find()`는 문단 경계(`\r\n`)를 넘는 여러 문단짜리 검색어를 찾지 못한다 — 여러 줄 선택을 흉내내는 self-test는 `select_text(spara, spos, epara, epos)`(문단번호 기반)로 재구성.
+- `BreakPara()`가 있어야 실제 문단 구분이 생긴다 — `insert_text()` 안에 `\n`을 넣는 것만으로는 문단이 안 나뉜다.
+
+**self-test 결과 (전부 최신 코드로 재실행, exit code 0):**
+
+| 파일 | 결과 |
+|---|---|
+| `table_tool.py` (6개: 기본/회색헤더/엑셀없음/선택-크래시없음/선택-여러줄/가운데정렬) | ✅ 전부 통과 |
+| `numbering_tool.py` (5개: 프리픽스 1종/4종/선택보존/선택→번호표/잘못된스타일거부) | ✅ 전부 통과 |
+| `route_intent`(`_route_by_keywords` 직접 호출, 9개) | ✅ 전부 통과 — 회귀 없음 |
+
+UI 통합 확인: `chat_assistant.py`에서 선택 상태일 때 "표 스타일 선택 (번호 포함)" 팝업이 올바른 안내문구로 뜨는 것을 스크린샷(`.tmp/screenshots/ui_numbering_with_selection.png`)으로 직접 확인(개인정보 없음, 오케스트레이터가 직접 열어봄).
+
+**아직 안 한 것 / 사용자 확인 대기 중:**
+
+- 4번(완료 표시): ✅/❌ 로그 접두사로 1차 대응함 — 이걸로 충분한지, 아니면 별도 작은 팝업창까지 원하는지 확인 필요.
+- 5번(팝업 → 채팅창 통합): 사용자가 최종 목표를 "VS Code+Copilot처럼, 표/번호 선택지도 채팅창 안에서 고르게"라고 명확히 함(2026-09-03) — 다음 라운드의 핵심 작업으로 확정, 아직 설계 전.
+- "표 모양을 더 다양하게"는 사용자가 스스로 향후 과제로 분류함 — 급하지 않음.
