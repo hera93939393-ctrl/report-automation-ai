@@ -10,9 +10,51 @@
 여부로 분기한다: 선택돼 있으면 그 선택 텍스트를 표로, 선택이 없으면 기존대로
 첨부 엑셀 데이터를 표로 만든다."""
 import os
+import re
 import pandas as pd
 
 from hwp_report import HwpReport
+
+# (2026-09-04, 실사용 피드백) "표 만들어줘"로 선택한 텍스트를 표로 바꿀 때,
+# 원래는 한 줄을 통째로 "내용" 한 칸에 넣었다 — 사용자가 "(1) 사전조사 :
+# 하루에 한번씩" 같은 줄을 번호/항목/설명 3칸으로 나눠 넣어달라고 요청함.
+# 줄 맨 앞의 흔한 번호/기호 패턴을 인식한다: 원문자(①~⑳), "(1)", "1)", "1.",
+# 그리고 "-"/"•" 같은 일반 불릿. 문맥을 읽고 판단하는 방식(로컬 AI)도
+# 고려했으나, 이 프로젝트의 로컬 모델(qwen3.5:2b)이 이런 구조화 응답에서
+# 이미 여러 번 멈추거나 빈 응답을 낸 전례가 있어(_generate_formal_style
+# 참고) 규칙 기반으로 먼저 만들고, 모델이 더 좋아지면(하드웨어 업그레이드
+# 논의 참고) AI 기반 분리를 옵션으로 추가하기로 사용자와 합의함.
+_BULLET_PATTERN = re.compile(
+    r'^\s*((?:[①-⑳])|(?:\([0-9]+\))|(?:[0-9]+[.)])|(?:[-•]))\s*'
+)
+
+
+def _split_line_into_columns(line: str) -> tuple[str, str, str]:
+    """한 줄을 (번호, 항목, 설명) 3칸으로 나눈다.
+
+    번호: 줄 맨 앞의 흔한 번호/기호(_BULLET_PATTERN) — 없으면 빈 칸(사용자
+    요청: "칸1에는 숫자가 들어가, 없는 경우엔 칸2에 들어가는 거지" — 번호가
+    없다고 번호 칸에 본문을 채우지 않고, 항목 칸부터 채운다).
+    항목/설명: 번호를 뗀 나머지를 콜론(반각 : 또는 전각 ：) 기준으로 앞/뒤
+    분리한다. 둘 다 있으면 더 먼저(왼쪽에) 나오는 콜론을 기준으로 삼는다.
+    콜론이 아예 없으면 나머지 전체를 항목 칸에 넣고 설명 칸은 비운다."""
+    bullet_match = _BULLET_PATTERN.match(line)
+    if bullet_match:
+        bullet = bullet_match.group(1)
+        rest = line[bullet_match.end():]
+    else:
+        bullet = ""
+        rest = line
+
+    colon_positions = [p for p in (rest.find(":"), rest.find("：")) if p != -1]
+    if colon_positions:
+        sep_pos = min(colon_positions)
+        title = rest[:sep_pos].strip()
+        description = rest[sep_pos + 1:].strip()
+    else:
+        title = rest.strip()
+        description = ""
+    return bullet, title, description
 
 # PRD 14-2가 "표 스타일은 배경색+헤더 굵게 2~3종으로 한정"이라고 명시했던
 # 범위 제한이었고, 사용자가 이후 "표 모양을 더 다양하게" 해달라고 요청해
@@ -129,7 +171,19 @@ def _insert_table_from_selected_text(report: HwpReport, style: str) -> dict:
         report.hwp.Cancel()
         return {"inserted": False, "reason": "선택한 텍스트가 비어있습니다"}
 
-    df = pd.DataFrame({"내용": lines})
+    # (2026-09-04, 실사용 피드백) "(1) 사전조사 : 하루에 한번씩" 같은 줄은
+    # 번호/항목/설명 3칸으로 나눈다(_split_line_into_columns). 다만 선택한
+    # 줄 전부가 번호도 콜론도 없는 평범한 목록(예: 그냥 항목 나열)이면,
+    # 번호/설명 칸이 모든 행에서 항상 비어있는 표가 되어 예전(1칸)보다
+    # 오히려 정보가 없는 빈 칸만 늘어난다 — 그래서 하나라도 번호나 콜론이
+    # 실제로 인식된 줄이 있을 때만 3칸으로 만들고, 전혀 없으면 기존처럼
+    # "내용" 1칸짜리 표로 만든다(하위호환).
+    parsed = [_split_line_into_columns(line) for line in lines]
+    has_structure = any(bullet or description for bullet, _title, description in parsed)
+    if has_structure:
+        df = pd.DataFrame(parsed, columns=["번호", "항목", "설명"])
+    else:
+        df = pd.DataFrame({"내용": lines})
     build_table(report, df, style)
     return {"inserted": True, "style": style, "source": "selection", "row_count": len(lines)}
 
@@ -464,6 +518,60 @@ def _selftest_insert_table_from_selected_text_multiline():
         os.remove(report_path)
 
 
+def _selftest_split_line_into_columns():
+    """_split_line_into_columns()가 번호/콜론 유무에 따라 올바르게 3칸으로
+    나누는지 확인한다(2026-09-04, 실사용 피드백 — 사용자가 준 예시 포함)."""
+    assert _split_line_into_columns("(1) 사전조사 : 하루에 한번씩") == ("(1)", "사전조사", "하루에 한번씩"), \
+        _split_line_into_columns("(1) 사전조사 : 하루에 한번씩")
+    assert _split_line_into_columns("① 결과보고") == ("①", "결과보고", ""), \
+        _split_line_into_columns("① 결과보고")
+    assert _split_line_into_columns("일반사항 검토 필요") == ("", "일반사항 검토 필요", ""), \
+        _split_line_into_columns("일반사항 검토 필요")
+    assert _split_line_into_columns("2) 예산 편성 : 부서별로 배정") == ("2)", "예산 편성", "부서별로 배정"), \
+        _split_line_into_columns("2) 예산 편성 : 부서별로 배정")
+    print("_split_line_into_columns 통과")
+
+
+def _selftest_insert_table_from_selected_text_splits_structured_lines():
+    """(2026-09-04, 실사용 피드백) 선택한 줄에 번호/콜론 구조가 있으면
+    "내용" 1칸이 아니라 번호/항목/설명 3칸 표로 만든다. 사용자가 준 예시
+    ("(1) 사전조사 : 하루에 한번씩")를 포함한 두 줄로 확인한다 — 하나는
+    번호+콜론이 다 있고, 하나는 둘 다 없는 경우를 섞어 has_structure
+    판단(하나라도 구조가 있으면 3칸)과 빈 칸 처리(번호 없는 줄은 번호 칸이
+    빈 채로 항목 칸부터 채워짐)를 함께 검증한다."""
+    import os, tempfile
+    from pyhwpx import Hwp
+    from hwp_report import HwpReport
+
+    report_path = os.path.join(tempfile.gettempdir(), "_test_표_구조분리.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("앞 문단"); setup.BreakPara()
+    setup.insert_text("(1) 사전조사 : 하루에 한번씩"); setup.BreakPara()
+    setup.insert_text("일반사항 검토 필요"); setup.BreakPara()
+    setup.insert_text("뒤 문단")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        ok = report.hwp.select_text(1, 0, 2, -1)
+        assert ok, "문단 1~2 선택 실패"
+
+        result = insert_table_from_source(report, source_paths=[], style="default")
+        assert result["inserted"] is True, result
+        assert result.get("row_count") == 2, result
+
+        final_text = report.get_text()
+        for expected in ["번호", "항목", "설명", "(1)", "사전조사", "하루에 한번씩", "일반사항 검토 필요"]:
+            assert expected in final_text, (expected, final_text)
+        print("insert_table_from_source(구조화된 줄 → 번호/항목/설명 3칸) 통과:", repr(final_text))
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(report_path)
+
+
 def _selftest_build_table_striped_style_colors_odd_rows_only():
     """(2026-09-03, "표 모양을 더 다양하게" 요청 반영) "striped" 스타일은
     데이터 행 중 0,2번째(1행,3행)에만 옅은 회색(240,240,240)이 칠해지고
@@ -546,3 +654,5 @@ if __name__ == "__main__":
     _selftest_insert_table_from_selected_text_multiline()
     _selftest_build_table_centers_all_cells()
     _selftest_build_table_striped_style_colors_odd_rows_only()
+    _selftest_split_line_into_columns()
+    _selftest_insert_table_from_selected_text_splits_structured_lines()

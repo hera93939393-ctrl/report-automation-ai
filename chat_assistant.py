@@ -622,6 +622,14 @@ class ChatAssistant(ctk.CTk):
                 else:
                     from verify_tool import run_verification
                     result = run_verification(self.report, self.source_paths, default_year=2026)
+                    # (2026-09-04, 실사용 피드백) 문서에 색으로 표시만 해서는
+                    # "빨강/파랑/초록이 각각 무슨 뜻인지" 알 수 없다는 지적을
+                    # 받아, 검증 결과와 함께 매번 색 범례를 같이 보여준다.
+                    self._log(
+                        "빨강: 원본과 다름(오류) / 파랑: 원본과 일치(정상) / "
+                        "초록: 원본에 항목 자체가 없어 대조불가",
+                        role="assistant",
+                    )
                     self._log(result["summary"], role="success")
             elif tool_name == "polish_to_formal_style":
                 from polish_tool import polish_to_formal_style
