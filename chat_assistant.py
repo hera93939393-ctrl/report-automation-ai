@@ -26,6 +26,24 @@ _BUBBLE_STYLE = {
 }
 _WINDOW_BG = "#FAFAF8"
 
+# (2026-09-03, 네 번째 디자인 피드백) "하얀 바탕에 글씨는 연파랑" 요청 반영 —
+# 스타일 선택 버튼(표/번호서식)을 흰 배경 + 파란 글씨의 아웃라인 버튼으로
+# 바꾼다. CTk 기본 테마 버튼(흰 글씨 + 진한 파란 채우기)은 이 카드의 흰/베이지
+# 배경과 대비가 너무 강해 튀어 보인다는 지적을 받아, report_button/attach_button과
+# 같은 계열(연한 아웃라인)로 통일했다.
+_PICKER_BUTTON = {
+    "fg_color": "#FFFFFF", "text_color": "#0C447C", "border_width": 1,
+    "border_color": "#B5D4F4", "hover_color": "#E6F1FB",
+}
+_PICKER_BUTTON_CHOSEN = {
+    "fg_color": "#E6F1FB", "text_color": "#0C447C", "border_width": 2,
+    "border_color": "#378ADD", "hover_color": "#E6F1FB",
+}
+_PICKER_BUTTON_UNCHOSEN = {
+    "fg_color": "#FFFFFF", "text_color": "#B4B2A9", "border_width": 1,
+    "border_color": "#D3D1C7",
+}
+
 _TOOLS = [
     {
         "type": "function",
@@ -191,7 +209,16 @@ class ChatAssistant(ctk.CTk):
         self._busy = False
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
 
-        self.report_button = ctk.CTkButton(self, text="보고서 파일 선택", command=self._choose_report)
+        # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
+        # UI라, 채팅 안의 스타일 선택 버튼(그 순간 골라야 하는 것)과 같은
+        # 진한 파란색을 쓰면 오히려 이 버튼이 더 튀어 보인다는 지적을 받아
+        # 테두리만 있는 연한 버튼으로 바꿨다 — "강조색은 한 화면에 하나만"
+        # 원칙(진짜 선택해야 하는 스타일 버튼 쪽에 몰아줌).
+        self.report_button = ctk.CTkButton(
+            self, text="보고서 파일 선택", command=self._choose_report,
+            fg_color="transparent", border_width=1, border_color="#B4B2A9",
+            text_color="#2C2C2A", hover_color="#F1EFE8",
+        )
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
 
         # (2026-09-03, 실사용 디자인 피드백) CTkTextbox 한 줄짜리 로그 대신
@@ -203,7 +230,13 @@ class ChatAssistant(ctk.CTk):
         self.input_row = ctk.CTkFrame(self, fg_color="transparent")
         self.input_row.pack(pady=(0, 10), padx=10, fill="x")
 
-        self.attach_button = ctk.CTkButton(self.input_row, text="+", width=32, command=self._attach_source)
+        # report_button과 같은 이유로 연하게 — 입력창 옆의 보조 버튼일 뿐이라
+        # 채팅 속 스타일 선택 버튼보다 튀면 안 된다.
+        self.attach_button = ctk.CTkButton(
+            self.input_row, text="+", width=32, command=self._attach_source,
+            fg_color="transparent", border_width=1, border_color="#B4B2A9",
+            text_color="#2C2C2A", hover_color="#F1EFE8",
+        )
         self.attach_button.pack(side="left", padx=(0, 6))
 
         self.input_box = ctk.CTkEntry(self.input_row, placeholder_text="예: 숫자 검증해줘")
@@ -335,15 +368,13 @@ class ChatAssistant(ctk.CTk):
         buttons = []
 
         def handle_click(style_key, button):
-            # (스크린샷으로 직접 확인) border_width만으로는 버튼 자체가 이미
-            # 파란색이라 테두리 강조가 잘 안 보였다 — 고른 버튼엔 체크마크를
-            # 붙이고, 고르지 않은 나머지는 회색으로 눌러서 "이걸 골랐다"가
-            # 한눈에 보이도록 했다.
+            # 고른 버튼엔 체크마크 + 연파랑 배경 강조, 나머지는 흐린 회색으로
+            # 눌러서 "이걸 골랐다"가 한눈에 보이도록 했다(_PICKER_BUTTON_* 참고).
             for b in buttons:
                 if b is button:
-                    b.configure(text=f"✓ {b.cget('text')}")
+                    b.configure(text=f"✓ {b.cget('text')}", **_PICKER_BUTTON_CHOSEN)
                 else:
-                    b.configure(fg_color="#B4B2A9")
+                    b.configure(**_PICKER_BUTTON_UNCHOSEN)
                 b.configure(state="disabled")
             on_choose(style_key)
 
@@ -369,7 +400,7 @@ class ChatAssistant(ctk.CTk):
             for col, text in enumerate(["인건비", "1,000,000"]):
                 ctk.CTkLabel(preview, text=text, width=38, height=18, font=ctk.CTkFont(size=9), fg_color="#FFFFFF").grid(row=1, column=col, padx=1, pady=1)
 
-            button = ctk.CTkButton(row, text=style_info["label"], height=28)
+            button = ctk.CTkButton(row, text=style_info["label"], height=28, **_PICKER_BUTTON)
             button.configure(command=lambda k=style_key, b=button: handle_click(k, b))
             button.pack(side="left", fill="x", expand=True)
             buttons.append(button)
@@ -462,9 +493,9 @@ class ChatAssistant(ctk.CTk):
         def choose(style_key, button):
             for b in buttons:
                 if b is button:
-                    b.configure(text=f"✓ {b.cget('text')}")
+                    b.configure(text=f"✓ {b.cget('text')}", **_PICKER_BUTTON_CHOSEN)
                 else:
-                    b.configure(fg_color="#B4B2A9")
+                    b.configure(**_PICKER_BUTTON_UNCHOSEN)
                 b.configure(state="disabled")
             result = self._run_tool_safely(insert_numbering_prefix, self.report, style_key)
             if result is None:
@@ -476,7 +507,7 @@ class ChatAssistant(ctk.CTk):
 
         for style_key, style_info in NUMBERING_STYLES.items():
             example = f"{style_info['prefix']}예시 항목입니다"
-            button = ctk.CTkButton(card, text=example)
+            button = ctk.CTkButton(card, text=example, **_PICKER_BUTTON)
             button.configure(command=lambda k=style_key, b=button: choose(k, b))
             button.pack(pady=3, padx=8, fill="x")
             buttons.append(button)
