@@ -10,7 +10,7 @@ import os
 import tempfile
 import openpyxl
 
-from verify_numbers import extract_values, compare_values
+from verify_numbers import extract_values, categorize_values
 from source_reader import read_source_files
 from hwp_report import HwpReport
 
@@ -29,8 +29,18 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         첫 줄 숫자와는 항상 일치하지만, conflicts가 있으면 그 충돌 줄들이 이
         숫자에 안 잡힌 채 목록 뒤에 추가로 붙는다(의도된 것 — 원본 파일 간
         불일치는 "불일치 값 개수"와 성격이 달라 같은 숫자에 합산하지 않음).
+      - match_count / unverifiable_count: int — 각각 파란색(정상)/초록색
+        (대조불가) 표시된 서로 다른 값의 개수(2026-09-04 추가, 아래 참고).
       - summary: str — 채팅창에 그대로 보여줄 사람이 읽는 요약 텍스트.
       - conflicts: list — read_source_files가 찾은 원본 파일 간 불일치 목록.
+
+    (2026-09-04, 실사용 피드백) "문서가 길어지니 전부 확인한 건지 모르겠다"는
+    지적을 받아, 불일치(빨강)만 표시하던 것에 정상(파랑)/대조불가(초록)도
+    추가로 표시하게 됐다. 대조불가는 answer_pool에 그 타입 자체가 없어서
+    (예: 원본 엑셀엔 금액만 있고 전화번호가 없음) 애초에 비교할 수 없었던
+    값이다 — 오류(빨강)와는 다른 뜻이므로 구분해서 표시한다. summary에도
+    세 건수를 전부 적어, 채팅 텍스트만 봐도 "몇 개 중 몇 개를 어떻게
+    확인했는지" 알 수 있게 했다.
 
     반복 호출 계약(F12의 핵심 전제, 2026-09-01 코드품질 리뷰로 수정됨): 이
     함수는 같은 HwpReport 핸들에 대해 한 채팅 세션 안에서 여러 번 호출되도록
@@ -54,26 +64,49 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     answer_pool, conflicts = read_source_files(source_paths, default_year)
 
     report_text = report.get_text()
-    report.reset_colors()  # 재검증 시 이전 호출이 남긴 빨간 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
+    report.reset_colors()  # 재검증 시 이전 호출이 남긴 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
     report_values = extract_values(report_text, default_year)
-    mismatches = compare_values(report_values, answer_pool)
+    categorized = categorize_values(report_values, answer_pool)
+    mismatches = categorized["mismatches"]
+    matches = categorized["matches"]
+    unverifiable = categorized["unverifiable"]
 
-    unique_raw_values = list(dict.fromkeys(m["raw"] for m in mismatches))
-    for raw in unique_raw_values:
+    # 빨강(오류)/파랑(정상)/초록(대조불가) 순서로 표시한다 — 같은 raw 문자열은
+    # normalized 값이 결정적으로 같은 값에서 나오므로 세 카테고리에 동시에
+    # 걸치는 경우가 없다(직접 확인: categorize_values가 report_value 하나당
+    # 정확히 한 카테고리에만 넣음), 그래서 순서 자체는 결과에 영향 없다.
+    unique_mismatch_raw = list(dict.fromkeys(m["raw"] for m in mismatches))
+    for raw in unique_mismatch_raw:
         report.mark_red(raw)
+    unique_match_raw = list(dict.fromkeys(m["raw"] for m in matches))
+    for raw in unique_match_raw:
+        report.mark_color(raw, 0, 0, 255)
+    unique_unverifiable_raw = list(dict.fromkeys(m["raw"] for m in unverifiable))
+    for raw in unique_unverifiable_raw:
+        report.mark_color(raw, 0, 128, 0)
 
     first_type_by_raw = {}
     for m in mismatches:
         first_type_by_raw.setdefault(m["raw"], m["type"])
-    lines = [f"- [{first_type_by_raw[raw]}] '{raw}' 원본에서 확인 안 됨" for raw in unique_raw_values]
+    lines = [f"- [{first_type_by_raw[raw]}] '{raw}' 원본에서 확인 안 됨" for raw in unique_mismatch_raw]
     for c in conflicts:
         value_desc = ", ".join(f"{v['file']}={v['normalized']}" for v in c["values"])
         lines.append(f"- ⚠ 원본자료 불일치[{c['type']}]: {c['location']} ({value_desc})")
 
-    summary = (f"{len(unique_raw_values)}건 확인 필요\n" + "\n".join(lines)
-               if mismatches or conflicts else "이상 없음, 모두 원본과 일치합니다")
+    total_checked = len(unique_mismatch_raw) + len(unique_match_raw) + len(unique_unverifiable_raw)
+    header = (
+        f"총 {total_checked}건 확인 - 정상(파랑) {len(unique_match_raw)}건, "
+        f"오류(빨강) {len(unique_mismatch_raw)}건, 대조불가(초록) {len(unique_unverifiable_raw)}건"
+    )
+    summary = header + ("\n" + "\n".join(lines) if lines else "")
 
-    return {"mismatch_count": len(unique_raw_values), "summary": summary, "conflicts": conflicts}
+    return {
+        "mismatch_count": len(unique_mismatch_raw),
+        "match_count": len(unique_match_raw),
+        "unverifiable_count": len(unique_unverifiable_raw),
+        "summary": summary,
+        "conflicts": conflicts,
+    }
 
 
 def _selftest_run_verification():
@@ -111,9 +144,11 @@ def _selftest_run_verification_clears_stale_marks_on_rerun():
     1) 원본에 없는 값으로 1차 검증 → 빨간색으로 표시됨을 확인
     2) 문서는 그대로 두고, 원본 쪽을 고쳐 그 값이 더 이상 불일치가 아니게 만듦
        (사용자가 원본을 수정한 뒤 같은 채팅 세션에서 재검증을 요청하는 F12 시나리오)
-    3) 같은 HwpReport 핸들로 재검증 → "이상 없음"이면서 글자색도 검정으로
-       돌아와 있어야 한다(둘 다 확인 — 요약 텍스트만 맞고 화면은 안 맞는
-       이번 버그가 재발하면 바로 잡히도록).
+    3) 같은 HwpReport 핸들로 재검증 → 오류 0건이면서, 이제는 원본과 일치하는
+       값이라 글자색이 파란색(정상 표시)으로 바뀌어 있어야 한다(2026-09-04
+       갱신 — 예전엔 "표시 없음(검정)"이 기대값이었으나, 정상 값도 파란색으로
+       표시하는 기능이 추가되면서 기대값이 바뀜). 둘 다 확인해 요약 텍스트만
+       맞고 화면은 안 맞는 버그가 재발하면 바로 잡히도록 한다.
     """
     test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_f12_rerun")
     os.makedirs(test_dir, exist_ok=True)
@@ -146,10 +181,10 @@ def _selftest_run_verification_clears_stale_marks_on_rerun():
 
         result2 = run_verification(report, source_paths=[test_dir], default_year=2026)
         assert result2["mismatch_count"] == 0, result2
-        assert "이상 없음" in result2["summary"], result2["summary"]
+        assert "오류(빨강) 0건" in result2["summary"], result2["summary"]
         color_after_second = report.get_char_color_at("9999999")
-        assert color_after_second == (0, 0, 0), color_after_second
-        print("run_verification 재검증 회귀테스트 통과: 재검증 후 이전 빨간표시가 검정으로 리셋됨")
+        assert color_after_second == (0, 0, 255), color_after_second  # 이제 원본과 일치 → 파란색(정상)
+        print("run_verification 재검증 회귀테스트 통과: 재검증 후 이전 빨간표시가 사라지고 파란색(정상)으로 바뀜")
     finally:
         if report is not None:
             report.close(save=False)

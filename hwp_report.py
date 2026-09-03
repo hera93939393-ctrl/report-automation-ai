@@ -63,12 +63,19 @@ class HwpReport:
         text = self.hwp.GetTextFile("TEXT", "")
         return text if text is not None else ""
 
-    def mark_red(self, target_text: str) -> bool:
-        """문서 안에서 target_text의 모든 occurrence를 찾아 글자색을 빨간색
-        (255,0,0)으로 바꾼다. 같은 잘못된 값이 표와 요약 문장 등 여러 곳에
-        중복 등장하는 경우가 흔해서, 한 곳만 바꾸면 나머지가 안 바뀐 채로
-        남는다 — 그래서 문서 전체를 훑어 전부 바꾼다.
-        문서 어디에도 없으면 False를 반환한다. 자동저장은 하지 않는다.
+    def mark_color(self, target_text: str, r: int, g: int, b: int) -> bool:
+        """문서 안에서 target_text의 모든 occurrence를 찾아 글자색을 (r,g,b)로
+        바꾼다. 같은 값이 표와 요약 문장 등 여러 곳에 중복 등장하는 경우가
+        흔해서, 한 곳만 바꾸면 나머지가 안 바뀐 채로 남는다 — 그래서 문서
+        전체를 훑어 전부 바꾼다. 문서 어디에도 없으면 False를 반환한다.
+        자동저장은 하지 않는다.
+
+        (2026-09-04, 실사용 피드백) 원래 이름은 mark_red()였고 빨간색
+        고정이었다 — 사용자가 "확인했지만 정상(파랑)"/"확인은 됐지만
+        원본에 대조할 항목이 없음(초록)"도 문서에 표시해달라고 요청해
+        색을 파라미터로 받도록 일반화했다. mark_red()는 이제 이 함수를
+        RGB(255,0,0)으로 호출하는 얇은 래퍼로 남겨 기존 호출자(self-test
+        포함)와의 하위호환을 유지한다.
 
         구현 메모: 커서를 문서 처음으로 옮긴 뒤 direction="Forward"로 반복
         탐색한다. "AllDoc"을 루프 안에서 쓰면 문서 끝에 닿았을 때 처음으로
@@ -80,9 +87,14 @@ class HwpReport:
         self.hwp.MoveDocBegin()
         found_any = False
         while self.hwp.find(target_text, direction="Forward"):
-            self.hwp.set_font(TextColor=self.hwp.RGBColor(255, 0, 0))
+            self.hwp.set_font(TextColor=self.hwp.RGBColor(r, g, b))
             found_any = True
         return found_any
+
+    def mark_red(self, target_text: str) -> bool:
+        """mark_color(target_text, 255, 0, 0)의 얇은 래퍼 — "오류(원본과 불일치)"
+        표시용으로 기존 호출자들이 계속 이 이름을 쓴다."""
+        return self.mark_color(target_text, 255, 0, 0)
 
     def reset_colors(self) -> None:
         """문서 전체의 글자색을 기본값(검정, RGB 0,0,0)으로 초기화한다.

@@ -281,35 +281,47 @@ def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
     print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
 
 
-def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
-    """report_values 각각을 answer_pool과 대조해, 원본에서 확인 안 되는 항목만 반환한다.
-    4종(금액/날짜/시간/전화번호) 전부 normalized 값이 정확히 일치해야 통과한다.
-    금액에 별도 오차 허용을 두지 않는 이유: normalized는 이미 단위환산까지 끝난
-    깨끗한 정수 문자열이고, 이 도구가 다루는 금액 규모(최대 수조 원)는 배정밀도
-    float의 정수 정확 표현 한계(2^53)에 전혀 못 미쳐 부동소수점 잡음이 생기지
-    않는다. 상대오차(%) 허용은 금액이 클수록 허용되는 절대 오차도 커져서,
-    큰 금액에서 실제 오타를 놓치는 근본적인 결함이 있었다(임계값을 아무리
-    좁혀도 해결 안 됨) — 그래서 정확 일치로 되돌린다.
+def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
+    """report_values 각각을 answer_pool과 대조해 세 갈래로 나눈다:
+    - matches: 원본과 정확히 일치(정상) → 문서에 파란색으로 표시할 대상
+    - mismatches: 원본에 같은 타입 값이 있지만 정확히 일치하는 게 없음(오류)
+      → 빨간색 표시 대상. 기존 compare_values()가 반환하던 것과 동일한 판정.
+    - unverifiable: answer_pool에 그 타입 자체가 하나도 없어서 애초에 대조가
+      불가능함 → 초록색 표시 대상. "원본에 이 종류의 데이터 자체가 없어서
+      확인 못 했다"는 뜻이지, 값이 틀렸다는 뜻이 아니다.
 
-    (2026-08-31 최종 검토 반영) answer_pool에 해당 type이 단 하나도 없으면
-    비교 자체를 생략하고 넘어간다(오탐 방지). 예: 원본이 예산/실적 엑셀이라
-    amount·date만 있고 phone 항목이 아예 없는 경우, 보고서 담당자 연락처
-    "031-1234-5678"은 "원본에 있는 phone 값들과 달라서" 틀린 게 아니라
-    "원본에 대조할 phone 자체가 없어서" 확인이 불가능한 것이다 — 이런 경우
-    무조건 mismatch로 찍으면 진짜 오타와 구분이 안 되는 전수 오탐이 된다.
-    반대로 해당 type이 하나라도 있으면(원본에 phone이 있지만 이 값과는 다 다름)
-    기존과 동일하게 정상적으로 mismatch로 잡는다 — "타입 있음 vs 없음"만
-    가르는 최소한의 변경이다.
+    (2026-09-04, 실사용 피드백) 원래 compare_values()는 mismatches만
+    반환했다 — "문서가 길어지니 전부 확인한 건지 못 알아보겠다"는 사용자
+    피드백에 따라, 확인은 됐지만 정상인 값(파랑)과 애초에 대조가 불가능한
+    값(초록)도 구분해 색으로 표시하게 됐다. 4종(금액/날짜/시간/전화번호)
+    전부 normalized 값이 정확히 일치해야 match로 판정한다. 금액에 별도
+    오차 허용을 두지 않는 이유: normalized는 이미 단위환산까지 끝난 깨끗한
+    정수 문자열이고, 이 도구가 다루는 금액 규모(최대 수조 원)는 배정밀도
+    float의 정수 정확 표현 한계(2^53)에 전혀 못 미쳐 부동소수점 잡음이
+    생기지 않는다. 상대오차(%) 허용은 금액이 클수록 허용되는 절대 오차도
+    커져서, 큰 금액에서 실제 오타를 놓치는 근본적인 결함이 있었다(임계값을
+    아무리 좁혀도 해결 안 됨) — 그래서 정확 일치로 되돌린다.
     """
-    mismatches = []
+    matches, mismatches, unverifiable = [], [], []
     for rv in report_values:
         candidates = [a for a in answer_pool if a["type"] == rv["type"]]
         if not candidates:
-            continue  # 원본에 이 타입 자체가 없음 → 대조 불가, 오탐 방지 위해 생략
-        found = any(a["normalized"] == rv["normalized"] for a in candidates)
-        if not found:
+            unverifiable.append(rv)  # 원본에 이 타입 자체가 없음 → 대조 불가
+            continue
+        if any(a["normalized"] == rv["normalized"] for a in candidates):
+            matches.append(rv)
+        else:
             mismatches.append(rv)
-    return mismatches
+    return {"matches": matches, "mismatches": mismatches, "unverifiable": unverifiable}
+
+
+def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
+    """(기존 동작 그대로 유지) report_values 중 원본과 불일치하는 것만
+    반환한다. categorize_values()의 "mismatches"만 뽑아 쓰는 얇은 래퍼 —
+    기존 호출자(아래 self-test 여러 개, verify_tool.py)와의 하위호환을
+    위해 이름과 반환 형태를 그대로 둔다. 새로 파랑/초록 분류까지 필요한
+    호출자는 categorize_values()를 직접 쓴다(verify_tool.py run_verification 참고)."""
+    return categorize_values(report_values, answer_pool)["mismatches"]
 
 
 def _selftest_compare_values():
@@ -396,6 +408,29 @@ def _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches():
     print("_selftest_compare_values_per_type_skip_does_not_hide_other_mismatches 통과:", mismatches)
 
 
+def _selftest_categorize_values_three_buckets():
+    """(2026-09-04, 실사용 피드백) categorize_values()가 matches(파랑)/
+    mismatches(빨강)/unverifiable(초록) 세 갈래를 정확히 나누는지 확인한다.
+    _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches와
+    같은 픽스처(phone 스킵 + amount 정상/오타 혼재)를 재사용해, compare_values()
+    가 이미 검증한 mismatches 판정과 categorize_values()의 mismatches가
+    여전히 같은 결과인지도 함께 확인한다."""
+    answer_pool = [
+        {"type": "amount", "normalized": "1850000", "raw": "1,850,000",
+         "source_file": "원본.xlsx", "location": "Sheet1!C15"},
+    ]
+    report_values = [
+        {"type": "phone", "normalized": "031-1234-5678", "raw": "031-1234-5678", "span": (0, 13)},  # unverifiable(원본에 phone 없음)
+        {"type": "amount", "normalized": "1850000", "raw": "185만원", "span": (20, 24)},  # match(일치)
+        {"type": "amount", "normalized": "9999999", "raw": "999만9900원", "span": (30, 40)},  # mismatch(오타)
+    ]
+    result = categorize_values(report_values, answer_pool)
+    assert [m["raw"] for m in result["matches"]] == ["185만원"], result["matches"]
+    assert [m["raw"] for m in result["mismatches"]] == ["999만9900원"], result["mismatches"]
+    assert [m["raw"] for m in result["unverifiable"]] == ["031-1234-5678"], result["unverifiable"]
+    print("_selftest_categorize_values_three_buckets 통과:", result)
+
+
 def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[dict]:
     """엑셀에서 읽은 행(딕셔너리 리스트)에서, 숫자로만 이루어진 각 컬럼의 단순 합계를
     미리 계산해 정답 풀에 추가할 항목으로 반환한다 (PRD 12-2: 합계만, 증감률/평균은 제외).
@@ -467,6 +502,7 @@ if __name__ == "__main__":
     _selftest_compare_values_skips_type_absent_from_source()
     _selftest_compare_values_still_flags_when_type_present_but_no_match()
     _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches()
+    _selftest_categorize_values_three_buckets()
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
     _selftest_compute_column_sums_ignores_boolean_column()
