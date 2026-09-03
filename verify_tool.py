@@ -71,19 +71,39 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     matches = categorized["matches"]
     unverifiable = categorized["unverifiable"]
 
-    # 빨강(오류)/파랑(정상)/초록(대조불가) 순서로 표시한다 — 같은 raw 문자열은
-    # normalized 값이 결정적으로 같은 값에서 나오므로 세 카테고리에 동시에
-    # 걸치는 경우가 없다(직접 확인: categorize_values가 report_value 하나당
-    # 정확히 한 카테고리에만 넣음), 그래서 순서 자체는 결과에 영향 없다.
+    # (2026-09-04, 실사용 피드백) 원래는 "고유 raw 문자열 하나당 mark_color() 한
+    # 번" 구조였다 — mark_color()가 매번 MoveDocBegin()부터 다시 시작해 문서
+    # 전체를 훑기 때문에, 서로 다른 값이 여러 개면 문서를 그 개수만큼 처음부터
+    # 다시 스캔하는 것처럼 보였다(사용자가 실제로 "수십 번 처음부터 끝까지
+    # 훑는다"고 지적함). "위에서부터 하나씩 순서대로 빨강/파랑/초록을 칠하며
+    # 내려가자"는 사용자 제안대로, extract_values가 이미 갖고 있는 문서 내
+    # 위치(span)를 기준으로 전체 항목을 한 번만 정렬한 뒤, 커서를 문서 처음에
+    # 한 번만 놓고 mark_next_color()(Forward 검색만 하고 되돌아가지 않음)로
+    # 순서대로 칠한다 — 결과적으로 문서를 위→아래 딱 한 번만 훑는다.
+    #
+    # 같은 raw 문자열이 여러 번 등장하면 extract_values가 등장할 때마다 별도
+    # 항목(서로 다른 span)으로 뽑아두므로, span 순서대로 처리하면 자연히 각
+    # occurrence를 순서대로 하나씩 만나 정확히 칠하게 된다(값 단위로 뭉치지
+    # 않음 — 그래서 여기서는 dict.fromkeys로 중복 제거하지 않는다. 채팅
+    # 요약에 쓸 "고유 값 개수"는 아래에서 별도로 계산한다).
+    colored_in_order = sorted(
+        [(m["span"][0], m["raw"], (255, 0, 0)) for m in mismatches]
+        + [(m["span"][0], m["raw"], (0, 0, 255)) for m in matches]
+        + [(m["span"][0], m["raw"], (0, 128, 0)) for m in unverifiable],
+        key=lambda item: item[0],
+    )
+    report.hwp.MoveDocBegin()
+    for _pos, raw, (r, g, b) in colored_in_order:
+        found = report.mark_next_color(raw, r, g, b)
+        if not found:
+            # 추출 순서가 실제 문서상 위치와 어긋나는 드문 경우를 대비한
+            # 폴백 — 문서 처음부터 다시 찾아서라도 반드시 칠한다.
+            report.hwp.MoveDocBegin()
+            report.mark_next_color(raw, r, g, b)
+
     unique_mismatch_raw = list(dict.fromkeys(m["raw"] for m in mismatches))
-    for raw in unique_mismatch_raw:
-        report.mark_red(raw)
     unique_match_raw = list(dict.fromkeys(m["raw"] for m in matches))
-    for raw in unique_match_raw:
-        report.mark_color(raw, 0, 0, 255)
     unique_unverifiable_raw = list(dict.fromkeys(m["raw"] for m in unverifiable))
-    for raw in unique_unverifiable_raw:
-        report.mark_color(raw, 0, 128, 0)
 
     first_type_by_raw = {}
     for m in mismatches:
@@ -193,6 +213,52 @@ def _selftest_run_verification_clears_stale_marks_on_rerun():
         os.remove(report_path)
 
 
+def _selftest_run_verification_colors_all_three_categories_in_one_pass():
+    """(2026-09-04, 실사용 피드백) "왜 값 하나마다 문서를 처음부터 끝까지
+    다시 훑냐"는 지적을 받아 mark_color()를 값마다 반복 호출하던 것을,
+    문서 내 위치(span) 순서로 정렬한 뒤 커서를 한 번만 문서 처음에 두고
+    mark_next_color()로 순서대로 칠하는 방식으로 바꿨다 — 정상(파랑)/
+    오류(빨강)/대조불가(초록) 세 종류가 한 문서에 섞여 있을 때도 각각
+    정확한 위치에 정확한 색으로 칠해지는지 확인한다(리팩터링 전
+    mark_color() 기반 구현에서 이미 확인했던 것과 같은 시나리오 —
+    구현 방식만 바뀌었지 결과는 같아야 한다)."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_삼색_순서")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_삼색순서.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text(
+        "예산은 185만원이며, 오타는 9999999원이고, "
+        "담당자 연락처는 031-1234-5678입니다"
+    )
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["match_count"] == 1, result
+        assert result["mismatch_count"] == 1, result
+        assert result["unverifiable_count"] == 1, result
+
+        assert report.get_char_color_at("185만원") == (0, 0, 255), "정상(파랑) 표시 안 됨"
+        assert report.get_char_color_at("9999999") == (255, 0, 0), "오류(빨강) 표시 안 됨"
+        assert report.get_char_color_at("031-1234-5678") == (0, 128, 0), "대조불가(초록) 표시 안 됨"
+        print("run_verification(세 카테고리 한 번에 색칠) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_clears_stale_marks_on_rerun()
+    _selftest_run_verification_colors_all_three_categories_in_one_pass()

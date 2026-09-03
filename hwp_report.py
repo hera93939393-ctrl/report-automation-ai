@@ -91,6 +91,25 @@ class HwpReport:
             found_any = True
         return found_any
 
+    def mark_next_color(self, target_text: str, r: int, g: int, b: int) -> bool:
+        """현재 커서 위치부터 앞으로(Forward)만 target_text의 다음 occurrence
+        하나를 찾아 그 글자색을 (r,g,b)로 바꾼다. mark_color()와 다른 점 둘:
+        (1) 문서 처음으로 되돌아가지 않고 지금 커서 위치부터 이어서 찾는다,
+        (2) 모든 occurrence가 아니라 딱 하나만 바꾼다. 못 찾으면 False.
+
+        (2026-09-04, 실사용 피드백) run_verification()이 값(고유 raw 문자열)
+        하나마다 mark_color()로 문서 전체를 처음부터 다시 훑던 것이, 값이
+        많을 땐 문서를 수십 번 처음부터 끝까지 스캔하는 것처럼 보여 느리고
+        어지럽다는 지적을 받았다 — "위에서부터 하나씩 순서대로 칠하면서
+        내려가자"는 사용자 제안을 그대로 구현한 저수준 빌딩블록이다.
+        호출자(verify_tool.py)가 문서 위치(span) 순서대로 정렬한 값 목록을
+        커서를 한 번만 문서 처음으로 옮긴 뒤 이 메서드로 순서대로 호출하면,
+        전체적으로 문서를 위→아래 딱 한 번만 훑으며 색칠하게 된다."""
+        found = self.hwp.find(target_text, direction="Forward")
+        if found:
+            self.hwp.set_font(TextColor=self.hwp.RGBColor(r, g, b))
+        return found
+
     def mark_red(self, target_text: str) -> bool:
         """mark_color(target_text, 255, 0, 0)의 얇은 래퍼 — "오류(원본과 불일치)"
         표시용으로 기존 호출자들이 계속 이 이름을 쓴다."""
