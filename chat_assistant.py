@@ -280,58 +280,48 @@ class ChatAssistant(ctk.CTk):
         position_windows(self.report.get_window_handle(), self)
 
     def _attach_source(self):
-        """"+" 버튼 클릭 시 파일 여러 개 또는 폴더 중 고르는 작은 선택창을 띄운다.
-        tkinter의 파일 대화상자는 "파일이든 폴더든 한 화면에서 고르기"를 지원하지
-        않아, 이 작은 중간 선택창으로 두 경로를 하나의 "+" 진입점으로 통합한다.
+        """"+" 버튼 클릭 시 원본자료(파일 여러 개 또는 폴더)를 채팅 카드에서
+        바로 고르게 한다. tkinter의 파일 대화상자는 "파일이든 폴더든 한
+        화면에서 고르기"를 지원하지 않아, 이 카드로 두 경로를 하나의 "+"
+        진입점으로 통합한다.
 
-        (F12 2단계 다음 라운드 후보였던 것을 사용자 요청으로 지금 반영) 이
-        창도 Task 3/4에서 발견된 topmost 가려짐 버그와 같은 취약점을 갖고
-        있었다 — 단순히 `attributes("-topmost", True)`만 설정하면 메인
-        ChatAssistant 창(역시 topmost)에 가려질 수 있다. `_make_topmost_popup()`로
-        통일해 같은 안전장치(after(50, lift/focus_force))를 적용한다."""
-        choice_window = self._make_topmost_popup("원본자료 첨부", "240x110")
+        (2026-09-03, 다섯 번째 디자인 피드백 — "+" 팝업도 채팅에 통합) 원래는
+        별도 CTkToplevel 팝업(_make_topmost_popup, topmost 가려짐 버그를
+        after(50, lift/focus_force)로 방어했었음)이었다 — 표/번호서식 스타일
+        카드와 같은 이유로 채팅 말풍선 안에 임베드하는 걸로 바꿨다. 팝업 자체가
+        없어지니 topmost 가려짐 문제도 함께 사라진다(더는 CTkToplevel을 만들지
+        않으므로). 파일탐색기 대화상자(filedialog)는 OS 표준 창이라 그대로
+        별도로 뜬다 — 임베드 대상은 "파일이냐 폴더냐"를 고르는 버튼 두 개뿐이다.
 
-        def pick_files():
-            choice_window.destroy()
-            self._pick_source_files()
+        사용자가 파일탐색기에서 취소하면 아무것도 첨부되지 않는데, 이 경우
+        버튼을 "골랐다"고 표시하면 실제로는 아무 일도 안 일어났는데 그런 것
+        처럼 보여 오해를 준다 — 그래서 _pick_source_files/_pick_source_folder가
+        실제로 첨부에 성공했는지(bool)를 반환하도록 바꾸고, 성공했을 때만
+        체크마크 강조를 적용한다. 취소했을 땐 버튼을 그대로 살려둬서 다시
+        시도할 수 있게 한다."""
+        card = self._log("원본자료를 첨부합니다. 파일 또는 폴더를 선택하세요:", role="assistant")
+        buttons = []
 
-        def pick_folder():
-            choice_window.destroy()
-            self._pick_source_folder()
+        def choose(pick_fn, button):
+            attached = pick_fn()
+            if not attached:
+                return
+            for b in buttons:
+                if b is button:
+                    b.configure(text=f"✓ {b.cget('text')}", **_PICKER_BUTTON_CHOSEN)
+                else:
+                    b.configure(**_PICKER_BUTTON_UNCHOSEN)
+                b.configure(state="disabled")
 
-        ctk.CTkButton(choice_window, text="파일 선택 (여러 개 가능)", command=pick_files).pack(
-            pady=(10, 4), padx=10, fill="x")
-        ctk.CTkButton(choice_window, text="폴더 선택", command=pick_folder).pack(
-            pady=4, padx=10, fill="x")
+        file_button = ctk.CTkButton(card, text="파일 선택 (여러 개 가능)", **_PICKER_BUTTON)
+        file_button.configure(command=lambda b=file_button: choose(self._pick_source_files, b))
+        file_button.pack(pady=3, padx=8, fill="x")
+        buttons.append(file_button)
 
-    def _make_topmost_popup(self, title: str, geometry: str) -> ctk.CTkToplevel:
-        """스타일 미리보기 팝업(CTkToplevel)을 만들어 메인 창 뒤에 가려지지
-        않도록 앞으로 띄운다. _show_table_style_picker/_show_numbering_style_picker가
-        공유하는 보일러플레이트 — Task 4 코드품질 검토에서 두 메서드가 이
-        부분을 그대로 복붙하고 있는 걸 발견해 뽑아냈다.
-
-        (스펙 준수 검토 중 재현/수정, Task 3) 메인 ChatAssistant 창도
-        -topmost=True라서, 단순히 CTkToplevel을 만들기만 하면 팝업이 메인 창
-        뒤에 가려질 수 있음이 win32gui로 실측 재현됐다(포그라운드 창이 메인
-        창으로 계속 남음) — 팝업이 안 보이면 사용자에게는 무반응처럼 보여
-        F12 1단계의 "무반응보다 되묻는 게 낫다" 원칙에 반한다.
-
-        lift()/focus_force()를 여기서 바로(동기적으로) 호출하는 것만으로는
-        고쳐지지 않는다: CTkToplevel.__init__ 내부(Windows용 다크 타이틀바
-        처리, customtkinter/windows/ctk_toplevel.py의 _windows_set_titlebar_color)가
-        생성자 안에서 self.withdraw()로 창을 일단 숨겨두고, self.after(5, ...)로
-        5ms 뒤에야 deiconify()로 다시 보이게 만든다. 그래서 CTkToplevel(self)
-        생성 직후 곧바로 lift()/focus_force()를 호출하면 그 시점엔 창이 아직
-        (혹은 다시) 숨겨진 상태라 효과가 없다 — 실측으로 확인(win32gui로
-        foreground를 찍어보면 lift/focus_force 직후 호출로는 여전히 메인
-        창이 foreground로 남아있음). 그 5ms 창보다 더 뒤에 실행되도록
-        after(50, ...)로 예약해야 실제로 맨 앞에 나타난다."""
-        popup = ctk.CTkToplevel(self)
-        popup.title(title)
-        popup.geometry(geometry)
-        popup.attributes("-topmost", True)
-        popup.after(50, lambda: (popup.lift(), popup.focus_force()))
-        return popup
+        folder_button = ctk.CTkButton(card, text="폴더 선택", **_PICKER_BUTTON)
+        folder_button.configure(command=lambda b=folder_button: choose(self._pick_source_folder, b))
+        folder_button.pack(pady=3, padx=8, fill="x")
+        buttons.append(folder_button)
 
     def _run_tool_safely(self, fn, *args):
         """미리보기 팝업의 choose() 콜백에서 실제 도구 함수(예:
@@ -530,22 +520,28 @@ class ChatAssistant(ctk.CTk):
             button.pack(pady=3, padx=8, fill="x")
             buttons.append(button)
 
-    def _pick_source_files(self):
+    def _pick_source_files(self) -> bool:
+        """파일탐색기에서 실제로 파일을 골랐으면 True, 취소했으면 False를
+        반환한다 — _attach_source()가 이 값으로 버튼에 체크마크를 표시할지
+        판단한다(2026-09-03, "+" 팝업 채팅 통합)."""
         paths = filedialog.askopenfilenames(
             filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
         )
         if not paths:
-            return
+            return False
         self.source_paths = list(paths)
         names = ", ".join(os.path.basename(p) for p in self.source_paths)
         self._log(f"📎 원본자료 {len(self.source_paths)}개 첨부됨: {names}")
+        return True
 
-    def _pick_source_folder(self):
+    def _pick_source_folder(self) -> bool:
+        """_pick_source_files와 동일한 이유로 True/False를 반환한다."""
         path = filedialog.askdirectory()
         if not path:
-            return
+            return False
         self.source_paths = [path]
         self._log(f"📎 원본자료(폴더) 첨부됨: {path}")
+        return True
 
     def _log(self, message: str, role: str = "assistant"):
         """대화 내용을 말풍선 하나로 chat_scroll에 추가한다. role은
