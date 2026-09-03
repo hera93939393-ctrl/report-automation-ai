@@ -9,22 +9,30 @@ import ollama
 from hwp_report import HwpReport
 from window_layout import position_windows
 
-ctk.set_appearance_mode("light")
+ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
 
 # (2026-09-03, 실사용 디자인 피드백) 채팅창을 CTkTextbox 로그 한 줄이 아니라
 # VS Code Copilot Chat처럼 역할별 말풍선(정렬/색이 다른 CTkFrame)으로 그린다.
-# appearance_mode를 "system"이 아니라 "light"로 고정하는 이유: 목업에서 승인받은
-# 밝고 플랫한 톤을 재현하려는 것인데, "system"으로 두면 다크모드 환경에서 CTk
-# 기본 회색 계열과 섞여 목업과 다르게 보인다 — 나중에 다크모드 지원이 필요하면
-# 별도로 요청받아 색상표를 (light, dark) 튜플로 다시 확장하면 된다.
+#
+# (2026-09-03, 다크모드 지원 추가) 처음엔 appearance_mode를 "light"로
+# 고정했었다(목업의 밝은 톤을 다크모드 환경에서도 똑같이 재현하려던 것).
+# 이번에 다크모드 지원을 요청받아 "system"으로 되돌리고, 모든 색상값을
+# 단일 hex 문자열 대신 (라이트, 다크) 튜플로 바꿨다 — CTk는 위젯마다
+# color 계열 인자(fg_color/text_color/border_color/hover_color)에 튜플을
+# 주면 현재 appearance_mode에 맞는 쪽을 자동으로 골라 쓴다(공식 동작,
+# set_appearance_mode("system")이면 OS 다크모드 전환에도 실시간으로
+# 따라간다). 다크모드 배색은 밝은 배색과 같은 색상(파랑/초록/빨강 계열)을
+# 유지하되, CDS 다크모드 관례대로 "제일 어두운 배경/제일 밝은 글자" 관계를
+# 뒤집었다(예: 라이트에서 흰 배경+진한 파란 글씨였던 걸, 다크에서 짙은
+# 배경+밝은 파란 글씨로).
 _BUBBLE_STYLE = {
-    "user": {"align": "e", "bg": "#DCEAFB", "fg": "#0C447C"},
-    "assistant": {"align": "w", "bg": "#F1EFE8", "fg": "#2C2C2A"},
-    "success": {"align": "w", "bg": "#F1EFE8", "fg": "#3B6D11"},
-    "error": {"align": "w", "bg": "#F1EFE8", "fg": "#A32D2D"},
+    "user": {"align": "e", "bg": ("#DCEAFB", "#1B3A5C"), "fg": ("#0C447C", "#B5D4F4")},
+    "assistant": {"align": "w", "bg": ("#F1EFE8", "#2C2C2A"), "fg": ("#2C2C2A", "#E6E6E6")},
+    "success": {"align": "w", "bg": ("#F1EFE8", "#2C2C2A"), "fg": ("#3B6D11", "#97C459")},
+    "error": {"align": "w", "bg": ("#F1EFE8", "#2C2C2A"), "fg": ("#A32D2D", "#F09595")},
 }
-_WINDOW_BG = "#FAFAF8"
+_WINDOW_BG = ("#FAFAF8", "#1E1E1C")
 
 # (2026-09-03, 네 번째 디자인 피드백) "하얀 바탕에 글씨는 연파랑" 요청 반영 —
 # 스타일 선택 버튼(표/번호서식)을 흰 배경 + 파란 글씨의 아웃라인 버튼으로
@@ -32,16 +40,16 @@ _WINDOW_BG = "#FAFAF8"
 # 배경과 대비가 너무 강해 튀어 보인다는 지적을 받아, report_button/attach_button과
 # 같은 계열(연한 아웃라인)로 통일했다.
 _PICKER_BUTTON = {
-    "fg_color": "#FFFFFF", "text_color": "#0C447C", "border_width": 1,
-    "border_color": "#B5D4F4", "hover_color": "#E6F1FB",
+    "fg_color": ("#FFFFFF", "#2C2C2A"), "text_color": ("#0C447C", "#B5D4F4"), "border_width": 1,
+    "border_color": ("#B5D4F4", "#185FA5"), "hover_color": ("#E6F1FB", "#042C53"),
 }
 _PICKER_BUTTON_CHOSEN = {
-    "fg_color": "#E6F1FB", "text_color": "#0C447C", "border_width": 2,
-    "border_color": "#378ADD", "hover_color": "#E6F1FB",
+    "fg_color": ("#E6F1FB", "#042C53"), "text_color": ("#0C447C", "#B5D4F4"), "border_width": 2,
+    "border_color": "#378ADD", "hover_color": ("#E6F1FB", "#042C53"),
 }
 _PICKER_BUTTON_UNCHOSEN = {
-    "fg_color": "#FFFFFF", "text_color": "#B4B2A9", "border_width": 1,
-    "border_color": "#D3D1C7",
+    "fg_color": ("#FFFFFF", "#2C2C2A"), "text_color": ("#B4B2A9", "#5F5E5A"), "border_width": 1,
+    "border_color": ("#D3D1C7", "#444441"),
 }
 
 _TOOLS = [
@@ -216,8 +224,8 @@ class ChatAssistant(ctk.CTk):
         # 원칙(진짜 선택해야 하는 스타일 버튼 쪽에 몰아줌).
         self.report_button = ctk.CTkButton(
             self, text="보고서 파일 선택", command=self._choose_report,
-            fg_color="transparent", border_width=1, border_color="#B4B2A9",
-            text_color="#2C2C2A", hover_color="#F1EFE8",
+            fg_color="transparent", border_width=1, border_color=("#B4B2A9", "#5F5E5A"),
+            text_color=("#2C2C2A", "#E6E6E6"), hover_color=("#F1EFE8", "#2C2C2A"),
         )
         self.report_button.pack(pady=(10, 4), padx=10, fill="x")
 
@@ -234,8 +242,8 @@ class ChatAssistant(ctk.CTk):
         # 채팅 속 스타일 선택 버튼보다 튀면 안 된다.
         self.attach_button = ctk.CTkButton(
             self.input_row, text="+", width=32, command=self._attach_source,
-            fg_color="transparent", border_width=1, border_color="#B4B2A9",
-            text_color="#2C2C2A", hover_color="#F1EFE8",
+            fg_color="transparent", border_width=1, border_color=("#B4B2A9", "#5F5E5A"),
+            text_color=("#2C2C2A", "#E6E6E6"), hover_color=("#F1EFE8", "#2C2C2A"),
         )
         self.attach_button.pack(side="left", padx=(0, 6))
 
