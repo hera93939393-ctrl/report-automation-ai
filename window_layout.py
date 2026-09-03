@@ -43,6 +43,20 @@ def _calculate_layout(work_left: int, work_top: int, work_width: int, work_heigh
     return hwp_rect, chat_rect
 
 
+# (2026-09-04, 실사용 피드백) "채팅창이 한글창보다 조금 더 길어서, 창이 너무
+# 길어져 작업표시줄 시계가 안 보인다"는 지적을 받아 실측함: chat_window.geometry()로
+# Y=work_top(예: 0), 높이=work_height를 그대로 요청해도, 실제 win32gui.GetWindowRect
+# 결과의 top은 요청한 Y보다 31px 더 아래(이 머신에서 실측: (0,0) 요청 → 실제
+# rect top=31)로 나온다 — Windows 10/11의 DWM이 최신 스타일 창에 추가하는
+# 보이지 않는 여백(그림자/리사이즈 영역) 때문으로 보인다. 높이는 요청한 그대로
+# 정확히 반영되므로(따로 줄어들지 않음), bottom = 요청 Y + 31 + 요청 높이가 돼서
+# 항상 작업 영역 아래로 31px 넘치고, 그 안에 있던 작업표시줄 시계를 창이 덮어버린다.
+# 한글 창(win32gui.MoveWindow로 직접 배치)에는 이 오프셋이 없다(네이티브 win32
+# 창이라 DWM의 이 여백 적용 대상이 아님, docstring의 "한글은 스스로 높이를
+# 줄인다"는 별개의 현상) — 그래서 채팅창에만 보정을 적용한다.
+_CHAT_WINDOW_CHROME_Y = 31
+
+
 def position_windows(hwp_hwnd: int, chat_window, hwp_ratio: float = 0.75) -> None:
     """한글 창(hwp_hwnd)을 작업 영역(모니터 전체 화면에서 작업표시줄을 뺀
     영역) 왼쪽 hwp_ratio 비율로, 채팅창(chat_window, CustomTkinter 인스턴스)을
@@ -74,7 +88,9 @@ def position_windows(hwp_hwnd: int, chat_window, hwp_ratio: float = 0.75) -> Non
     win32gui.MoveWindow(hwp_hwnd, hwp_x, hwp_y, hwp_w, hwp_h, True)
 
     chat_x, chat_y, chat_w, chat_h = chat_rect
-    chat_window.geometry(f"{chat_w}x{chat_h}+{chat_x}+{chat_y}")
+    # _CHAT_WINDOW_CHROME_Y만큼 실제 창이 아래로 밀려서 그려지므로, 요청 높이를
+    # 그만큼 줄여야 실제 하단 경계가 작업 영역(work_bottom) 안에 들어온다.
+    chat_window.geometry(f"{chat_w}x{chat_h - _CHAT_WINDOW_CHROME_Y}+{chat_x}+{chat_y}")
 
 
 def _selftest_position_windows_calculates_correct_rects():
@@ -148,20 +164,26 @@ def _selftest_position_windows_moves_real_hwp_window():
         chat_rect = win32gui.GetWindowRect(chat_window.winfo_id())
         # 허용 오차: Windows에서 CustomTkinter/Tkinter 창은 geometry()로 요청한
         # 좌표와 실제 GetWindowRect 결과 사이에 타이틀바/테두리 크기만큼의 차이가
-        # 항상 존재한다(이 머신에서 실측: 세로로 약 31px, 가로로 약 8px — Tk가
-        # Windows에서 창을 배치할 때 나타나는 잘 알려진 창 chrome 차이이며, 이
-        # 함수의 작업 영역 계산 로직과는 무관한 별개의 요인). 그래서 기존 hwp
-        # 폭 비교에 쓰인 20px보다 조금 더 넉넉한 40px을 허용치로 쓴다 — 그래도
-        # 이 테스트가 고치려는 실제 버그(전체 화면 기준 계산 시 세로로 약
-        # 60px 넘게 작업표시줄을 침범했던 것, 위 실측으로 확인)는 이 허용치
-        # 안에서도 여전히 잡아낸다.
+        # 항상 존재한다(이 머신에서 실측: 가로로 약 8px — Tk가 Windows에서 창을
+        # 배치할 때 나타나는 잘 알려진 창 chrome 차이이며, 이 함수의 작업 영역
+        # 계산 로직과는 무관한 별개의 요인). 왼쪽/위쪽 경계와 오른쪽 경계는
+        # 이 여유를 두고 느슨하게 확인한다.
         TOLERANCE = 40
         assert chat_rect[0] >= work_left - TOLERANCE, (chat_rect, work_left)
         assert chat_rect[1] >= work_top - TOLERANCE, (chat_rect, work_top)
         assert chat_rect[2] <= work_right + TOLERANCE, (
             "채팅창이 작업 영역 오른쪽 경계를 넘어감", chat_rect, work_right)
-        assert chat_rect[3] <= work_bottom + TOLERANCE, (
-            "채팅창이 작업 영역 아래쪽(작업표시줄) 경계를 넘어감", chat_rect, work_bottom)
+        # (2026-09-04, 실사용 피드백) 아래쪽 경계는 느슨한 40px 허용치로는
+        # 부족하다 — 실제로 사용자가 "채팅창이 한글창보다 길어서 작업표시줄
+        # 시계가 안 보인다"고 지적한 게 바로 이 지점이었다(예전엔 최대 31px
+        # 정도 넘쳤는데, 40px 허용치 안이라 이 테스트가 못 잡았음). 이제
+        # position_windows()가 _CHAT_WINDOW_CHROME_Y(31px)만큼 요청 높이를
+        # 미리 줄이므로, 실제 하단 경계는 작업 영역 경계와 거의 정확히
+        # 일치해야 한다 — 5px의 좁은 허용치로 이 회귀를 다시 잡아낸다.
+        BOTTOM_TOLERANCE = 5
+        assert chat_rect[3] <= work_bottom + BOTTOM_TOLERANCE, (
+            "채팅창이 작업 영역 아래쪽(작업표시줄) 경계를 넘어감 - 시계를 가릴 수 있음",
+            chat_rect, work_bottom)
 
         print("position_windows() 통과 (실제 한글 창 이동 확인):", hwp_rect)
         print("position_windows() 통과 (실제 채팅창 rect가 작업 영역 안에 있음 확인):", chat_rect,
