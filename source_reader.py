@@ -18,10 +18,21 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
     포함한다. 손상되었거나 읽을 수 없는 파일은 예외 없이 빈 리스트를 반환한다
     (PRD 12-5, read_pdf_source와 동일한 관례).
 
+    (2026-09-04, 실사용 피드백으로 발견·수정) 원래는 무조건 1행을 헤더로
+    가정했다 — 공공기관 실적표에서 흔한 "제목 행 → 출처/각주 행 → 빈 행 →
+    진짜 헤더 행" 구조에서는 이 가정이 깨진다. 1행(제목, 셀 하나만 채워짐)을
+    헤더로 잘못 삼으면, 진짜 헤더 행("2023","2024","2025","2026" 같은 연도
+    라벨)이 "데이터"로 취급돼 그 라벨 자체가 금액 값처럼 정답 풀에 들어가는
+    문제가 실제로 재현됐다 — 사용자 문서의 "('23)","('24)","('25)" 같은
+    연도 약칭도 각각 23/24/25라는 숫자로 추출되는데, 이게 "2023"(4자리)과
+    달라서 진짜 데이터가 아닌데도 "오류(빨강)"로 잘못 표시됐다. 이제는 셀이
+    2칸 이상 채워진 첫 번째 행을 진짜 헤더로 찾는다(제목/각주/빈 행은 보통
+    셀 1개 이하만 채워져 있음) — 그런 행을 못 찾으면(정말 한 칸짜리 헤더뿐인
+    시트 등) 기존처럼 1행을 헤더로 쓴다(하위호환).
+
     알려진 한계(문서화만 하고 이번엔 해결하지 않음): 수식 셀은 data_only=True로
     열어도 실제 Excel에서 한 번도 저장된 적 없으면 캐시된 값이 없어 None으로
-    읽힐 수 있다(합계 등 파생값이 원본에 있어도 못 읽는 경우 발생 가능). 병합된
-    제목 행이 실제 헤더보다 위에 있는 레이아웃도 1행=헤더 가정과 어긋날 수 있다.
+    읽힐 수 있다(합계 등 파생값이 원본에 있어도 못 읽는 경우 발생 가능).
     시간만 있는 셀(datetime.time, 날짜 없이 시각만 서식 지정된 셀)도 date/amount/str
     어디에도 안 걸려 조용히 누락된다 — 이 도구가 다루는 원본(주로 금액·날짜 중심의
     공공기관 계획서/실적표)에서는 드문 케이스라 이번 라운드는 해결하지 않고
@@ -34,11 +45,23 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
     results = []
     for ws in wb.worksheets:
         rows_as_dicts = []
+        all_rows = list(ws.iter_rows(values_only=False))
+
         header = None
-        for row in ws.iter_rows(values_only=False):
-            if header is None:
+        header_row_idx = None
+        for idx, row in enumerate(all_rows):
+            non_empty_count = sum(1 for c in row if c.value is not None)
+            if non_empty_count >= 2:  # 제목/각주/빈 행은 보통 셀 0~1개만 채워짐
                 header = [c.value for c in row]
-                continue
+                header_row_idx = idx
+                break
+        if header is None and all_rows:
+            # 여러 칸짜리 행을 못 찾았으면(정말 한 칸짜리 헤더뿐인 시트 등)
+            # 기존 동작대로 1행을 그대로 헤더로 쓴다.
+            header = [c.value for c in all_rows[0]]
+            header_row_idx = 0
+
+        for row in (all_rows[header_row_idx + 1:] if header_row_idx is not None else []):
             row_dict = {}
             for col_name, cell in zip(header, row):
                 value = cell.value
@@ -118,6 +141,37 @@ def _selftest_read_excel_source_corrupted_file_no_crash():
         result = read_excel_source(test_path, default_year=2026)
         assert result == [], result
         print("read_excel_source_corrupted_file_no_crash 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_excel_source_title_row_before_real_header():
+    """(2026-09-04, 실사용 피드백으로 발견한 실제 버그 재현) "제목 행 → 각주 행
+    → 빈 행 → 진짜 헤더 행" 구조(공공기관 실적표에서 흔함)에서, 1행(제목)을
+    헤더로 잘못 삼지 않고 진짜 헤더 행(셀 2개 이상 채워진 첫 행)을 찾아야
+    한다. 잘못되면 진짜 헤더 행의 연도 라벨("2023","2024" 등)이 데이터 값처럼
+    정답 풀에 섞여 들어간다 — 실사용 문서에서 실제 재현된 버그."""
+    test_path = "_test_제목행버그.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "요약"
+    ws.append(["2025년 핵심 추이 요약"])  # 제목 행(셀 1개)
+    ws.append(["출처: ...hwp"])  # 각주 행(셀 1개)
+    ws.append([])  # 빈 행
+    ws.append(["분류", "지표명", "2023", "2024", "2025"])  # 진짜 헤더 행(셀 5개)
+    ws.append(["점검", "정기점검 실적", 1595, 1694, 1827])
+    wb.save(test_path)
+    try:
+        result = read_excel_source(test_path, default_year=2026)
+        normalized_amounts = {r["normalized"] for r in result if r["type"] == "amount"}
+        assert {"1595", "1694", "1827"} <= normalized_amounts, normalized_amounts
+        # 진짜 헤더 행의 연도 라벨이 데이터 값으로 섞여 들어가면 안 된다 —
+        # "2023"/"2024"가 컬럼합계(1595/1694 그대로, 데이터가 한 행뿐이라
+        # 합계=그 값)로 나오는 건 정상이지만, 헤더 셀 자체(location이 "!2023"
+        # 같은 셀 주소 형식)가 별도 항목으로 잡히면 안 된다.
+        header_cell_locations = [r["location"] for r in result if r["location"].endswith(("!2023", "!2024", "!2025"))]
+        assert header_cell_locations == [], header_cell_locations
+        print("read_excel_source_title_row_before_real_header 통과:", result)
     finally:
         os.remove(test_path)
 
@@ -707,6 +761,7 @@ if __name__ == "__main__":
     _selftest_read_excel_source()
     _selftest_read_excel_source_date_cell()
     _selftest_read_excel_source_corrupted_file_no_crash()
+    _selftest_read_excel_source_title_row_before_real_header()
     _selftest_read_hwp_source()
     _selftest_read_hwp_source_no_match()
     _selftest_read_hwp_source_missing_file_no_crash()

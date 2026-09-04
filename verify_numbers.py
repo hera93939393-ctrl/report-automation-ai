@@ -6,6 +6,16 @@ from decimal import Decimal
 _AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(만원|천원|원|%))?')
 _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 
+# (2026-09-04, 실사용 피드백으로 발견) 공공기관 보고서에서 흔한 "('23)","'24년"
+# 같은 연도 약칭 표기 — 작은따옴표(또는 스마트따옴표) 바로 뒤에 두 자리 숫자가
+# 오는 패턴. 이 두 자리 숫자("23","24")가 금액으로 뽑혀버리면, 원본자료의
+# 진짜 데이터 값과는 아무 관계도 없는데 "오류(빨강)"로 잘못 표시된다(실사용
+# 문서 "정기점검 실적 : ('23) 1,595개소 → ('24) 1,694 → ('25) 1,827"에서
+# 실제 재현됨 — 1,595/1,694/1,827은 정상인데 23/24/25가 전부 오류로 잘못
+# 표시됨). extract_values()가 날짜/시간/전화번호처럼 이 패턴도 "제외 구간"으로
+# 다뤄서, 겹치는 금액 매치를 애초에 뽑지 않게 한다.
+_YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘]\d{2}(?!\d)")
+
 
 def _decimal_to_normalized_str(value: Decimal) -> str:
     """Decimal 값을 정규화된 문자열로 바꾼다. 정수면 소수점 없이, 아니면
@@ -232,11 +242,16 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     것을 방지 — 시작 위치만 보면 안 되고 구간 겹침 전체를 봐야 한다. 예:
     "1"+날짜가 공백 없이 붙은 "12026-09-07" 같은 입력에서 금액 매치("12026")가
     제외구간보다 먼저 시작하면서 겹치는 경우까지 잡아야 함).
+
+    (2026-09-04 추가) "('23)","'24년"처럼 작은따옴표+두자리 숫자로 된 연도
+    약칭도 같은 방식으로 제외 구간에 포함한다 — 이런 숫자는 실제 데이터 값이
+    아니라 연도를 줄여 쓴 것뿐이라, 원본자료와 대조할 대상이 아니다.
     """
     dates = extract_dates(text, default_year)
     times = extract_times(text)
     phones = extract_phones(text)
-    excluded_spans = [r["span"] for r in dates + times + phones]
+    year_abbreviations = [m.span() for m in _YEAR_ABBREVIATION_PATTERN.finditer(text)]
+    excluded_spans = [r["span"] for r in dates + times + phones] + year_abbreviations
 
     def _overlaps_excluded(span):
         a_start, a_end = span
@@ -279,6 +294,18 @@ def _selftest_extract_values_straddles_two_adjacent_excluded_spans():
     amounts = [r for r in result if r["type"] == "amount"]
     assert amounts == [], amounts
     print("_selftest_extract_values_straddles_two_adjacent_excluded_spans 통과:", result)
+
+
+def _selftest_extract_values_excludes_year_abbreviation():
+    """(2026-09-04, 실사용 피드백으로 발견한 실제 버그 재현) "('23) 1,595개소"
+    처럼 연도 약칭 바로 뒤에 진짜 금액이 붙어 있을 때, 연도 약칭("23")은
+    금액으로 뽑히면 안 되고 진짜 금액("1,595")만 뽑혀야 한다. 사용자의
+    실제 문서 문장을 그대로 재현한다."""
+    text = "정기점검 실적 : ('23) 1,595개소 → ('24) 1,694 → ('25) 1,827"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1595", "1694", "1827"], amounts
+    print("_selftest_extract_values_excludes_year_abbreviation 통과:", result)
 
 
 def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
@@ -496,6 +523,7 @@ if __name__ == "__main__":
     _selftest_extract_values_adjacent_no_separator()
     _selftest_extract_values_reverse_direction_overlap()
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
+    _selftest_extract_values_excludes_year_abbreviation()
     _selftest_compare_values()
     _selftest_compare_values_catches_digit_transposition_typo()
     _selftest_compare_values_catches_typo_in_large_amount()
