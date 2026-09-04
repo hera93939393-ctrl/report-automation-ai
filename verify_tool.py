@@ -62,9 +62,26 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     라운드로 미뤄둔다.
     """
     answer_pool, conflicts = read_source_files(source_paths, default_year)
+    report.reset_colors()  # 재검증 시 이전 호출이 남긴 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
+
+    if not answer_pool:
+        # (2026-09-04, 실사용 피드백) 원본자료를 첨부했는데 실제로 읽을 수
+        # 있는 데이터가 하나도 없으면(예: 지원 안 되는 형식만 첨부한 경우 —
+        # .hwp/.hwpx는 source_reader.py의 _READERS에 아예 없음), 그대로
+        # 진행하면 categorize_values가 모든 값에 candidates=[]를 판정해
+        # 문서의 모든 값이 "대조불가(초록)"로만 칠해진다 — 사용자가 실제로
+        # 이 상황을 겪고 "검증을 안 한 거냐"고 물었다. 실제로는 비교할
+        # 원본 자체가 없어서 검증이 의미 없는 상태이므로, "N건 대조불가"로
+        # 뭉뚱그리지 않고 원인을 명확히 알려준다.
+        return {
+            "mismatch_count": 0,
+            "match_count": 0,
+            "unverifiable_count": 0,
+            "summary": "원본자료에서 읽을 수 있는 데이터가 없어요. 지원 형식(엑셀 .xlsx/.xls, PDF .pdf)인지 확인해주세요.",
+            "conflicts": conflicts,
+        }
 
     report_text = report.get_text()
-    report.reset_colors()  # 재검증 시 이전 호출이 남긴 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
     report_values = extract_values(report_text, default_year)
     categorized = categorize_values(report_values, answer_pool)
     mismatches = categorized["mismatches"]
@@ -138,7 +155,13 @@ def _selftest_run_verification():
 
     from pyhwpx import Hwp
     report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_f12.hwp")
-    setup = Hwp(visible=False)
+    # (2026-09-04, 실사용 세션 중 실제 재현·발견) new=True 없이 Hwp()를 만들면
+    # 이미 떠 있는 다른 한글 프로세스에 그대로 접속(재사용)해버려서, 그
+    # 프로세스가 열어둔 다른 문서 내용에 이 테스트 문장이 이어붙여진 채로
+    # 저장될 수 있다(실제로 다른 테스트와 동시에 돌 때 "존재하지 않는
+    # 숫자가 불일치로 잡힌다" 형태로 재현됨 — source_reader.py의 같은
+    # 수정 참고). new=True로 항상 독립된 새 프로세스를 쓴다.
+    setup = Hwp(visible=False, new=True)
     setup.insert_text("예산은 185만원이며, 오타는 9999999원입니다")
     setup.save_as(report_path)
     setup.quit()
@@ -179,7 +202,7 @@ def _selftest_run_verification_clears_stale_marks_on_rerun():
 
     from pyhwpx import Hwp
     report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_f12_rerun.hwp")
-    setup = Hwp(visible=False)
+    setup = Hwp(visible=False, new=True)  # 다른 프로세스 재사용 방지 — 위 _selftest_run_verification 참고
     setup.insert_text("예산은 9999999원입니다")
     setup.save_as(report_path)
     setup.quit()
@@ -258,7 +281,46 @@ def _selftest_run_verification_colors_all_three_categories_in_one_pass():
         os.remove(report_path)
 
 
+def _selftest_run_verification_empty_answer_pool_gives_clear_message():
+    """(2026-09-04, 실사용 피드백) 사용자가 실제로 겪은 상황: 원본자료로
+    지원 안 되는 형식(당시엔 .hwp)만 첨부해서 answer_pool이 완전히
+    비었는데, 문서의 모든 값이 "대조불가(초록)"로 나와서 "검증을 안 한
+    거냐"고 물었다. 이제는 answer_pool이 비어 있으면 색칠/분류를 진행하지
+    않고, 원인을 명확히 알려주는 메시지를 즉시 반환해야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본없음")
+    os.makedirs(test_dir, exist_ok=True)
+    # 이 폴더 안에는 _READERS가 읽을 수 있는 형식(.xlsx/.xls/.pdf/.hwp/.hwpx)이
+    # 하나도 없다 — 순수 텍스트 파일만 있어서 read_source_files가 조용히
+    # 건너뛰고 answer_pool이 빈 채로 돌아온다.
+    with open(os.path.join(test_dir, "메모.txt"), "w", encoding="utf-8") as f:
+        f.write("이건 원본자료로 못 읽는 형식입니다")
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_원본없음.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 1,850,000원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["match_count"] == 0, result
+        assert result["mismatch_count"] == 0, result
+        assert result["unverifiable_count"] == 0, result
+        assert "읽을 수 있는 데이터가 없어요" in result["summary"], result["summary"]
+        print("run_verification(원본 데이터 없음, 명확한 안내) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
+    _selftest_run_verification_empty_answer_pool_gives_clear_message()

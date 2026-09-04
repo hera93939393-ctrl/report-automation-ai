@@ -523,7 +523,18 @@ class ChatAssistant(ctk.CTk):
     def _pick_source_files(self) -> bool:
         """파일탐색기에서 실제로 파일을 골랐으면 True, 취소했으면 False를
         반환한다 — _attach_source()가 이 값으로 버튼에 체크마크를 표시할지
-        판단한다(2026-09-03, "+" 팝업 채팅 통합)."""
+        판단한다(2026-09-03, "+" 팝업 채팅 통합).
+
+        (2026-09-04, 실사용 피드백) 한때 .hwp/.hwpx를 이 목록에서 뺐었다 —
+        source_reader.py의 _READERS가 당시엔 .hwp/.hwpx를 지원하지 않아서
+        (pyhwpx가 같은 프로세스 안의 다른 Hwp 인스턴스까지 깨뜨리는 라이브러리
+        한계 때문에 F12 1단계에서 제외됨), .hwp를 원본자료로 첨부하면
+        "첨부됨" 메시지는 뜨지만 실제로는 읽히는 데이터가 하나도 없어서,
+        숫자검증을 돌리면 문서의 모든 값이 "대조불가(초록)"로만 나오는
+        혼란스러운 결과로 이어졌다(사용자가 실제로 겪고 보고함). 이후
+        사용자 제안으로 별도 프로세스 격리 방식(read_hwp_source_isolated,
+        source_reader.py 참고)을 구현해 이 문제를 해결했으므로, .hwp/.hwpx도
+        다시 선택 가능하게 되돌린다."""
         paths = filedialog.askopenfilenames(
             filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
         )

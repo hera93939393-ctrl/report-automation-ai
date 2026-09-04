@@ -1,7 +1,10 @@
 """source_reader.py — 엑셀/한글/PDF 원본데이터를 읽어 verify_numbers의 정답 풀 형식으로 변환"""
 import os
 import re
+import sys
+import json
 import datetime
+import subprocess
 from decimal import Decimal
 
 import openpyxl
@@ -170,7 +173,17 @@ def read_hwp_source(path: str, default_year: int) -> list[dict]:
 def _selftest_read_hwp_source():
     from pyhwpx import Hwp
     test_path = os.path.abspath("_test_원본.hwp")
-    hwp = Hwp(visible=False)
+    # (2026-09-04, 실사용 세션 중 실제 재현·발견) new=True가 빠지면, 이미 떠
+    # 있는 다른 한글 프로세스가 있을 때 pyhwpx가 그 프로세스에 그대로 접속
+    # (재사용)해버린다 — 그 상태에서 insert_text()는 그 기존 문서 내용
+    # 뒤에 테스트 문장을 이어붙이고, save_as()는 그 오염된 전체 내용을
+    # 테스트 파일로 저장해버려, 이 테스트가 기대하는 "값 3종만 있는 깨끗한
+    # 문서"라는 전제가 깨진다(직접 재현: 다른 테스트가 남긴 큰 문서가 섞여
+    # amount만 수백 건 나오는 것으로 확인됨). read_hwp_source() 자신은 이미
+    # new=True를 쓰고 있었는데, 정작 이 테스트의 픽스처 설정에서만 빠져있던
+    # 것 — HwpReport 클래스가 이미 강조한 것과 같은 원칙을 테스트 설정에도
+    # 그대로 적용한다.
+    hwp = Hwp(visible=False, new=True)
     hwp.insert_text("예산은 1,850,000원이며 회의는 2026-09-07 14:00~16:00 진행")
     hwp.save_as(test_path)
     hwp.quit()
@@ -187,7 +200,7 @@ def _selftest_read_hwp_source_no_match():
     """숫자/날짜/시간/전화번호가 전혀 없는 문서는 빈 리스트를 반환해야 한다."""
     from pyhwpx import Hwp
     test_path = os.path.abspath("_test_원본_빈값.hwp")
-    hwp = Hwp(visible=False)
+    hwp = Hwp(visible=False, new=True)  # 다른 프로세스 재사용 방지 — 위 _selftest_read_hwp_source 참고
     hwp.insert_text("이 문서에는 특별한 값이 없습니다")
     hwp.save_as(test_path)
     hwp.quit()
@@ -204,6 +217,123 @@ def _selftest_read_hwp_source_missing_file_no_crash():
     result = read_hwp_source(os.path.abspath("_존재하지_않는_파일.hwp"), default_year=2026)
     assert result == [], result
     print("read_hwp_source_missing_file_no_crash 통과:", result)
+
+
+def read_hwp_source_isolated(path: str, default_year: int) -> list[dict]:
+    """read_hwp_source()를 완전히 별도의 파이썬 프로세스에서 실행해 결과를
+    받아온다(2026-09-04, 실사용 피드백 — 사용자가 "별도 프로세스로 격리하면
+    .hwp도 원본자료로 쓸 수 있지 않냐"고 직접 제안함).
+
+    같은 프로세스 안에서 read_hwp_source()를 직접 호출하면, pyhwpx의
+    Hwp.__del__이 그 Hwp 인스턴스를 정리할 때 pythoncom.CoUninitialize()를
+    무조건 호출하는데, 이게 같은 프로세스 안의 "다른" Hwp 인스턴스(F12가
+    채팅 세션 내내 열어두고 있는, 사용자가 실제로 편집 중인 보고서
+    HwpReport)의 COM 연결까지 함께 끊어버리는 게 실측 확인된 pyhwpx 자체의
+    한계다(_READERS 근처의 기존 주석 참고, 2026-09-01 F12 Task10에서 처음
+    발견) — 그래서 .hwp/.hwpx가 이번까지 _READERS에서 빠져 있었다.
+
+    완전히 다른 프로세스에서 실행하면 이 문제를 피할 수 있다 — 별도 프로세스는
+    자기만의 COM 아파트를 가지므로, 그 프로세스가 끝나며 CoUninitialize를
+    호출해도 원래 프로세스(채팅 세션)의 COM 연결과는 아무 상관이 없다.
+    subprocess로 `python -c "..."` 형태로 read_hwp_source를 호출하고,
+    표준출력으로 JSON을 받아 파싱한다(read_hwp_source의 반환값은 문자열
+    필드만 가진 dict 리스트라 JSON 직렬화에 문제가 없다). 어떤 이유로든
+    실패하면(타임아웃, 프로세스 오류, JSON 파싱 실패 등) 이 모듈의 다른
+    리더들과 같은 관례대로 예외 없이 빈 리스트를 반환한다.
+    """
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    script = (
+        "import sys; sys.path.insert(0, sys.argv[3]); "
+        "import json; from source_reader import read_hwp_source; "
+        "print(json.dumps(read_hwp_source(sys.argv[1], int(sys.argv[2]))))"
+    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", script, path, str(default_year), module_dir],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            return []
+        return json.loads(result.stdout)
+    except Exception:
+        return []
+
+
+def _selftest_read_hwp_source_isolated_basic():
+    """read_hwp_source_isolated()가 별도 프로세스를 통해서도 read_hwp_source()와
+    동일한 결과(4종 값 추출)를 돌려주는지 확인한다."""
+    from pyhwpx import Hwp
+    test_path = os.path.abspath("_test_원본_격리.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 1,850,000원이며 회의는 2026-09-07 14:00~16:00 진행")
+    setup.save_as(test_path)
+    setup.quit()
+    try:
+        result = read_hwp_source_isolated(test_path, default_year=2026)
+        types = sorted(r["type"] for r in result)
+        assert types == ["amount", "date", "time"], types
+        print("read_hwp_source_isolated 통과:", result)
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_hwp_source_isolated_missing_file_no_crash():
+    """존재하지 않는 파일도 예외 없이 빈 리스트를 반환해야 한다."""
+    result = read_hwp_source_isolated(os.path.abspath("_존재하지_않는_파일_격리.hwp"), default_year=2026)
+    assert result == [], result
+    print("read_hwp_source_isolated_missing_file_no_crash 통과:", result)
+
+
+def _selftest_read_hwp_source_isolated_does_not_break_live_hwp_instance():
+    """(2026-09-04, 가장 중요한 회귀 테스트) read_hwp_source_isolated()가
+    원래 버그(2026-09-01 F12 Task10에서 발견)를 실제로 피하는지 확인한다 —
+    "채팅 세션이 계속 열어두고 있는, 사용자가 편집 중인 문서"를 흉내낸 살아있는
+    Hwp 인스턴스를 하나 열어둔 채로, 별도의 .hwp 원본자료를
+    read_hwp_source_isolated()로 읽고, 그 후에도 살아있던 인스턴스가 여전히
+    정상 동작하는지(get_text 호출이 COM 오류 없이 성공하는지) 검증한다.
+
+    원래 버그(read_hwp_source를 같은 프로세스에서 직접 호출)는 이 정확한
+    시나리오에서 살아있던 인스턴스의 COM 연결을 끊어버렸었다 — 격리된
+    버전은 완전히 다른 프로세스에서 실행되므로 이 문제가 재현되지 않아야
+    한다."""
+    from pyhwpx import Hwp
+
+    live_path = os.path.abspath("_test_살아있는문서.hwp")
+    live_setup = Hwp(visible=False, new=True)
+    live_setup.insert_text("사용자가 지금 편집 중인 문서입니다")
+    live_setup.save_as(live_path)
+    live_setup.quit()
+
+    source_path = os.path.abspath("_test_원본자료_격리.hwp")
+    source_setup = Hwp(visible=False, new=True)
+    source_setup.insert_text("원본 예산은 1,850,000원입니다")
+    source_setup.save_as(source_path)
+    source_setup.quit()
+
+    live_instance = None
+    try:
+        live_instance = Hwp(visible=False, new=True)
+        assert live_instance.open(live_path), "살아있는 문서를 열지 못함"
+        before_text = live_instance.GetTextFile("TEXT", "")
+        assert "편집 중인 문서" in before_text, before_text
+
+        # 살아있는 인스턴스가 열려있는 채로, 별도 프로세스로 원본자료를 읽는다.
+        result = read_hwp_source_isolated(source_path, default_year=2026)
+        assert any(r["normalized"] == "1850000" for r in result), result
+
+        # 원래 버그라면 여기서 COM 오류("개체가 열려 있지 않거나 등록되지
+        # 않았습니다" 등)가 났을 것이다 — 격리됐으므로 정상 동작해야 한다.
+        after_text = live_instance.GetTextFile("TEXT", "")
+        assert after_text == before_text, (
+            "살아있던 Hwp 인스턴스의 연결이 깨짐(원래 버그가 재현됨)", after_text
+        )
+        print("read_hwp_source_isolated_does_not_break_live_hwp_instance 통과: "
+              "살아있는 문서 연결이 그대로 유지됨")
+    finally:
+        if live_instance is not None:
+            live_instance.quit()
+        os.remove(live_path)
+        os.remove(source_path)
 
 
 def read_pdf_source(path: str, default_year: int) -> list[dict]:
@@ -300,15 +430,17 @@ def _selftest_read_pdf_source_simple_table():
 # 첨부하고 검증을 돌리면, 사용자가 보고 있던 보고서 문서 창의 연결이
 # 조용히 끊겨버리는 심각한 문제가 있었다.
 #
-# 근본적인 해결(별도 프로세스로 격리해서 읽기 등)은 이번 1단계 범위를 넘는
-# 아키텍처 변경이라, 이번 라운드에서는 안전한 쪽으로 범위를 좁힌다 — .hwp/
-# .hwpx는 _READERS에서 빼서 다른 미지원 형식(이미지, 워드 등)과 똑같이
-# 조용히 건너뛰게 한다. read_hwp_source() 함수 자체는 그대로 남겨둔다(다른
-# Hwp 인스턴스가 동시에 열려있지 않은 독립 상황에서는 여전히 정상 동작하고,
-# 자체 셀프테스트도 통과함 — F12 다음 라운드에서 프로세스 격리 등으로
-# 다시 붙일 수 있는 여지를 남겨둠).
+# (2026-09-04 갱신) 위 문제의 근본 해결책으로 남겨뒀던 "별도 프로세스로
+# 격리해서 읽기"를 사용자 제안으로 이번에 실제로 구현했다 — read_hwp_source
+# 자체가 아니라 read_hwp_source_isolated(완전히 새 파이썬 프로세스에서
+# read_hwp_source를 실행)를 _READERS에 연결한다. 별도 프로세스는 자기만의
+# COM 아파트를 쓰므로, 그 프로세스가 끝나며 CoUninitialize를 호출해도
+# 채팅 세션의 HwpReport와는 완전히 무관하다 — 직접 재현 테스트로 확인함
+# (아래 _selftest_read_hwp_source_isolated_does_not_break_live_hwp_instance
+# 참고, 원래 버그를 그대로 재현하는 시나리오로 검증).
 _READERS = {".xlsx": read_excel_source, ".xls": read_excel_source,
-            ".pdf": read_pdf_source}
+            ".pdf": read_pdf_source,
+            ".hwp": read_hwp_source_isolated, ".hwpx": read_hwp_source_isolated}
 
 
 _CELL_ADDRESS_PATTERN = re.compile(r'^[A-Za-z]{1,3}\d+$')
@@ -578,6 +710,9 @@ if __name__ == "__main__":
     _selftest_read_hwp_source()
     _selftest_read_hwp_source_no_match()
     _selftest_read_hwp_source_missing_file_no_crash()
+    _selftest_read_hwp_source_isolated_basic()
+    _selftest_read_hwp_source_isolated_missing_file_no_crash()
+    _selftest_read_hwp_source_isolated_does_not_break_live_hwp_instance()
     _selftest_read_pdf_source_missing_file()
     _selftest_read_pdf_source_multipage_skips_blank()
     _selftest_read_pdf_source_simple_table()
