@@ -53,6 +53,10 @@ class HwpReport:
                 pass
             raise FileNotFoundError(f"한글 문서를 열 수 없습니다: {path}")
         self.path = path
+        # 변경내용 추적 on/off 상태 — IsTrackChange 프로퍼티가 이 PC의 한글
+        # 버전(빌드 11.0.0.2129)에서 AttributeError가 나서 한글에 직접
+        # 물어볼 수 없어(2026-09-05 실측 확인), 파이썬 쪽에서 직접 관리한다.
+        self._track_changes_enabled = False
 
     def get_text(self) -> str:
         # GetTextFile()은 문서에 지금까지 단 한 글자도 삽입된 적 없는(정말로
@@ -211,6 +215,22 @@ class HwpReport:
         """
         self.hwp.quit(save=save)
 
+    def enable_track_changes(self) -> None:
+        """한글의 "변경내용 추적" 모드를 켠다. MenuExTrackChange는 토글
+        액션이라 이미 켜진 상태에서 또 부르면 꺼져버리므로, 파이썬이 직접
+        관리하는 self._track_changes_enabled 플래그로 아직 꺼져있을 때만
+        실제로 토글한다."""
+        if not self._track_changes_enabled:
+            self.hwp.HAction.Run("MenuExTrackChange")
+            self._track_changes_enabled = True
+
+    def disable_track_changes(self) -> None:
+        """변경내용 추적 모드를 끈다. enable_track_changes()와 대칭으로,
+        켜져 있을 때만 토글한다."""
+        if self._track_changes_enabled:
+            self.hwp.HAction.Run("MenuExTrackChange")
+            self._track_changes_enabled = False
+
 
 def _selftest_open_and_mark_red():
     import tempfile
@@ -272,6 +292,51 @@ def _selftest_get_window_handle():
         os.remove(test_path)
 
 
+def _selftest_track_changes_toggle_guard():
+    """enable_track_changes()를 두 번 연달아 호출해도 실제로는 한 번만
+    토글되는지 확인한다. MenuExTrackChange는 토글 액션이라 상태 가드 없이
+    두 번 부르면 다시 꺼져버리는데, IsTrackChange 프로퍼티는 이 PC의 한글
+    버전에서 AttributeError가 나서(2026-09-05 실측 확인) 한글에 직접 물어볼
+    수 없다 — 그래서 파이썬이 직접 관리하는 self._track_changes_enabled
+    플래그가 기대대로 바뀌는지를 직접 확인한다(실제 추적 동작 자체의
+    증명은 accept_all/reject_all이 추가되는 Task 2의 self-test에서 한다)."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_추적토글.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("토글 테스트")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        assert report._track_changes_enabled is False, "초기 상태는 꺼짐이어야 함"
+
+        report.enable_track_changes()
+        assert report._track_changes_enabled is True, "enable 후 켜짐 상태여야 함"
+
+        report.enable_track_changes()  # 두 번째 호출 - 가드가 없으면 여기서 다시 꺼짐
+        assert report._track_changes_enabled is True, (
+            "두 번째 enable 호출 후에도 여전히 켜짐 상태여야 함(가드 동작 확인)"
+        )
+
+        report.disable_track_changes()
+        assert report._track_changes_enabled is False, "disable 후 꺼짐 상태여야 함"
+
+        report.disable_track_changes()  # 두 번째 호출 - 가드가 없으면 여기서 다시 켜짐
+        assert report._track_changes_enabled is False, (
+            "두 번째 disable 호출 후에도 여전히 꺼짐 상태여야 함(가드 동작 확인)"
+        )
+        print("HwpReport 변경내용추적 토글 가드 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
     _selftest_open_and_mark_red()
     _selftest_get_window_handle()
+    _selftest_track_changes_toggle_guard()
