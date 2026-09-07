@@ -124,6 +124,14 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         + [(m["span"][0], m["raw"], _color_override(m, (0, 128, 0))) for m in unverifiable],
         key=lambda item: item[0],
     )
+    # (F13) 화면에 실제로 빨갛게 표시된 값들을, 표시된 순서(span 순서) 그대로
+    # 뽑아둔다 - "N번째로 가줘" 이동 기능(chat_assistant.py)이 이 순서를
+    # 그대로 신뢰하고 인덱싱한다. colored_in_order에서 뽑으므로 요일불일치로
+    # 빨강 덮어쓰기된 항목도 자연히 포함된다.
+    mismatch_items = list(dict.fromkeys(
+        raw for _pos, raw, color in colored_in_order if color == (255, 0, 0)
+    ))
+
     report.hwp.MoveDocBegin()
     for _pos, raw, (r, g, b) in colored_in_order:
         found = report.mark_next_color(raw, r, g, b)
@@ -160,6 +168,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         "unverifiable_count": len(unique_unverifiable_raw),
         "summary": summary,
         "conflicts": conflicts,
+        "mismatch_items": mismatch_items,
     }
 
 
@@ -375,9 +384,42 @@ def _selftest_run_verification_flags_weekday_mismatch():
         os.remove(report_path)
 
 
+def _selftest_run_verification_mismatch_items_in_span_order():
+    """(F13) mismatch_items가 문서에 실제로 빨갛게 표시된 순서(span 순서)
+    그대로 나오는지 확인한다. 원본에 없는 값 두 개를 문서에 순서대로
+    배치해서, 추출 순서(타입별로 묶임)가 아니라 진짜 문서 위치 순서를
+    따르는지가 드러나게 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_다중오탐")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_다중오탐.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 8888888원이고, 그 다음은 7777777원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["mismatch_items"] == ["8888888원", "7777777원"], result["mismatch_items"]
+        print("run_verification(mismatch_items 순서) 통과:", result["mismatch_items"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
     _selftest_run_verification_flags_weekday_mismatch()
+    _selftest_run_verification_mismatch_items_in_span_order()
