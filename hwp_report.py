@@ -1,5 +1,6 @@
 """hwp_report.py — 채팅 도구가 직접 여는 한글 보고서 문서를 다루는 얇은 pyhwpx 래퍼"""
 import os
+import time
 
 from pyhwpx import Hwp
 
@@ -53,6 +54,10 @@ class HwpReport:
                 pass
             raise FileNotFoundError(f"한글 문서를 열 수 없습니다: {path}")
         self.path = path
+        # 변경내용 추적 on/off 상태 — IsTrackChange 프로퍼티가 이 PC의 한글
+        # 버전(빌드 11.0.0.2129)에서 AttributeError가 나서 한글에 직접
+        # 물어볼 수 없어(2026-09-05 실측 확인), 파이썬 쪽에서 직접 관리한다.
+        self._track_changes_enabled = False
 
     def get_text(self) -> str:
         # GetTextFile()은 문서에 지금까지 단 한 글자도 삽입된 적 없는(정말로
@@ -208,8 +213,73 @@ class HwpReport:
         않는다. 이 모듈 전체의 핵심 설계가 "자동저장 없음"이므로, save=True를
         넘기는 유일한 지점인 이 메서드의 동작은 분명히 해둘 필요가 있다.
         save=False이면 변경사항을 저장하지 않고 닫는다(자동저장 없음, 기본 사용 경로).
+
+        (2026-09-06, 실사용/실측 확인) 변경내용 추적을 켠 문서를 닫을 때,
+        한글이 "변경 추적 기능이 사용된 문서입니다. ... 선택한 파일
+        형식으로 저장할까요?"라는 Yes/No 확인창을 띄운다 — 무인 실행
+        환경에서는 이 창에 답할 사람이 없어 그대로 멈춘다(실제로 재현·확인
+        됨). pyhwpx가 노출하는 `SetMessageBoxMode`로 이 창이 뜨면 자동으로
+        "아니오"(이 형식으로 저장하지 않음)를 선택하게 만들어 무인 실행도
+        멈추지 않게 한다 — (2026-09-06 정정) 이 대화상자는 버튼이 "저장(Y)/
+        취소(N)"인 **예/아니오형** 팝업이라 pyhwpx 공식 문서(set_message_box_mode
+        docstring)의 카테고리 5에 해당하는 `0x20000`(아니오 자동누르기)을
+        써야 한다 — 처음엔 카테고리 2(확인/취소형)의 `0x20`을 잘못 썼다가
+        실제로 대화상자가 안 막히는 것을 실측으로 확인하고 정정함. 끝나면
+        반드시 `0xF0000`(예/아니오 옵션 해제, 기본값)으로 되돌려 이후 다른
+        대화상자의 정상 동작(사람이 보는 채팅창 흐름 등)에 영향이 남지
+        않게 한다.
         """
-        self.hwp.quit(save=save)
+        self.hwp.SetMessageBoxMode(0x20000)
+        try:
+            self.hwp.quit(save=save)
+        finally:
+            self.hwp.SetMessageBoxMode(0xF0000)
+
+    def enable_track_changes(self) -> None:
+        """한글의 "변경내용 추적" 모드를 켠다. MenuExTrackChange는 토글
+        액션이라 이미 켜진 상태에서 또 부르면 꺼져버리므로, 파이썬이 직접
+        관리하는 self._track_changes_enabled 플래그로 아직 꺼져있을 때만
+        실제로 토글한다.
+
+        (2026-09-06, 실측 확인) 추적이 켜진 상태에서 편집(insert_text 등)을
+        하면, 그 편집 도중 한글이 "변경 추적 기능이 사용된 문서입니다...
+        선택한 파일 형식으로 저장할까요?" Yes/No 확인창을 예고 없이 띄우는
+        현상이 재현됨(close() 시점뿐 아니라 편집 중에도 발생) — 무인 실행
+        환경에서는 답할 사람이 없어 그대로 멈춘다. 추적을 켜는 시점부터
+        SetMessageBoxMode(0x20000)("예/아니오" 팝업의 "아니오" 자동누르기,
+        pyhwpx set_message_box_mode 문서의 카테고리 5 — close()의 정정
+        경위 참고)으로 이런 확인창에 자동 "아니오"를 응답하게 해서, 추적이
+        켜져있는 동안 어떤 편집 도중에 떠도 멈추지 않게 한다
+        (disable_track_changes()가 짝을 맞춰 기본값으로 되돌림 — close()도
+        별도로 자체 방어를 하지만, 그건 추적을 끄지 않고 바로 닫는 흔한
+        경로에 대한 보험이지 이 시점의 방어를 대신하지 않는다)."""
+        if not self._track_changes_enabled:
+            self.hwp.SetMessageBoxMode(0x20000)
+            self.hwp.HAction.Run("MenuExTrackChange")
+            self._track_changes_enabled = True
+
+    def disable_track_changes(self) -> None:
+        """변경내용 추적 모드를 끈다. enable_track_changes()와 대칭으로,
+        켜져 있을 때만 토글하고, enable_track_changes()가 켜둔
+        SetMessageBoxMode도 기본값(0xF0000)으로 되돌린다."""
+        if self._track_changes_enabled:
+            self.hwp.HAction.Run("MenuExTrackChange")
+            self._track_changes_enabled = False
+            self.hwp.SetMessageBoxMode(0xF0000)
+
+    def accept_all_changes(self) -> None:
+        """추적된 모든 변경사항을 일괄 승인(적용)한다. pyhwpx가 이미
+        TrackChangeApplyAll 액션을 hwp.TrackChangeApplyAll()로 래핑해뒀다
+        (site-packages/pyhwpx/run_methods.py 4863번째 줄 확인됨) — 그대로
+        호출한다. 개별 항목 탐색/승인(TrackChangeNext/Prev)은 특정 상황
+        (숨김창)에서 응답없음이 실측 확인되어(2026-09-05) 이번 라운드에서
+        의도적으로 쓰지 않는다 — 다음 라운드 과제."""
+        self.hwp.TrackChangeApplyAll()
+
+    def reject_all_changes(self) -> None:
+        """추적된 모든 변경사항을 일괄 거부(취소)한다. accept_all_changes()와
+        같은 이유로 hwp.TrackChangeCancelAll()을 그대로 호출한다."""
+        self.hwp.TrackChangeCancelAll()
 
 
 def _selftest_open_and_mark_red():
@@ -272,6 +342,173 @@ def _selftest_get_window_handle():
         os.remove(test_path)
 
 
+def _selftest_track_changes_toggle_guard():
+    """enable_track_changes()를 두 번 연달아 호출해도 실제로는 한 번만
+    토글되는지 확인한다. MenuExTrackChange는 토글 액션이라 상태 가드 없이
+    두 번 부르면 다시 꺼져버리는데, IsTrackChange 프로퍼티는 이 PC의 한글
+    버전에서 AttributeError가 나서(2026-09-05 실측 확인) 한글에 직접 물어볼
+    수 없다 — 그래서 파이썬이 직접 관리하는 self._track_changes_enabled
+    플래그가 기대대로 바뀌는지를 직접 확인한다(실제 추적 동작 자체의
+    증명은 accept_all/reject_all이 추가되는 Task 2의 self-test에서 한다)."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_추적토글.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("토글 테스트")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        assert report._track_changes_enabled is False, "초기 상태는 꺼짐이어야 함"
+
+        report.enable_track_changes()
+        assert report._track_changes_enabled is True, "enable 후 켜짐 상태여야 함"
+
+        report.enable_track_changes()  # 두 번째 호출 - 가드가 없으면 여기서 다시 꺼짐
+        assert report._track_changes_enabled is True, (
+            "두 번째 enable 호출 후에도 여전히 켜짐 상태여야 함(가드 동작 확인)"
+        )
+
+        report.disable_track_changes()
+        assert report._track_changes_enabled is False, "disable 후 꺼짐 상태여야 함"
+
+        report.disable_track_changes()  # 두 번째 호출 - 가드가 없으면 여기서 다시 켜짐
+        assert report._track_changes_enabled is False, (
+            "두 번째 disable 호출 후에도 여전히 꺼짐 상태여야 함(가드 동작 확인)"
+        )
+        print("HwpReport 변경내용추적 토글 가드 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
+def _selftest_reject_all_changes_reverts_tracked_insertion():
+    """핵심 가치 증명: 추적모드를 켠 상태에서 삽입한 텍스트는 "변경 이력"으로
+    기록되고, 그 이력을 거부하면 실제로 되돌려진다는 것을 확인한다.
+
+    (2026-09-06, 실측 확인·정정) 추적 중 아직 승인/거부되지 않은 상태에서는
+    get_text()(GetTextFile)가 삽입한 부분만이 아니라 문서 전체를 빈
+    문자열로 반환한다는 것을 실측으로 확인함(원본 "원본 문장입니다."까지
+    같이 안 보임) — 그래서 "삽입 직후, 거부 전"에 get_text()로 삽입이
+    반영됐는지 확인하는 중간 검증은 애초에 성립하지 않는 잘못된 전제였다.
+    이 중간 assert는 제거하고, reject_all_changes() 이후의 최종 상태만
+    확인한다(이것만으로도 "추적 중 삽입 → 거부 → 되돌려짐"이라는 핵심
+    가치는 충분히 증명됨)."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_추적거부.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("원본 문장입니다.")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        report.enable_track_changes()
+        report.hwp.MoveDocEnd()
+        report.hwp.insert_text("추가로 삽입된 문장입니다.")
+
+        report.reject_all_changes()
+        text_after_reject = report.get_text()
+        assert "추가로 삽입된 문장입니다." not in text_after_reject, (
+            "추적모드에서 삽입한 텍스트가 거부 후에도 남아있음 - "
+            "추적이 실제로 기록되지 않은 것으로 보임"
+        )
+        assert "원본 문장입니다." in text_after_reject, "원본 텍스트까지 사라짐"
+        print("HwpReport 변경내용추적 거부(reject_all_changes) 통과: 추적 중 삽입이 거부로 되돌려짐")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
+def _selftest_enable_track_changes_twice_still_tracks():
+    """enable_track_changes()를 두 번 호출해도(가드 동작) 여전히 추적 중이어서,
+    그 뒤 삽입한 텍스트가 거부로 되돌려지는지 확인한다 — Task 1의 플래그
+    기반 테스트를 실제 한글 동작으로 재확인한다(가드가 없었다면 두 번째
+    enable 호출이 추적을 도로 꺼버려 이 테스트가 실패했을 것)."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_추적이중enable.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("원본 문장입니다.")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        report.enable_track_changes()
+        report.enable_track_changes()  # 두 번째 호출 - 가드가 없으면 여기서 추적이 꺼짐
+        report.hwp.MoveDocEnd()
+        report.hwp.insert_text("추가로 삽입된 문장입니다.")
+
+        report.reject_all_changes()
+        text_after_reject = report.get_text()
+        assert "추가로 삽입된 문장입니다." not in text_after_reject, (
+            "이중 enable 호출 후에도 추적이 켜진 상태여야 하는데, 삽입이 "
+            "거부로 안 지워짐 - 가드 실패로 추적이 꺼졌던 것으로 보임"
+        )
+        print("HwpReport 이중 enable 후에도 추적 유지 확인 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
+def _selftest_reject_all_changes_no_op_without_tracking():
+    """추적모드를 켜지 않은 상태(일반 편집)에서 삽입한 텍스트는 "변경 이력"이
+    아니므로, reject_all_changes()를 호출해도 사라지면 안 된다."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_추적없음거부.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("원본 문장입니다.")
+    setup.save_as(test_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(test_path)
+        # enable_track_changes()를 호출하지 않음 - 추적 없이 일반 삽입
+        report.hwp.MoveDocEnd()
+        report.hwp.insert_text("추적 없이 삽입된 문장입니다.")
+        assert "추적 없이 삽입된 문장입니다." in report.get_text()
+
+        report.reject_all_changes()
+        text_after_reject = report.get_text()
+        assert "추적 없이 삽입된 문장입니다." in text_after_reject, (
+            "추적모드가 꺼진 상태에서 삽입한 일반 텍스트가 reject_all_changes() "
+            "호출만으로 사라짐 - 예상치 못한 부작용"
+        )
+        print("HwpReport 추적 없을 때 reject_all_changes() no-op 확인 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
 if __name__ == "__main__":
+    # (2026-09-06, 실측 확인) 한글 COM 인스턴스를 연달아 너무 빠르게 만들면
+    # "서버 실행이 실패했습니다"(pywintypes.com_error)가 간헐적으로 재현됨
+    # — 각 self-test 사이에 짧은 대기를 둬서 이전 인스턴스가 완전히 정리될
+    # 시간을 준다.
     _selftest_open_and_mark_red()
+    time.sleep(2)
     _selftest_get_window_handle()
+    time.sleep(2)
+    _selftest_track_changes_toggle_guard()
+    time.sleep(2)
+    _selftest_reject_all_changes_reverts_tracked_insertion()
+    time.sleep(2)
+    _selftest_enable_track_changes_twice_still_tracks()
+    time.sleep(2)
+    _selftest_reject_all_changes_no_op_without_tracking()

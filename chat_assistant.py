@@ -1,12 +1,14 @@
 """chat_assistant.py — 작고 예쁜 채팅창 + Ollama Qwen3 도구호출 + verify_tool 실행.
 항상 위에 떠 있고 드래그 가능한 CustomTkinter 창."""
 import os
+import re
 
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import ollama
 
 from hwp_report import HwpReport
+from privacy_guard import detect_pii_patterns
 from window_layout import position_windows
 
 ctk.set_appearance_mode("system")
@@ -216,6 +218,7 @@ class ChatAssistant(ctk.CTk):
         self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
         self._busy = False
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
+        self._last_mismatch_items: list[str] = []  # list[str] - 마지막 숫자검증에서 빨갛게 표시된 항목들(span 순서)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
         # UI라, 채팅 안의 스타일 선택 버튼(그 순간 골라야 하는 것)과 같은
@@ -589,6 +592,21 @@ class ChatAssistant(ctk.CTk):
         self.input_box.delete(0, "end")
         self._log(text, role="user")
 
+        # (F13) 개인정보로 보이는 패턴이 있으면 처리 전에 확인만 구한다 —
+        # 정규식 기반 감지라 오탐 가능(privacy_guard.py 참고)하므로 그대로
+        # 차단하지 않고 사용자 판단에 맡긴다.
+        pii_found = detect_pii_patterns(text)
+        if pii_found:
+            proceed = messagebox.askyesno(
+                "개인정보 확인",
+                f"개인정보로 보이는 패턴({', '.join(pii_found)})이 있어요. "
+                "패턴이 비슷할 뿐 실제 개인정보가 아닐 수도 있어요. "
+                "이대로 진행할까요?",
+            )
+            if not proceed:
+                self._log("입력을 취소했어요.")
+                return
+
         if not self.report:
             self._log("먼저 보고서 파일을 선택해주세요.")
             return
@@ -599,6 +617,22 @@ class ChatAssistant(ctk.CTk):
         # 필요한 도구는 verify_numbers뿐이라, 그 검사는 아래 verify_numbers
         # 분기 안으로 옮겼다 — 여기서 일괄로 막으면 원본자료를 첨부 안 한
         # 사용자가 선택 기반 표/번호 기능조차 못 쓰게 되는 문제가 있었다.
+
+        # (F13) "N번째로 가줘"는 결정론적 패턴이라 route_intent()의 LLM
+        # 라우팅을 거치지 않고 여기서 바로 처리한다 - 빠른 동작이라
+        # self._busy 가드(느린 Ollama/HWP 호출용)를 씌우지 않는다.
+        goto_index = parse_goto_index(text)
+        if goto_index is not None:
+            if not self._last_mismatch_items:
+                self._log("먼저 숫자 검증을 실행해주세요.")
+            elif 1 <= goto_index <= len(self._last_mismatch_items):
+                target = self._last_mismatch_items[goto_index - 1]
+                self.report.hwp.MoveDocBegin()
+                self.report.hwp.find(target, direction="AllDoc")
+                self._log(f"{goto_index}번째 항목으로 이동했어요 - '{target}'", role="assistant")
+            else:
+                self._log(f"총 {len(self._last_mismatch_items)}건 중 {goto_index}번째는 없어요.")
+            return
 
         self._busy = True
         self.input_box.configure(state="disabled")
@@ -633,6 +667,7 @@ class ChatAssistant(ctk.CTk):
                 else:
                     from verify_tool import run_verification
                     result = run_verification(self.report, self.source_paths, default_year=2026)
+                    self._last_mismatch_items = result["mismatch_items"]  # (F13) "N번째로 가줘" 이동용
                     # (2026-09-04, 실사용 피드백) 문서에 색으로 표시만 해서는
                     # "빨강/파랑/초록이 각각 무슨 뜻인지" 알 수 없다는 지적을
                     # 받아, 검증 결과와 함께 매번 색 범례를 같이 보여준다.
@@ -644,6 +679,19 @@ class ChatAssistant(ctk.CTk):
                     self._log(result["summary"], role="success")
             elif tool_name == "polish_to_formal_style":
                 from polish_tool import polish_to_formal_style
+                from speed_tracker import estimate_seconds
+                # (F13) 입력 글자수 × 1.5를 예상 출력 토큰수로 대략 추정해서,
+                # 지금까지 기록된 실제 속도로 예상 소요시간을 미리 보여준다.
+                # 기록이 아직 없으면(첫 실행) estimate_seconds가 None을
+                # 반환하므로 이 메시지 자체를 생략한다.
+                expected_tokens = int(len(text) * 1.5)
+                estimate = estimate_seconds(expected_tokens)
+                if estimate is not None:
+                    lo, hi = estimate
+                    self._log(
+                        f"공문서체로 다듬는 중이에요... (예상 소요시간 약 {lo:.0f}~{hi:.0f}초)",
+                        role="assistant",
+                    )
                 result = polish_to_formal_style(self.report, text)
                 if result["applied"]:
                     self._log(f"다듬었어요 → {result['polished_text']}", role="success")
@@ -735,10 +783,27 @@ def _selftest_route_intent():
     print("route_intent 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
 
 
+def parse_goto_index(text: str) -> int | None:
+    """"3번째로 가줘"류 입력에서 순서 번호(1-based)를 뽑는다. 매치 안 되면
+    None(숫자검증/공문서체 등 다른 요청과 혼동하지 않기 위해, route_intent()의
+    LLM 라우팅을 거치지 않고 chat_assistant.py가 이 결정론적 정규식으로
+    직접 판단한다)."""
+    m = re.search(r'(\d+)번째', text)
+    return int(m.group(1)) if m else None
+
+
+def _selftest_parse_goto_index():
+    assert parse_goto_index("3번째로 가줘") == 3
+    assert parse_goto_index("10번째 항목 보여줘") == 10
+    assert parse_goto_index("숫자 검증해줘") is None
+    print("parse_goto_index 통과")
+
+
 if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         _selftest_route_intent()
+        _selftest_parse_goto_index()
     else:
         app = ChatAssistant()
         app.mainloop()
