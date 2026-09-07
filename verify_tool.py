@@ -10,7 +10,7 @@ import os
 import tempfile
 import openpyxl
 
-from verify_numbers import extract_values, categorize_values
+from verify_numbers import extract_values, categorize_values, check_weekday_consistency
 from source_reader import read_source_files
 from hwp_report import HwpReport
 
@@ -88,6 +88,15 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     matches = categorized["matches"]
     unverifiable = categorized["unverifiable"]
 
+    # (F13) 날짜 뒤 괄호에 적힌 요일이 실제 요일과 맞는지도 확인한다. 이
+    # 값들은 extract_dates()가 이미 "date" 타입으로 뽑아 matches/mismatches/
+    # unverifiable 중 하나에 이미 들어가 있으므로(같은 span), 별도 항목을
+    # 새로 추가하지 않고 해당 span의 색만 빨강으로 덮어쓴다 - 그래야 같은
+    # 문서 위치를 두 번 칠하려다 커서 위치가 꼬이는 문제(mark_next_color가
+    # 다음 occurrence를 잘못 찾는 것)가 생기지 않는다.
+    weekday_mismatches = check_weekday_consistency(report_text)
+    weekday_mismatch_spans = {w["span"] for w in weekday_mismatches}
+
     # (2026-09-04, 실사용 피드백) 원래는 "고유 raw 문자열 하나당 mark_color() 한
     # 번" 구조였다 — mark_color()가 매번 MoveDocBegin()부터 다시 시작해 문서
     # 전체를 훑기 때문에, 서로 다른 값이 여러 개면 문서를 그 개수만큼 처음부터
@@ -103,10 +112,16 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     # occurrence를 순서대로 하나씩 만나 정확히 칠하게 된다(값 단위로 뭉치지
     # 않음 — 그래서 여기서는 dict.fromkeys로 중복 제거하지 않는다. 채팅
     # 요약에 쓸 "고유 값 개수"는 아래에서 별도로 계산한다).
+    def _color_override(entry, base_color):
+        # 요일불일치가 확인된 span은 원래 판정(파랑/빨강/초록)과 무관하게
+        # 화면에 빨강으로 보이게 한다 - "확인이 필요한 항목"이라는 신호는
+        # 값 일치 여부와 요일 표기 오류 둘 다 동등하게 취급한다.
+        return (255, 0, 0) if entry["span"] in weekday_mismatch_spans else base_color
+
     colored_in_order = sorted(
-        [(m["span"][0], m["raw"], (255, 0, 0)) for m in mismatches]
-        + [(m["span"][0], m["raw"], (0, 0, 255)) for m in matches]
-        + [(m["span"][0], m["raw"], (0, 128, 0)) for m in unverifiable],
+        [(m["span"][0], m["raw"], _color_override(m, (255, 0, 0))) for m in mismatches]
+        + [(m["span"][0], m["raw"], _color_override(m, (0, 0, 255))) for m in matches]
+        + [(m["span"][0], m["raw"], _color_override(m, (0, 128, 0))) for m in unverifiable],
         key=lambda item: item[0],
     )
     report.hwp.MoveDocBegin()
@@ -126,6 +141,8 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     for m in mismatches:
         first_type_by_raw.setdefault(m["raw"], m["type"])
     lines = [f"- [{first_type_by_raw[raw]}] '{raw}' 원본에서 확인 안 됨" for raw in unique_mismatch_raw]
+    for w in weekday_mismatches:
+        lines.append(f"- [요일불일치] '{w['raw']}' 실제로는 {w['actual_weekday']}요일")
     for c in conflicts:
         value_desc = ", ".join(f"{v['file']}={v['normalized']}" for v in c["values"])
         lines.append(f"- ⚠ 원본자료 불일치[{c['type']}]: {c['location']} ({value_desc})")
@@ -319,8 +336,48 @@ def _selftest_run_verification_empty_answer_pool_gives_clear_message():
         os.remove(report_path)
 
 
+def _selftest_run_verification_flags_weekday_mismatch():
+    """(F13) 날짜 뒤 괄호에 적힌 요일이 실제 요일과 다르면, 그 값이 원래
+    파랑(정상)이든 초록(대조불가)이든 상관없이 빨간색으로 표시되고
+    summary에 '[요일불일치]' 줄이 추가되는지 확인한다. 2026-09-07의 실제
+    요일은 월요일(datetime.date(2026,9,7).weekday()==0)이므로, 문서에는
+    일부러 틀린 "화"로 적어 불일치를 재현한다."""
+    import datetime
+    assert datetime.date(2026, 9, 7).weekday() == 0, "전제 확인: 2026-09-07은 월요일"
+
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_요일불일치")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000  # date 타입은 원본에 없음 -> 대조불가(초록) 대상
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_요일불일치.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("회의는 '26.9.7(화)에 진행하며, 예산은 185만원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert "[요일불일치] ''26.9.7(화)' 실제로는 월요일" in result["summary"], result["summary"]
+        assert report.get_char_color_at("'26.9.7(화)") == (255, 0, 0), (
+            "요일 불일치 항목이 빨간색으로 표시되지 않음"
+        )
+        print("run_verification(요일불일치 감지) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
+    _selftest_run_verification_flags_weekday_mismatch()
