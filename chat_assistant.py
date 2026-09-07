@@ -6,7 +6,9 @@ import re
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import ollama
+from PIL import Image
 
+from attachment_preview import generate_hwp_preview_isolated, generate_text_preview
 from hwp_report import HwpReport
 from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
@@ -137,6 +139,18 @@ _FIT_TO_PAGE_KEYWORDS = ["한 페이지에 맞춰", "한페이지에 맞춰", "�
 # 요청은 계속 잡히게 함). 이 정도가 "가벼운 안전망" 단계에 맞는 절충이라고 판단함 —
 # 완벽한 정확도가 필요해지면(도구가 여러 개로 늘어나는 다음 라운드) 재설계 대상.
 _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
+
+
+def _preview_kind_for(ext: str) -> str | None:
+    """확장자별로 어떤 미리보기를 만들지 판단한다. ext는 점(.) 포함
+    소문자(예: ".hwp"). HWP류는 이미지 미리보기, 엑셀/PDF는 텍스트
+    미리보기, 그 외(이미지 자체를 첨부한 경우 등)는 미리보기를 만들지
+    않는다(None)."""
+    if ext in (".hwp", ".hwpx"):
+        return "image"
+    if ext in (".xlsx", ".xls", ".pdf"):
+        return "text"
+    return None
 
 
 def _route_by_keywords(user_message: str) -> str | None:
@@ -571,7 +585,35 @@ class ChatAssistant(ctk.CTk):
         self.source_paths = list(paths)
         names = ", ".join(os.path.basename(p) for p in self.source_paths)
         self._log(f"📎 원본자료 {len(self.source_paths)}개 첨부됨: {names}")
+        for path in self.source_paths:
+            self._show_attachment_preview(path)
         return True
+
+    def _show_attachment_preview(self, path: str):
+        """첨부 직후 파일 하나의 작은 미리보기를 채팅창에 바로 보여준다.
+        HWP/HWPX는 이미지(별도 프로세스에서 1페이지만 렌더링, 같은
+        프로세스 안의 다른 Hwp 인스턴스가 이미 열려있는 보고서의 COM
+        연결을 깨뜨리는 pyhwpx 한계 때문 - attachment_preview.py 참고),
+        엑셀/PDF는 텍스트(상위 5줄)를 보여준다. 실패해도 조용히
+        건너뛴다(미리보기는 부가기능이라 실패가 첨부 자체를 막으면 안 됨)."""
+        ext = os.path.splitext(path)[1].lower()
+        kind = _preview_kind_for(ext)
+        if kind is None:
+            return
+        try:
+            if kind == "image":
+                preview_path = generate_hwp_preview_isolated(path)
+                if preview_path is not None:
+                    card = self._log(f"미리보기: {os.path.basename(path)}", role="assistant")
+                    image = ctk.CTkImage(light_image=Image.open(preview_path),
+                                          dark_image=Image.open(preview_path), size=(160, 220))
+                    ctk.CTkLabel(card, text="", image=image).pack(padx=8, pady=(0, 6))
+            else:
+                text_preview = generate_text_preview(path)
+                if text_preview:
+                    self._log(f"미리보기: {os.path.basename(path)}\n{text_preview}", role="assistant")
+        except Exception:
+            pass  # 미리보기 실패는 첨부 자체를 막지 않음 - 부가기능
 
     def _pick_source_folder(self) -> bool:
         """_pick_source_files와 동일한 이유로 True/False를 반환한다."""
@@ -797,6 +839,19 @@ class ChatAssistant(ctk.CTk):
             self.input_box.configure(state="normal")
 
 
+def _selftest_build_preview_message_routes_by_extension():
+    """확장자에 따라 어떤 종류의 미리보기를 만들지 올바르게 판단하는지
+    확인한다(HWP류는 이미지, 엑셀/PDF는 텍스트, 그 외는 미리보기 없음).
+    이 함수는 실제 pyhwpx/openpyxl을 부르지 않고 순수하게 분기만
+    검증한다 - 실제 생성은 attachment_preview.py 쪽 self-test가 담당."""
+    assert _preview_kind_for(".hwp") == "image"
+    assert _preview_kind_for(".hwpx") == "image"
+    assert _preview_kind_for(".xlsx") == "text"
+    assert _preview_kind_for(".pdf") == "text"
+    assert _preview_kind_for(".txt") is None
+    print("_preview_kind_for 통과")
+
+
 def _selftest_route_intent():
     """키워드 안전망(_route_by_keywords)만 검증한다 — ollama.chat()을 전혀
     부르지 않으므로 결정적이고, 로컬 LLM 서버가 안 떠 있어도 실행 가능하다
@@ -908,6 +963,7 @@ if __name__ == "__main__":
         _selftest_route_intent()
         _selftest_parse_goto_index()
         _selftest_parse_ignore_index()
+        _selftest_build_preview_message_routes_by_extension()
     else:
         app = ChatAssistant()
         app.mainloop()
