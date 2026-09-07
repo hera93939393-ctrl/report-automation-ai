@@ -8,6 +8,7 @@ from tkinter import filedialog, messagebox
 import ollama
 
 from hwp_report import HwpReport
+from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
 from window_layout import position_windows
 
@@ -642,6 +643,22 @@ class ChatAssistant(ctk.CTk):
         # 분기 안으로 옮겼다 — 여기서 일괄로 막으면 원본자료를 첨부 안 한
         # 사용자가 선택 기반 표/번호 기능조차 못 쓰게 되는 문제가 있었다.
 
+        # (F14) "N번째는 무시해"도 parse_goto_index()와 같은 이유로
+        # route_intent()의 LLM 라우팅을 거치지 않고 결정론적으로 처리한다.
+        # parse_goto_index()보다 반드시 먼저 확인해야 한다 - 그 정규식이
+        # "2번째는 무시해"에도 매치되기 때문(parse_ignore_index docstring 참고).
+        ignore_index = parse_ignore_index(text)
+        if ignore_index is not None:
+            if not self._last_mismatch_items:
+                self._log("먼저 숫자 검증을 실행해주세요.")
+            elif 1 <= ignore_index <= len(self._last_mismatch_items):
+                target = self._last_mismatch_items[ignore_index - 1]
+                record_ignored_value(target)
+                self._log(f"{ignore_index}번째 항목('{target}')을 앞으로 무시할게요.", role="assistant")
+            else:
+                self._log(f"총 {len(self._last_mismatch_items)}건 중 {ignore_index}번째는 없어요.")
+            return
+
         # (F13) "N번째로 가줘"는 결정론적 패턴이라 route_intent()의 LLM
         # 라우팅을 거치지 않고 여기서 바로 처리한다 - 빠른 동작이라
         # self._busy 가드(느린 Ollama/HWP 호출용)를 씌우지 않는다.
@@ -865,11 +882,32 @@ def _selftest_parse_goto_index():
     print("parse_goto_index 통과")
 
 
+def parse_ignore_index(text: str) -> int | None:
+    """"2번째는 무시해"류 입력에서 순서 번호(1-based)를 뽑는다.
+    parse_goto_index()와 같은 결정론적 정규식 방식이지만, "무시"/"괜찮"
+    키워드가 함께 있어야만 매치된다 - 이 조건이 없으면 "3번째로 가줘"
+    (순수 이동 요청)까지 무시 요청으로 잘못 인식하게 된다. _on_submit()은
+    반드시 이 함수를 parse_goto_index()보다 먼저 확인해야 한다 -
+    parse_goto_index()의 정규식(r'(\d+)번째')은 "2번째는 무시해"에도
+    매치되므로, 순서를 바꾸면 무시 요청이 이동 요청으로 잘못 처리된다."""
+    m = re.search(r'(\d+)번째.*(?:무시|괜찮)', text)
+    return int(m.group(1)) if m else None
+
+
+def _selftest_parse_ignore_index():
+    assert parse_ignore_index("2번째는 무시해") == 2
+    assert parse_ignore_index("3번째는 그냥 괜찮아") == 3
+    assert parse_ignore_index("3번째로 가줘") is None  # 무시/괜찮 키워드 없음 - goto와 구분
+    assert parse_ignore_index("숫자 검증해줘") is None
+    print("parse_ignore_index 통과")
+
+
 if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         _selftest_route_intent()
         _selftest_parse_goto_index()
+        _selftest_parse_ignore_index()
     else:
         app = ChatAssistant()
         app.mainloop()
