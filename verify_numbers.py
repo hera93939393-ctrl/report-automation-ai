@@ -1,4 +1,5 @@
 """verify_numbers.py — 원본데이터 대비 보고서 숫자검증 핵심 로직 (순수 함수, 외부 의존성 없음)"""
+import datetime
 import re
 from decimal import Decimal
 
@@ -58,6 +59,11 @@ def extract_amounts(text: str) -> list[dict]:
 _DATE_ISO = re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})')
 _DATE_KOR = re.compile(r'(\d{1,2})월\s*(\d{1,2})일')
 _DATE_ABBR = re.compile(r"'(\d{2})\.(\d{1,2})\.(\d{1,2})(?:\([월화수목금토일]\))?")
+
+# (F13) "'26.9.7(화)"처럼 날짜 뒤 괄호에 요일이 적힌 경우만 잡는다.
+# _DATE_ABBR과 같은 날짜 모양에 괄호+요일을 필수로 요구하는 점만 다르다.
+_DATE_WEEKDAY_PATTERN = re.compile(r"'(\d{2})\.(\d{1,2})\.(\d{1,2})\(([월화수목금토일])\)")
+_WEEKDAY_NAMES = ["월", "화", "수", "목", "금", "토", "일"]
 
 
 def extract_dates(text: str, default_year: int) -> list[dict]:
@@ -149,6 +155,55 @@ def _selftest_extract_dates():
     normalized = [r["normalized"] for r in result]
     assert normalized == ["2026-09-07", "2026-09-07", "2026-09-07"], normalized
     print("extract_dates 통과:", result)
+
+
+def check_weekday_consistency(text: str) -> list[dict]:
+    """"'26.9.7(화)"처럼 날짜 뒤 괄호에 적힌 요일이, 그 날짜의 실제 요일과
+    맞는지 검증한다. 표기된 요일과 실제 요일이 다른 것만 반환한다(일치하면
+    결과에 안 넣음). 요일 표기가 아예 없는 날짜("2026-09-07")는 이 정규식
+    자체가 매치하지 않으므로 건드리지 않는다.
+    """
+    mismatches = []
+    for m in _DATE_WEEKDAY_PATTERN.finditer(text):
+        yy, mo, d, written_weekday = m.groups()
+        actual_date = datetime.date(2000 + int(yy), int(mo), int(d))
+        actual_weekday = _WEEKDAY_NAMES[actual_date.weekday()]
+        if written_weekday != actual_weekday:
+            mismatches.append({
+                "raw": m.group(0),
+                "written_weekday": written_weekday,
+                "actual_weekday": actual_weekday,
+                "span": m.span(),
+            })
+    return mismatches
+
+
+def _selftest_check_weekday_consistency_detects_mismatch():
+    """2026-09-07의 실제 요일을 파이썬으로 미리 확인:
+    datetime.date(2026,9,7).weekday() == 0(월요일). 표기를 일부러 틀리게
+    ("화") 써서 불일치가 잡히는지 확인한다."""
+    assert datetime.date(2026, 9, 7).weekday() == 0, "전제 확인: 2026-09-07은 월요일이어야 함"
+    text = "회의는 '26.9.7(화)에 진행"
+    result = check_weekday_consistency(text)
+    assert len(result) == 1, result
+    assert result[0]["written_weekday"] == "화", result
+    assert result[0]["actual_weekday"] == "월", result
+    print("check_weekday_consistency 통과(불일치 감지):", result)
+
+
+def _selftest_check_weekday_consistency_matches_when_correct():
+    """실제 요일과 맞게 쓰면 빈 리스트여야 한다."""
+    text = "회의는 '26.9.7(월)에 진행"
+    result = check_weekday_consistency(text)
+    assert result == [], result
+    print("check_weekday_consistency 통과(일치 시 빈 리스트):", result)
+
+
+def _selftest_check_weekday_consistency_ignores_date_without_weekday():
+    """요일 표기가 아예 없는 날짜는 이 함수가 건드리지 않아야 한다."""
+    result = check_weekday_consistency("회의는 2026-09-07에 진행")
+    assert result == [], result
+    print("check_weekday_consistency 통과(요일 표기 없으면 무시):", result)
 
 
 _TIME_COLON = re.compile(r'(\d{1,2}):(\d{2})\s*[~-]\s*(\d{1,2}):(\d{2})')
@@ -534,3 +589,6 @@ if __name__ == "__main__":
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
     _selftest_compute_column_sums_ignores_boolean_column()
+    _selftest_check_weekday_consistency_detects_mismatch()
+    _selftest_check_weekday_consistency_matches_when_correct()
+    _selftest_check_weekday_consistency_ignores_date_without_weekday()
