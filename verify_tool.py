@@ -13,9 +13,11 @@ import openpyxl
 from verify_numbers import extract_values, categorize_values, check_weekday_consistency
 from source_reader import read_source_files
 from hwp_report import HwpReport
+from ignore_list import load_ignored_values, DEFAULT_IGNORE_PATH
 
 
-def run_verification(report: HwpReport, source_paths: list[str], default_year: int) -> dict:
+def run_verification(report: HwpReport, source_paths: list[str], default_year: int,
+                      ignore_list_path: str = DEFAULT_IGNORE_PATH) -> dict:
     """채팅창이 호출하는 숫자검증 도구 함수.
     1) report(이미 열려있는 문서 핸들)의 텍스트를 읽는다 — 이 함수는 문서를
        열거나 닫지 않는다, 호출자가 열고 닫을 책임을 진다
@@ -87,6 +89,13 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     mismatches = categorized["mismatches"]
     matches = categorized["matches"]
     unverifiable = categorized["unverifiable"]
+
+    # (F14) ignore_list_path에 등록된 값(raw 문자열 그대로 비교)은 원본과
+    # 실제로 불일치해도 mismatches에서 제외한다 - "이건 괜찮아, 무시해"로
+    # 한 번 확인한 값은 다음부터 오류로 표시하지 않는다는 오탐 학습 기능.
+    ignored_raws = set(load_ignored_values(ignore_list_path))
+    if ignored_raws:
+        mismatches = [m for m in mismatches if m["raw"] not in ignored_raws]
 
     # (F13) 날짜 뒤 괄호에 적힌 요일이 실제 요일과 맞는지도 확인한다. 이
     # 값들은 extract_dates()가 이미 "date" 타입으로 뽑아 matches/mismatches/
@@ -205,6 +214,54 @@ def _selftest_run_verification():
         import shutil
         shutil.rmtree(test_dir)
         os.remove(report_path)
+
+
+def _selftest_run_verification_skips_ignored_mismatch():
+    """무시 목록에 등록된 값은 실제로 틀렸어도(원본과 불일치) 더 이상
+    오류(빨강)로 표시되지 않고 mismatch_count/summary/mismatch_items에서
+    빠져야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_무시목록")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_무시목록.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 185만원이며, 첫오류는 9999999원, 둘째오류는 8888888원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    ignore_path = os.path.join(tempfile.gettempdir(), "_test_ignore_list_검증.json")
+    if os.path.exists(ignore_path):
+        os.remove(ignore_path)
+    from ignore_list import record_ignored_value
+    # (2026-09-07, 실측으로 정정) 무시 목록엔 raw 원문 그대로(단위 포함) 저장돼야
+    # verify_tool.py의 필터(m["raw"] not in ignored_raws)와 실제로 일치한다 -
+    # 실사용 경로(chat_assistant.py의 parse_ignore_index 연동)도 항상
+    # self._last_mismatch_items[i](예: "9999999원")를 그대로 저장하므로,
+    # 여기서 단위 없는 "9999999"만 저장하면 필터가 매치되지 않는다.
+    record_ignored_value("9999999원", path=ignore_path)  # 첫오류만 무시 목록에 등록
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026,
+                                   ignore_list_path=ignore_path)
+        assert result["mismatch_count"] == 1, result  # 오타2만 남아야 함
+        assert "9999999" not in result["summary"], result["summary"]
+        assert "8888888" in result["summary"], result["summary"]
+        assert "9999999" not in result["mismatch_items"], result["mismatch_items"]
+        print("run_verification(무시 목록 반영) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+        if os.path.exists(ignore_path):
+            os.remove(ignore_path)
 
 
 def _selftest_run_verification_clears_stale_marks_on_rerun():
@@ -418,6 +475,7 @@ def _selftest_run_verification_mismatch_items_in_span_order():
 
 if __name__ == "__main__":
     _selftest_run_verification()
+    _selftest_run_verification_skips_ignored_mismatch()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
