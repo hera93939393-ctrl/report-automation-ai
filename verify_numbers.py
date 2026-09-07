@@ -537,6 +537,51 @@ def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[
     return results
 
 
+def compute_column_growth_rate(rows: list[dict], source_file: str, sheet: str,
+                                from_col: str, to_col: str) -> list[dict]:
+    """지정한 두 컬럼(from_col 합계 대비 to_col 합계)의 증감률(%)을 계산해
+    정답 풀에 추가할 항목 하나로 반환한다. compute_column_sums()와 같은
+    반환 dict 형태(type/normalized/raw/source_file/location)를 따르며, 그
+    함수가 이미 계산한 컬럼별 합계를 그대로 재사용한다(같은 "숫자 컬럼
+    판별" 로직을 중복 구현하지 않기 위함). from_col/to_col이 숫자 컬럼이
+    아니거나(rows[0]에 없거나 일부 행에 비숫자 값이 섞여 있으면
+    compute_column_sums가 애초에 그 컬럼을 대상에서 뺀다), from_col 합계가
+    0이면(0으로 나누기 방지) 빈 리스트를 반환한다."""
+    if not rows:
+        return []
+    sums = {r["raw"].removesuffix(" 합계"): Decimal(r["normalized"])
+            for r in compute_column_sums(rows, source_file, sheet)}
+    if from_col not in sums or to_col not in sums or sums[from_col] == 0:
+        return []
+    growth = (sums[to_col] - sums[from_col]) / sums[from_col] * 100
+    normalized = _decimal_to_normalized_str(growth.quantize(Decimal("0.01")))
+    return [{
+        "type": "amount", "normalized": normalized,
+        "raw": f"{from_col}→{to_col} 증감률",
+        "source_file": source_file, "location": f"{sheet}!{from_col}->{to_col}(증감률)",
+    }]
+
+
+def compute_column_average(rows: list[dict], source_file: str, sheet: str, col: str) -> list[dict]:
+    """지정한 컬럼의 평균을 계산해 정답 풀에 추가할 항목 하나로 반환한다.
+    compute_column_sums()와 같은 반환 dict 형태를 따르며, col이 숫자
+    컬럼이 아니면(compute_column_sums가 대상에서 뺐으면) 빈 리스트를
+    반환한다."""
+    if not rows:
+        return []
+    sums = compute_column_sums(rows, source_file, sheet)
+    matching = [r for r in sums if r["raw"] == f"{col} 합계"]
+    if not matching:
+        return []
+    total = Decimal(matching[0]["normalized"])
+    average = total / len(rows)
+    normalized = _decimal_to_normalized_str(average.quantize(Decimal("0.01")))
+    return [{
+        "type": "amount", "normalized": normalized, "raw": f"{col} 평균",
+        "source_file": source_file, "location": f"{sheet}!{col}(평균)",
+    }]
+
+
 def _selftest_compute_column_sums():
     rows = [{"예산": 500000, "인원": 10}, {"예산": 300000, "인원": 20}]
     sums = compute_column_sums(rows, source_file="원본.xlsx", sheet="Sheet1")
@@ -560,6 +605,44 @@ def _selftest_compute_column_sums_ignores_boolean_column():
     normalized = sorted(r["normalized"] for r in sums)
     assert normalized == ["300"], normalized  # "완료" 컬럼은 합계 대상에서 제외됨
     print("_selftest_compute_column_sums_ignores_boolean_column 통과:", sums)
+
+
+def _selftest_compute_column_growth_rate():
+    rows = [{"작년": 100, "올해": 150}, {"작년": 200, "올해": 250}]
+    result = compute_column_growth_rate(
+        rows, source_file="원본.xlsx", sheet="Sheet1", from_col="작년", to_col="올해"
+    )
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "33.33", result
+    assert result[0]["type"] == "amount", result
+    print("compute_column_growth_rate 통과:", result)
+
+
+def _selftest_compute_column_growth_rate_zero_base_returns_empty():
+    """분모(from_col 합계)가 0이면 0으로 나누기를 피해 빈 리스트를 반환해야 한다."""
+    rows = [{"작년": 0, "올해": 150}]
+    result = compute_column_growth_rate(
+        rows, source_file="원본.xlsx", sheet="Sheet1", from_col="작년", to_col="올해"
+    )
+    assert result == [], result
+    print("compute_column_growth_rate(분모 0) 통과: 빈 리스트")
+
+
+def _selftest_compute_column_average():
+    rows = [{"예산": 100}, {"예산": 200}, {"예산": 300}]
+    result = compute_column_average(rows, source_file="원본.xlsx", sheet="Sheet1", col="예산")
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "200", result
+    print("compute_column_average 통과:", result)
+
+
+def _selftest_compute_column_average_rounds_repeating_decimal():
+    """나눗셈이 딱 떨어지지 않아도(100/3 형태) 소수점 둘째자리로 반올림돼야
+    한다 - 사람이 읽는 보고서 문장과 대조하기 위함(끝없는 소수는 무의미함)."""
+    rows = [{"값": 30}, {"값": 30}, {"값": 40}]
+    result = compute_column_average(rows, source_file="원본.xlsx", sheet="Sheet1", col="값")
+    assert result[0]["normalized"] == "33.33", result
+    print("compute_column_average(반복소수 반올림) 통과:", result)
 
 
 if __name__ == "__main__":
@@ -589,6 +672,10 @@ if __name__ == "__main__":
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
     _selftest_compute_column_sums_ignores_boolean_column()
+    _selftest_compute_column_growth_rate()
+    _selftest_compute_column_growth_rate_zero_base_returns_empty()
+    _selftest_compute_column_average()
+    _selftest_compute_column_average_rounds_repeating_decimal()
     _selftest_check_weekday_consistency_detects_mismatch()
     _selftest_check_weekday_consistency_matches_when_correct()
     _selftest_check_weekday_consistency_ignores_date_without_weekday()
