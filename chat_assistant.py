@@ -679,6 +679,19 @@ class ChatAssistant(ctk.CTk):
                     self._log(result["summary"], role="success")
             elif tool_name == "polish_to_formal_style":
                 from polish_tool import polish_to_formal_style
+                from speed_tracker import estimate_seconds
+                # (F13) 입력 글자수 × 1.5를 예상 출력 토큰수로 대략 추정해서,
+                # 지금까지 기록된 실제 속도로 예상 소요시간을 미리 보여준다.
+                # 기록이 아직 없으면(첫 실행) estimate_seconds가 None을
+                # 반환하므로 이 메시지 자체를 생략한다.
+                expected_tokens = int(len(text) * 1.5)
+                estimate = estimate_seconds(expected_tokens)
+                if estimate is not None:
+                    lo, hi = estimate
+                    self._log(
+                        f"공문서체로 다듬는 중이에요... (예상 소요시간 약 {lo:.0f}~{hi:.0f}초)",
+                        role="assistant",
+                    )
                 result = polish_to_formal_style(self.report, text)
                 if result["applied"]:
                     self._log(f"다듬었어요 → {result['polished_text']}", role="success")
