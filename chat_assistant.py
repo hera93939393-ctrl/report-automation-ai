@@ -95,6 +95,14 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "fit_to_one_page",
+            "description": "지금 열려있는 문서를 행간/자간/글자크기를 조금씩 줄여 1페이지에 맞춘다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -116,6 +124,8 @@ _TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
 _NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식", "순번"]
 
 _WEEKLY_MERGE_KEYWORDS = ["옆 한글파일로", "주간보고 취합", "주간업무보고 취합", "취합해"]
+
+_FIT_TO_PAGE_KEYWORDS = ["한 페이지에 맞춰", "한페이지에 맞춰", "한 장에 맞춰", "페이지 맞춤", "쪽맞춤"]
 
 # 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
 # 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
@@ -191,6 +201,8 @@ def _route_by_keywords(user_message: str) -> str | None:
         return "insert_numbering"
     if any(keyword in cleaned_message for keyword in _WEEKLY_MERGE_KEYWORDS):
         return "merge_weekly_reports"
+    if any(keyword in cleaned_message for keyword in _FIT_TO_PAGE_KEYWORDS):
+        return "fit_to_one_page"
     return None
 
 
@@ -738,6 +750,20 @@ class ChatAssistant(ctk.CTk):
                             names = ", ".join(os.path.basename(p) for p in result["skipped_files"])
                             lines.append(f"한글 문서가 아니라 건너뜀: {names}")
                         self._log("\n".join(lines) if lines else "취합할 내용이 없었어요.", role="success")
+            elif tool_name == "fit_to_one_page":
+                from fit_to_page_tool import fit_to_one_page
+                result = self._run_tool_safely(fit_to_one_page, self.report)
+                if result is not None:
+                    if result["fitted"]:
+                        method_label = {
+                            "already_one_page": "이미 1페이지였어요",
+                            "linespacing": "행간을 줄여서",
+                            "spacing": "자간까지 줄여서",
+                            "font_size": "글자크기까지 줄여서",
+                        }[result["method"]]
+                        self._log(f"{method_label} 1페이지로 맞췄어요.", role="success")
+                    else:
+                        self._log("행간/자간/글자크기를 다 줄여봐도 1페이지에 안 들어가요. 내용을 좀 줄여주세요.", role="error")
             else:
                 # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
                 # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
@@ -816,6 +842,11 @@ def _selftest_route_intent():
     weekly_choice = _route_by_keywords("옆 한글파일로 옮겨줘")
     assert weekly_choice == "merge_weekly_reports", weekly_choice
     print("route_intent 통과 (주간보고 취합):", weekly_choice)
+
+    # 10) F14: 한 페이지 맞춤 도구가 키워드로 잡히는지 확인
+    fit_choice = _route_by_keywords("이거 한 페이지에 맞춰줘")
+    assert fit_choice == "fit_to_one_page", fit_choice
+    print("route_intent 통과 (한 페이지 맞춤):", fit_choice)
 
 
 def parse_goto_index(text: str) -> int | None:
