@@ -17,6 +17,17 @@ _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 # 다뤄서, 겹치는 금액 매치를 애초에 뽑지 않게 한다.
 _YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘]\d{2}(?!\d)")
 
+# (2026-09-07, 실사용 피드백으로 발견) "1." "2)"처럼 목차·개요·붙임 번호 등
+# 문서 어디서나 등장하는 번호매기기 표기 — numbering_tool.py가 실제로 쓰는
+# 표준 번호서식("1. "/"1) ") 관례와 정확히 일치한다. 이런 숫자는 순서를
+# 나타내는 라벨일 뿐 원본자료와 대조할 데이터가 아니다. 소수점 금액
+# ("97.1")은 마침표 뒤에 또 숫자가 오므로 (?!\d)로 걸러 오배제하지 않는다.
+_LIST_MARKER_PATTERN = re.compile(r'(\d+)(?:\.(?!\d)|\))')
+
+# (2026-09-07) 연속된 1~12가 월(月) 표시로 흔히 쓰인다("1 2 3 ... 12" 월별
+# 헤더) — extract_values()가 후보 amounts 중에서 이 조건에 맞는 런을 찾아
+# 검증 대상에서 제외한다(_find_month_sequence_spans 참고).
+
 
 def _decimal_to_normalized_str(value: Decimal) -> str:
     """Decimal 값을 정규화된 문자열로 바꾼다. 정수면 소수점 없이, 아니면
@@ -290,6 +301,62 @@ def extract_phones(text: str) -> list[dict]:
             for m in _PHONE_PATTERN.finditer(text)]
 
 
+def _find_month_sequence_spans(amounts: list[dict]) -> set[tuple[int, int]]:
+    """amounts(문서 내 위치 순으로 정렬되지 않았을 수 있음) 중에서 "1부터
+    12까지 정확히 순서대로 연속 등장"하는 런을 찾아, 그 12개 항목의 span을
+    반환한다(월별 헤더로 흔히 쓰이는 형태 - 실제 데이터가 아니라 월을
+    나타내는 라벨). 소수점/단위 없이 순수 정수로 정규화된 값만 후보로 보고,
+    문서 내 위치(span) 순서대로 정렬한 뒤 "바로 다음 값 = 직전 값 + 1"이
+    끊기지 않고 1부터 12까지 이어지는 구간만 채택한다. 1에서 시작하지
+    않거나 12에서 끝나지 않는 부분적인 연속(예: "3 4 5 6 7")은 실제 데이터일
+    가능성을 배제할 수 없어 제외하지 않는다."""
+    candidates = sorted(
+        (a for a in amounts if a["normalized"].isdigit() and 1 <= int(a["normalized"]) <= 12),
+        key=lambda a: a["span"][0],
+    )
+    excluded = set()
+    i = 0
+    while i < len(candidates):
+        run = [candidates[i]]
+        j = i + 1
+        while j < len(candidates) and int(candidates[j]["normalized"]) == int(run[-1]["normalized"]) + 1:
+            run.append(candidates[j])
+            j += 1
+        if len(run) == 12 and int(run[0]["normalized"]) == 1:
+            excluded.update(a["span"] for a in run)
+        i = j if j > i + 1 else i + 1
+    return excluded
+
+
+def _selftest_find_month_sequence_spans_detects_full_run():
+    amounts = [{"normalized": str(v), "raw": str(v), "span": (i * 3, i * 3 + 1)}
+               for i, v in enumerate(range(1, 13))]
+    spans = _find_month_sequence_spans(amounts)
+    assert spans == {a["span"] for a in amounts}, spans
+    print("_find_month_sequence_spans 통과(1~12 전체 런 감지)")
+
+
+def _selftest_find_month_sequence_spans_ignores_partial_run():
+    """1에서 시작하지 않거나 12에서 끝나지 않는 부분 연속은 실제 데이터일 수
+    있으므로 제외하면 안 된다."""
+    amounts = [{"normalized": str(v), "raw": str(v), "span": (i * 3, i * 3 + 1)}
+               for i, v in enumerate(range(3, 8))]  # 3,4,5,6,7 (부분 연속)
+    spans = _find_month_sequence_spans(amounts)
+    assert spans == set(), spans
+    print("_find_month_sequence_spans 통과(부분 연속은 무시)")
+
+
+def _selftest_find_month_sequence_spans_ignores_non_amount_type():
+    """정수가 아니거나 1~12 범위를 벗어난 값은 애초에 후보에서 제외된다."""
+    amounts = [
+        {"normalized": "1", "raw": "1", "span": (0, 1)},
+        {"normalized": "1850000", "raw": "1,850,000", "span": (5, 14)},  # 범위 밖 - 후보 아님
+    ]
+    spans = _find_month_sequence_spans(amounts)
+    assert spans == set(), spans
+    print("_find_month_sequence_spans 통과(런이 안 되면 제외 없음)")
+
+
 def extract_values(text: str, default_year: int) -> list[dict]:
     """텍스트에서 금액/날짜/시간/전화번호 4종을 전부 뽑아 하나의 리스트로 반환한다.
     날짜·시간·전화번호를 먼저 뽑고, 그 글자 범위와 조금이라도 겹치는 금액 매치는
@@ -301,18 +368,28 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     (2026-09-04 추가) "('23)","'24년"처럼 작은따옴표+두자리 숫자로 된 연도
     약칭도 같은 방식으로 제외 구간에 포함한다 — 이런 숫자는 실제 데이터 값이
     아니라 연도를 줄여 쓴 것뿐이라, 원본자료와 대조할 대상이 아니다.
+
+    (2026-09-07 추가, 실사용 피드백) "1." "2)" 같은 목차/개요 번호매기기와,
+    "1 2 3 ... 12"처럼 연속된 월(月) 표시도 같은 이유로 검증 대상에서
+    뺀다 - 전자는 _LIST_MARKER_PATTERN으로 제외구간에 포함하고, 후자는
+    금액 후보를 다 뽑은 뒤 _find_month_sequence_spans()로 별도 제거한다
+    (달 전체가 연속으로 등장해야 확정되는 패턴이라 다른 제외구간과 달리
+    금액끼리 서로 비교해야 하므로 별도 단계로 처리).
     """
     dates = extract_dates(text, default_year)
     times = extract_times(text)
     phones = extract_phones(text)
     year_abbreviations = [m.span() for m in _YEAR_ABBREVIATION_PATTERN.finditer(text)]
-    excluded_spans = [r["span"] for r in dates + times + phones] + year_abbreviations
+    list_markers = [m.span(1) for m in _LIST_MARKER_PATTERN.finditer(text)]
+    excluded_spans = [r["span"] for r in dates + times + phones] + year_abbreviations + list_markers
 
     def _overlaps_excluded(span):
         a_start, a_end = span
         return any(a_start < e and s < a_end for s, e in excluded_spans)
 
     amounts = [r for r in extract_amounts(text) if not _overlaps_excluded(r["span"])]
+    month_spans = _find_month_sequence_spans(amounts)
+    amounts = [r for r in amounts if r["span"] not in month_spans]
     return amounts + dates + times + phones
 
 
@@ -361,6 +438,49 @@ def _selftest_extract_values_excludes_year_abbreviation():
     amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
     assert amounts == ["1595", "1694", "1827"], amounts
     print("_selftest_extract_values_excludes_year_abbreviation 통과:", result)
+
+
+def _selftest_extract_values_excludes_list_marker_dot():
+    """(2026-09-07, 실사용 피드백) "1. 등록심사"처럼 목차/개요 번호매기기로
+    쓰인 "1."은 검증 대상에서 빠져야 하고, 그 뒤 실제 데이터("1,827")는
+    영향받지 않아야 한다."""
+    text = "1. 등록심사 실적은 1,827건이다"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1827"], amounts
+    print("_selftest_extract_values_excludes_list_marker_dot 통과:", result)
+
+
+def _selftest_extract_values_excludes_list_marker_paren():
+    """"2) 세부내용"처럼 괄호 번호매기기("1) "/numbering_tool.py의
+    arabic_paren 스타일)로 쓰인 숫자도 같은 이유로 제외돼야 한다."""
+    text = "2) 세부내용 : 예산 1,850,000원"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1850000"], amounts
+    print("_selftest_extract_values_excludes_list_marker_paren 통과:", result)
+
+
+def _selftest_extract_values_list_marker_does_not_exclude_decimal_amount():
+    """"97.1%"처럼 마침표가 소수점으로 쓰인 진짜 금액은 목차 번호로
+    오인해서 제외하면 안 된다(마침표 뒤에 숫자가 더 오는 경우)."""
+    text = "IP 안전지수는 97.1%이다"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["97.1"], amounts
+    print("_selftest_extract_values_list_marker_does_not_exclude_decimal_amount 통과:", result)
+
+
+def _selftest_extract_values_excludes_month_sequence():
+    """(2026-09-07, 실사용 피드백으로 발견한 실제 버그 재현) "1 2 3 ... 12"처럼
+    연속된 월 표시는 검증 대상에서 빠지고, 그 사이에 낀 진짜 데이터는
+    영향받지 않아야 한다."""
+    months = " ".join(str(i) for i in range(1, 13))
+    text = f"월별 실적: {months} 합계는 1,827건"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1827"], amounts
+    print("_selftest_extract_values_excludes_month_sequence 통과:", result)
 
 
 def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
@@ -662,6 +782,13 @@ if __name__ == "__main__":
     _selftest_extract_values_reverse_direction_overlap()
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
     _selftest_extract_values_excludes_year_abbreviation()
+    _selftest_extract_values_excludes_list_marker_dot()
+    _selftest_extract_values_excludes_list_marker_paren()
+    _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
+    _selftest_extract_values_excludes_month_sequence()
+    _selftest_find_month_sequence_spans_detects_full_run()
+    _selftest_find_month_sequence_spans_ignores_partial_run()
+    _selftest_find_month_sequence_spans_ignores_non_amount_type()
     _selftest_compare_values()
     _selftest_compare_values_catches_digit_transposition_typo()
     _selftest_compare_values_catches_typo_in_large_amount()

@@ -1,8 +1,48 @@
 """hwp_report.py — 채팅 도구가 직접 여는 한글 보고서 문서를 다루는 얇은 pyhwpx 래퍼"""
 import os
+import re
 import time
 
 from pyhwpx import Hwp
+
+
+def _find_whole_number(hwp, target_text: str, direction: str) -> bool:
+    """target_text(순수 숫자로만 된 문자열, 예: "7")와 정확히 같은 독립된
+    숫자만 찾는다 - 더 큰 숫자 안에 파묻힌 부분 문자열(예: "1,827" 안의
+    '7')은 건너뛴다.
+
+    (2026-09-07, 실사용 피드백으로 발견한 실제 버그) mark_color()/
+    mark_next_color()가 일반 문자열 검색(find())으로 target_text를 찾다
+    보니, 실제 데이터가 아니라 목차 번호·월 표시처럼 우연히 등장한 순수
+    숫자 값(예: "7")을 빨갛게 표시할 때, 그 "7"이라는 글자가 들어있는 전혀
+    무관한 다른 숫자(예: 정상적으로 파랑 표시된 "1,827")의 마지막 자리까지
+    같이 빨갛게 덧칠되는 문제가 실사용에서 재현됨.
+
+    HWP의 정규식 검색은 전방/후방탐색(lookahead/lookbehind)을 지원하지
+    않는다(직접 테스트로 확인 - `(?<!\\d)7(?!\\d)`가 매치 0건). 대신
+    "\\d*<값>\\d*"로 그 숫자를 포함한 연속된 전체 숫자열을 찾은 뒤, 그 매치의
+    길이가 target_text와 정확히 같을 때만(=독립된 숫자일 때만) 채택하고,
+    아니면(더 큰 숫자에 파묻힌 경우) 계속 앞으로 건너뛰며 다음 occurrence를
+    찾는다. 쉼표·소수점·단위가 붙은 값("1,827"/"97.1%")은 이미 충분히
+    구체적인 문자열이라 이런 충돌 위험이 낮으므로, 이 보호는 target_text가
+    순수 숫자일 때만 적용한다(호출부의 `.isdigit()` 분기 참고).
+
+    매치 길이를 hwp.get_selected_text()가 아니라 hwp.hwp.GetSelectedPos()
+    (원본 COM 메서드)로 직접 잰다 - get_selected_text()는 호출하는 것
+    자체가 선택 범위를 옆으로 더 넓혀버리는 부작용이 실측으로 확인됐다
+    (weekly_report_tool.py의 _read_blue_lines_at_cursor 주석이 문서화한
+    "get_selected_text() 호출 직후 커서는 막 재설정된 경계 위치" 현상과
+    같은 종류 - 여기서는 텍스트 비교 목적으로 두 번째로 호출하다가 그
+    부작용 때문에 색칠이 엉뚱한 범위에 적용되는 회귀가 실제로 재현됨).
+    GetSelectedPos()는 선택 범위를 읽기만 하고 바꾸지 않는다.
+    """
+    pattern = rf'\d*{re.escape(target_text)}\d*'
+    while hwp.find(pattern, direction=direction, regex=True):
+        _, s_list, s_para, s_pos, e_list, e_para, e_pos = hwp.hwp.GetSelectedPos()
+        if s_list == e_list and s_para == e_para and (e_pos - s_pos) == len(target_text):
+            return True
+        # 더 큰 숫자에 파묻힌 매치 - 채택하지 않고 다음 occurrence로 계속 진행
+    return False
 
 
 class HwpReport:
@@ -88,10 +128,18 @@ class HwpReport:
         occurrence를 무한히 다시 찾아 무한 루프가 된다. "Forward"는 문서
         끝에서 자연히 멈추므로 이 루프에 맞다. pyhwpx 자체도 동일한 패턴을
         set_field_by_bracket()에서 쓴다(MoveDocBegin() 후 while self.find(...)).
+
+        target_text가 순수 숫자("7" 등)일 때는 일반 문자열 검색 대신
+        _find_whole_number()로 찾는다 - 더 큰 숫자에 파묻힌 부분 문자열까지
+        같이 칠해버리는 문제를 막기 위해서다(_find_whole_number() docstring
+        참고).
         """
         self.hwp.MoveDocBegin()
         found_any = False
-        while self.hwp.find(target_text, direction="Forward"):
+        while (
+            _find_whole_number(self.hwp, target_text, "Forward") if target_text.isdigit()
+            else self.hwp.find(target_text, direction="Forward")
+        ):
             self.hwp.set_font(TextColor=self.hwp.RGBColor(r, g, b))
             found_any = True
         return found_any
@@ -109,8 +157,15 @@ class HwpReport:
         내려가자"는 사용자 제안을 그대로 구현한 저수준 빌딩블록이다.
         호출자(verify_tool.py)가 문서 위치(span) 순서대로 정렬한 값 목록을
         커서를 한 번만 문서 처음으로 옮긴 뒤 이 메서드로 순서대로 호출하면,
-        전체적으로 문서를 위→아래 딱 한 번만 훑으며 색칠하게 된다."""
-        found = self.hwp.find(target_text, direction="Forward")
+        전체적으로 문서를 위→아래 딱 한 번만 훑으며 색칠하게 된다.
+
+        target_text가 순수 숫자일 때는 mark_color()와 같은 이유로
+        _find_whole_number()를 쓴다(더 큰 숫자에 파묻힌 부분 문자열 오염
+        방지, _find_whole_number() docstring 참고)."""
+        found = (
+            _find_whole_number(self.hwp, target_text, "Forward") if target_text.isdigit()
+            else self.hwp.find(target_text, direction="Forward")
+        )
         if found:
             self.hwp.set_font(TextColor=self.hwp.RGBColor(r, g, b))
         return found
@@ -314,6 +369,64 @@ def _selftest_open_and_mark_red():
         os.remove(test_path)
 
 
+def _selftest_mark_color_skips_digit_embedded_in_larger_number():
+    """(2026-09-07, 실사용 재현 버그) 순수 숫자 값("7")을 빨갛게 표시할 때,
+    그 "7"이 우연히 들어있는 전혀 무관한 다른 숫자("1,827", 이미 정상
+    판정되어 파랑으로 칠해진 값)의 마지막 자리까지 같이 빨갛게 덧칠되면
+    안 된다 - 사용자의 실제 문서("정기점검 실적 ... 1,827"과, 별개로 문서
+    다른 곳의 목차 번호 "7")에서 그대로 재현된 버그를 재현한다."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_숫자경계.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("정기점검 실적 1,827건, 목차 1 2 3 4 5 6 7 8 9")
+    setup.save_as(test_path)
+    setup.quit()
+    report = None
+    try:
+        report = HwpReport(test_path)
+        assert report.mark_color("1,827", 0, 0, 255) is True  # 정상(파랑) 표시
+        assert report.mark_color("7", 255, 0, 0) is True  # 무관한 독립 숫자 오류(빨강) 표시
+        assert report.get_char_color_at("1,827") == (0, 0, 255), (
+            "1,827이 무관한 '7' 표시로 오염됨(버그 재현)"
+        )
+        print("mark_color(숫자 경계 보호) 통과: '1,827'이 오염되지 않음")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
+def _selftest_mark_next_color_skips_digit_embedded_in_larger_number():
+    """mark_next_color()(run_verification()이 실제로 쓰는, 위→아래 순서로
+    하나씩 칠하는 메서드)에서도 같은 보호가 동작해야 한다 - 실제 버그가
+    이 메서드 경로에서 재현됐으므로 mark_color()만 고치고 이건 안 고치면
+    회귀가 여전히 남는다."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_숫자경계_next.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("정기점검 실적 1,827건, 목차 1 2 3 4 5 6 7 8 9")
+    setup.save_as(test_path)
+    setup.quit()
+    report = None
+    try:
+        report = HwpReport(test_path)
+        report.hwp.MoveDocBegin()
+        assert report.mark_next_color("1,827", 0, 0, 255) is True
+        assert report.mark_next_color("7", 255, 0, 0) is True
+        assert report.get_char_color_at("1,827") == (0, 0, 255), (
+            "1,827이 무관한 '7' 표시로 오염됨(버그 재현)"
+        )
+        print("mark_next_color(숫자 경계 보호) 통과: '1,827'이 오염되지 않음")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
 def _selftest_get_window_handle():
     """get_window_handle()이 실제 win32gui 함수에 바로 쓸 수 있는 정수 HWND를
     돌려주는지 확인한다 (창 배치 기능의 전제 조건)."""
@@ -502,6 +615,10 @@ if __name__ == "__main__":
     # — 각 self-test 사이에 짧은 대기를 둬서 이전 인스턴스가 완전히 정리될
     # 시간을 준다.
     _selftest_open_and_mark_red()
+    time.sleep(2)
+    _selftest_mark_color_skips_digit_embedded_in_larger_number()
+    time.sleep(2)
+    _selftest_mark_next_color_skips_digit_embedded_in_larger_number()
     time.sleep(2)
     _selftest_get_window_handle()
     time.sleep(2)
