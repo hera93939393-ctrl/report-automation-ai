@@ -5,6 +5,7 @@ import tempfile
 import ollama
 
 from hwp_report import HwpReport
+from speed_tracker import record_call_speed
 
 
 def _generate_formal_style(source_text: str, max_attempts: int = 3) -> str:
@@ -37,6 +38,10 @@ def _generate_formal_style(source_text: str, max_attempts: int = 3) -> str:
                 ),
             }],
         )
+        # (F13) 이번 호출의 실제 처리속도를 기록해, 다음 호출 전 예상
+        # 소요시간을 계산할 수 있게 한다(eval_count/eval_duration이 0
+        # 이하인 비정상 응답은 record_call_speed가 자체적으로 걸러낸다).
+        record_call_speed(response.get("eval_count", 0), response.get("eval_duration", 0))
         polished = response["message"]["content"].strip()
         if polished:
             return polished
