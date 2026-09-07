@@ -87,6 +87,14 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "merge_weekly_reports",
+            "description": "여러 사람이 첨부한 주간업무보고 문서에서 파란색으로 쓴 내용만 뽑아, 지금 열려있는 대상 문서의 이번주/다음주 칸으로 옮겨 붙인다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -106,6 +114,8 @@ _POLISH_KEYWORDS = [
 _TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
 
 _NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식", "순번"]
+
+_WEEKLY_MERGE_KEYWORDS = ["옆 한글파일로", "주간보고 취합", "주간업무보고 취합", "취합해"]
 
 # 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
 # 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
@@ -179,6 +189,8 @@ def _route_by_keywords(user_message: str) -> str | None:
     # 재검토 대상.
     if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
         return "insert_numbering"
+    if any(keyword in cleaned_message for keyword in _WEEKLY_MERGE_KEYWORDS):
+        return "merge_weekly_reports"
     return None
 
 
@@ -708,6 +720,24 @@ class ChatAssistant(ctk.CTk):
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
                 self._show_numbering_style_picker()
+            elif tool_name == "merge_weekly_reports":
+                if not self.source_paths:
+                    self._log("먼저 취합할 주간업무보고 문서들을 '+'로 첨부해주세요.")
+                else:
+                    from weekly_report_tool import merge_weekly_reports
+                    result = self._run_tool_safely(merge_weekly_reports, self.report, self.source_paths)
+                    if result is not None:
+                        merged_names = ", ".join(os.path.basename(p) for p in result["merged_files"])
+                        lines = []
+                        if result["merged_files"]:
+                            lines.append(f"{len(result['merged_files'])}건 취합했어요: {merged_names}")
+                        if result["no_content_files"]:
+                            names = ", ".join(os.path.basename(p) for p in result["no_content_files"])
+                            lines.append(f"파란색 내용이 없어 건너뜀: {names}")
+                        if result["skipped_files"]:
+                            names = ", ".join(os.path.basename(p) for p in result["skipped_files"])
+                            lines.append(f"한글 문서가 아니라 건너뜀: {names}")
+                        self._log("\n".join(lines) if lines else "취합할 내용이 없었어요.", role="success")
             else:
                 # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
                 # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
@@ -781,6 +811,11 @@ def _selftest_route_intent():
     table_numbering_tie = _route_by_keywords("표에 번호 매겨줘")
     assert table_numbering_tie == "insert_table", table_numbering_tie
     print("route_intent 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
+
+    # 9) F14: 주간업무보고 취합 도구가 키워드로 잡히는지 확인
+    weekly_choice = _route_by_keywords("옆 한글파일로 옮겨줘")
+    assert weekly_choice == "merge_weekly_reports", weekly_choice
+    print("route_intent 통과 (주간보고 취합):", weekly_choice)
 
 
 def parse_goto_index(text: str) -> int | None:
