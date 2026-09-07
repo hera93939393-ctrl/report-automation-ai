@@ -3,10 +3,11 @@
 import os
 
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import ollama
 
 from hwp_report import HwpReport
+from privacy_guard import detect_pii_patterns
 from window_layout import position_windows
 
 ctk.set_appearance_mode("system")
@@ -588,6 +589,21 @@ class ChatAssistant(ctk.CTk):
         text = self.input_box.get()
         self.input_box.delete(0, "end")
         self._log(text, role="user")
+
+        # (F13) 개인정보로 보이는 패턴이 있으면 처리 전에 확인만 구한다 —
+        # 정규식 기반 감지라 오탐 가능(privacy_guard.py 참고)하므로 그대로
+        # 차단하지 않고 사용자 판단에 맡긴다.
+        pii_found = detect_pii_patterns(text)
+        if pii_found:
+            proceed = messagebox.askyesno(
+                "개인정보 확인",
+                f"개인정보로 보이는 패턴({', '.join(pii_found)})이 있어요. "
+                "패턴이 비슷할 뿐 실제 개인정보가 아닐 수도 있어요. "
+                "이대로 진행할까요?",
+            )
+            if not proceed:
+                self._log("입력을 취소했어요.")
+                return
 
         if not self.report:
             self._log("먼저 보고서 파일을 선택해주세요.")
