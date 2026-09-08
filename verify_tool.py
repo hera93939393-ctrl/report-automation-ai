@@ -33,6 +33,8 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         불일치는 "불일치 값 개수"와 성격이 달라 같은 숫자에 합산하지 않음).
       - match_count / unverifiable_count: int — 각각 파란색(정상)/초록색
         (대조불가) 표시된 서로 다른 값의 개수(2026-09-04 추가, 아래 참고).
+      - ambiguous_count: int — 회색(확인 필요) 표시된 서로 다른 값의 개수
+        (2026-09-08 추가, 아래 참고).
       - summary: str — 채팅창에 그대로 보여줄 사람이 읽는 요약 텍스트.
       - conflicts: list — read_source_files가 찾은 원본 파일 간 불일치 목록.
 
@@ -58,6 +60,13 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     이 계약은 Task 9의 _on_submit 통합 등 이 함수를 호출하는 쪽 어디서든
     똑같이 성립한다: 매번 새로 열지 않고 같은 핸들을 재사용해도 안전하다.
 
+    (2026-09-08, 실제 fixture 테스트로 발견) categorize_values()가 이제
+    matches/mismatches/unverifiable 외에 ambiguous(문맥상 어느 원본 항목을
+    가리키는지 특정할 수 없는 값)도 반환한다 — 같은 타입의 값이 원본에
+    여럿 있는데 보고서 문맥에 그중 어느 것의 라벨(항목명)도 안 걸릴 때다.
+    "다른 항목의 값과 우연히 같은 숫자"를 잘못 파랑/빨강으로 단정하지 않고
+    회색 "확인 필요"로 사람에게 넘긴다. 회색은 (128,128,128)로 표시한다.
+
     알려진 후속 과제(이번 라운드에서 의도적으로 손대지 않음): report.get_text()가
     이미 닫힌/죽은 COM 핸들에 대해 호출되면 pywintypes.com_error가 그대로
     올라온다 — 사용자 친화적인 한글 오류 메시지로 감싸는 작업은 별도
@@ -79,6 +88,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
             "mismatch_count": 0,
             "match_count": 0,
             "unverifiable_count": 0,
+            "ambiguous_count": 0,
             "summary": "원본자료에서 읽을 수 있는 데이터가 없어요. 지원 형식(엑셀 .xlsx/.xls, PDF .pdf)인지 확인해주세요.",
             "conflicts": conflicts,
         }
@@ -89,6 +99,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     mismatches = categorized["mismatches"]
     matches = categorized["matches"]
     unverifiable = categorized["unverifiable"]
+    ambiguous = categorized["ambiguous"]
 
     # (F14) ignore_list_path에 등록된 값(raw 문자열 그대로 비교)은 원본과
     # 실제로 불일치해도 mismatches에서 제외한다 - "이건 괜찮아, 무시해"로
@@ -130,7 +141,8 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     colored_in_order = sorted(
         [(m["span"][0], m["raw"], _color_override(m, (255, 0, 0))) for m in mismatches]
         + [(m["span"][0], m["raw"], _color_override(m, (0, 0, 255))) for m in matches]
-        + [(m["span"][0], m["raw"], _color_override(m, (0, 128, 0))) for m in unverifiable],
+        + [(m["span"][0], m["raw"], _color_override(m, (0, 128, 0))) for m in unverifiable]
+        + [(m["span"][0], m["raw"], _color_override(m, (128, 128, 128))) for m in ambiguous],
         key=lambda item: item[0],
     )
     # (F13) 화면에 실제로 빨갛게 표시된 값들을, 표시된 순서(span 순서) 그대로
@@ -153,6 +165,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     unique_mismatch_raw = list(dict.fromkeys(m["raw"] for m in mismatches))
     unique_match_raw = list(dict.fromkeys(m["raw"] for m in matches))
     unique_unverifiable_raw = list(dict.fromkeys(m["raw"] for m in unverifiable))
+    unique_ambiguous_raw = list(dict.fromkeys(m["raw"] for m in ambiguous))
 
     first_type_by_raw = {}
     for m in mismatches:
@@ -163,11 +176,18 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     for c in conflicts:
         value_desc = ", ".join(f"{v['file']}={v['normalized']}" for v in c["values"])
         lines.append(f"- ⚠ 원본자료 불일치[{c['type']}]: {c['location']} ({value_desc})")
+    ambiguous_first_type_by_raw = {}
+    for m in ambiguous:
+        ambiguous_first_type_by_raw.setdefault(m["raw"], m["type"])
+    for raw in unique_ambiguous_raw:
+        lines.append(f"- [{ambiguous_first_type_by_raw[raw]}] '{raw}' 원본의 어느 항목인지 문맥상 불명확 - 확인 필요")
 
-    total_checked = len(unique_mismatch_raw) + len(unique_match_raw) + len(unique_unverifiable_raw)
+    total_checked = (len(unique_mismatch_raw) + len(unique_match_raw)
+                     + len(unique_unverifiable_raw) + len(unique_ambiguous_raw))
     header = (
         f"총 {total_checked}건 확인 - 정상(파랑) {len(unique_match_raw)}건, "
-        f"오류(빨강) {len(unique_mismatch_raw)}건, 대조불가(초록) {len(unique_unverifiable_raw)}건"
+        f"오류(빨강) {len(unique_mismatch_raw)}건, 대조불가(초록) {len(unique_unverifiable_raw)}건, "
+        f"확인 필요(회색) {len(unique_ambiguous_raw)}건"
     )
     summary = header + ("\n" + "\n".join(lines) if lines else "")
 
@@ -175,6 +195,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         "mismatch_count": len(unique_mismatch_raw),
         "match_count": len(unique_match_raw),
         "unverifiable_count": len(unique_unverifiable_raw),
+        "ambiguous_count": len(unique_ambiguous_raw),
         "summary": summary,
         "conflicts": conflicts,
         "mismatch_items": mismatch_items,
@@ -364,6 +385,53 @@ def _selftest_run_verification_colors_all_three_categories_in_one_pass():
         os.remove(report_path)
 
 
+def _selftest_run_verification_connects_by_label_and_marks_ambiguous_gray():
+    """(2026-09-08, 실제 한글 문서로 재현·수정 확인 — U02/U03) 원본에 같은
+    타입(amount) 후보가 둘 이상(참여 인원=21, 지원 인원=40) 있을 때:
+    - "참여 인원 21명"은 문맥의 라벨 "참여 인원"으로 21 후보와 연결돼
+      일치(파랑)여야 한다.
+    - "지원 인원 33명"은 라벨 "지원 인원"으로 40 후보와 연결돼 33≠40이라
+      불일치(빨강)여야 한다.
+    - "회의 횟수는 55회"는 어느 라벨과도 안 걸려 원본과의 연결이 불명확하므로
+      55가 원본에 없다는 이유만으로 빨강으로 단정하지 말고 확인
+      필요(회색)로 남아야 한다 — 수정 전에는 이 값도 무조건 빨강이었다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_라벨연결_확인필요")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["항목", "값"])
+    ws.append(["참여 인원", 21])
+    ws.append(["지원 인원", 40])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_라벨연결_확인필요.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("참여 인원 21명이며, 지원 인원 33명이고, 회의 횟수는 55회입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["match_count"] == 1, result
+        assert result["mismatch_count"] == 1, result
+        assert result["ambiguous_count"] == 1, result
+        assert "확인 필요(회색) 1건" in result["summary"], result["summary"]
+        assert "'55' 원본의 어느 항목인지 문맥상 불명확" in result["summary"], result["summary"]
+
+        assert report.get_char_color_at("21") == (0, 0, 255), "라벨 연결된 일치가 파랑이 아님"
+        assert report.get_char_color_at("33") == (255, 0, 0), "라벨 연결된 불일치가 빨강이 아님"
+        assert report.get_char_color_at("55") == (128, 128, 128), "문맥 불명확 값이 회색이 아님"
+        print("run_verification(라벨 연결 + 확인필요 회색) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 def _selftest_run_verification_empty_answer_pool_gives_clear_message():
     """(2026-09-04, 실사용 피드백) 사용자가 실제로 겪은 상황: 원본자료로
     지원 안 되는 형식(당시엔 .hwp)만 첨부해서 answer_pool이 완전히
@@ -478,6 +546,7 @@ if __name__ == "__main__":
     _selftest_run_verification_skips_ignored_mismatch()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
+    _selftest_run_verification_connects_by_label_and_marks_ambiguous_gray()
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
     _selftest_run_verification_flags_weekday_mismatch()
     _selftest_run_verification_mismatch_items_in_span_order()

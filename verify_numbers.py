@@ -29,6 +29,21 @@ _LIST_MARKER_PATTERN = re.compile(r'(\d+)(?:\.(?!\d)|\))')
 # 검증 대상에서 제외한다(_find_month_sequence_spans 참고).
 
 
+_CONTEXT_BOUNDARY_CHARS = ",.\n;、。，"
+
+
+def _preceding_context(text: str, start: int) -> str:
+    """start 위치 바로 앞의 문맥(가장 가까운 문장/절 구분자부터 start까지)을
+    반환한다. categorize_values()가 "이 값이 어떤 항목을 가리키는지"를 판단할
+    실마리로 쓴다 — LLM 없이 순수 규칙(가장 가까운 쉼표/마침표/줄바꿈 이후
+    텍스트)만으로 항목명을 유추하는 가벼운 방법이라, "참여 인원 21명" 같은
+    라벨+숫자 근접 표기에는 잘 맞지만 라벨이 문장 앞쪽에 멀리 떨어진 경우는
+    잡지 못하는 한계가 있다(예: "이번 사업의 참여 인원은... 총 21명").
+    """
+    boundary = max((text.rfind(c, 0, start) for c in _CONTEXT_BOUNDARY_CHARS), default=-1)
+    return text[boundary + 1:start].strip()
+
+
 def _decimal_to_normalized_str(value: Decimal) -> str:
     """Decimal 값을 정규화된 문자열로 바꾼다. 정수면 소수점 없이, 아니면
     고정소수점 표기로 — 어느 분기든 항상 format(x, 'f')를 써서 과학적 표기법이
@@ -63,6 +78,7 @@ def extract_amounts(text: str) -> list[dict]:
             "normalized": normalized,
             "raw": m.group(0),
             "span": m.span(),
+            "context": _preceding_context(text, m.start()),
         })
     return results
 
@@ -86,15 +102,39 @@ def extract_dates(text: str, default_year: int) -> list[dict]:
     for m in _DATE_ISO.finditer(text):
         y, mo, d = m.groups()
         results.append({"type": "date", "normalized": f"{int(y):04d}-{int(mo):02d}-{int(d):02d}",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
     for m in _DATE_KOR.finditer(text):
         mo, d = m.groups()
         results.append({"type": "date", "normalized": f"{default_year:04d}-{int(mo):02d}-{int(d):02d}",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
     for m in _DATE_ABBR.finditer(text):
         yy, mo, d = m.groups()
         results.append({"type": "date", "normalized": f"{2000 + int(yy):04d}-{int(mo):02d}-{int(d):02d}",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
+    return results
+
+
+_YEAR_WORD_FULL = re.compile(r'(\d{4})년')
+_YEAR_WORD_ABBR = re.compile(r"['’‘](\d{2})년")
+
+
+def extract_years(text: str) -> list[dict]:
+    """"2026년"(4자리)과 "'26년"(작은따옴표+2자리) 표기를 모두 4자리 연도
+    문자열로 정규화해서 반환한다 — D05가 요구하는 "같은 연도로 정규화"를
+    실제로 비교 가능한 값으로 만드는 부분. "년" 없이 그냥 "'26"만 쓴
+    표기는 (예: "('23) 1,595개소")는 연도인지 확정할 수 없어 종전대로
+    _YEAR_ABBREVIATION_PATTERN이 금액 오인식만 막고, 이 함수는 다루지
+    않는다."""
+    results = []
+    for m in _YEAR_WORD_ABBR.finditer(text):
+        results.append({"type": "year", "normalized": f"20{m.group(1)}", "raw": m.group(0),
+                         "span": m.span(), "context": _preceding_context(text, m.start())})
+    for m in _YEAR_WORD_FULL.finditer(text):
+        results.append({"type": "year", "normalized": m.group(1), "raw": m.group(0),
+                         "span": m.span(), "context": _preceding_context(text, m.start())})
     return results
 
 
@@ -238,7 +278,8 @@ def extract_times(text: str) -> list[dict]:
     for m in _TIME_COLON.finditer(text):
         h1, m1, h2, m2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:{m1}~{int(h2):02d}:{m2}",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
 
     colon_digit_spans = [m.span() for m in _COLON_DIGIT_RUN.finditer(text)]
 
@@ -250,13 +291,15 @@ def extract_times(text: str) -> list[dict]:
             continue
         h1, h2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
     for m in _TIME_SHORT_SI.finditer(text):
         if _starts_inside_colon_digits(m.start()):
             continue
         h1, h2 = m.groups()
         results.append({"type": "time", "normalized": f"{int(h1):02d}:00~{int(h2):02d}:00",
-                         "raw": m.group(0), "span": m.span()})
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
     return results
 
 
@@ -297,7 +340,8 @@ _PHONE_PATTERN = re.compile(r'\d{2,3}-\d{3,4}-\d{4}')
 
 def extract_phones(text: str) -> list[dict]:
     """전화번호(031-1234-5678 등 표준 하이픈 형식)를 추출한다."""
-    return [{"type": "phone", "normalized": m.group(0), "raw": m.group(0), "span": m.span()}
+    return [{"type": "phone", "normalized": m.group(0), "raw": m.group(0), "span": m.span(),
+             "context": _preceding_context(text, m.start())}
             for m in _PHONE_PATTERN.finditer(text)]
 
 
@@ -375,13 +419,21 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     금액 후보를 다 뽑은 뒤 _find_month_sequence_spans()로 별도 제거한다
     (달 전체가 연속으로 등장해야 확정되는 패턴이라 다른 제외구간과 달리
     금액끼리 서로 비교해야 하므로 별도 단계로 처리).
+
+    (2026-09-08 추가, D05 연도 정규화 요건 재검토) "2026년"/"'26년"은
+    extract_years()가 type="year"로 뽑고, 그 글자 범위도 제외구간에 넣어
+    금액으로 중복 추출되지 않게 한다 — 이전에는 '26년의 '26만 제외됐고
+    2026년의 2026은 그냥 금액으로 잡혀 원본에 없는 값이면 오류(빨강)로
+    잘못 표시됐다.
     """
     dates = extract_dates(text, default_year)
     times = extract_times(text)
     phones = extract_phones(text)
+    years = extract_years(text)
     year_abbreviations = [m.span() for m in _YEAR_ABBREVIATION_PATTERN.finditer(text)]
     list_markers = [m.span(1) for m in _LIST_MARKER_PATTERN.finditer(text)]
-    excluded_spans = [r["span"] for r in dates + times + phones] + year_abbreviations + list_markers
+    excluded_spans = ([r["span"] for r in dates + times + phones + years]
+                       + year_abbreviations + list_markers)
 
     def _overlaps_excluded(span):
         a_start, a_end = span
@@ -390,7 +442,7 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     amounts = [r for r in extract_amounts(text) if not _overlaps_excluded(r["span"])]
     month_spans = _find_month_sequence_spans(amounts)
     amounts = [r for r in amounts if r["span"] not in month_spans]
-    return amounts + dates + times + phones
+    return amounts + dates + times + phones + years
 
 
 def _selftest_extract_values():
@@ -483,14 +535,32 @@ def _selftest_extract_values_excludes_month_sequence():
     print("_selftest_extract_values_excludes_month_sequence 통과:", result)
 
 
+def _selftest_extract_years_full_and_abbreviated():
+    result = extract_years("행사 연도는 2026년이며, 별도 통계에는 '26년 기준으로 기재")
+    normalized = sorted(r["normalized"] for r in result)
+    assert normalized == ["2026", "2026"], normalized
+    print("extract_years 통과:", result)
+
+
+def _selftest_extract_values_year_word_excluded_from_amounts():
+    """"2026년"의 2026이 금액으로 중복 추출되지 않고 year 타입 하나로만 잡혀야 한다."""
+    result = extract_values("행사 연도는 2026년입니다", default_year=2026)
+    types = sorted(r["type"] for r in result)
+    assert types == ["year"], types
+    print("_selftest_extract_values_year_word_excluded_from_amounts 통과:", result)
+
+
 def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
-    """report_values 각각을 answer_pool과 대조해 세 갈래로 나눈다:
+    """report_values 각각을 answer_pool과 대조해 네 갈래로 나눈다:
     - matches: 원본과 정확히 일치(정상) → 문서에 파란색으로 표시할 대상
     - mismatches: 원본에 같은 타입 값이 있지만 정확히 일치하는 게 없음(오류)
       → 빨간색 표시 대상. 기존 compare_values()가 반환하던 것과 동일한 판정.
     - unverifiable: answer_pool에 그 타입 자체가 하나도 없어서 애초에 대조가
       불가능함 → 초록색 표시 대상. "원본에 이 종류의 데이터 자체가 없어서
       확인 못 했다"는 뜻이지, 값이 틀렸다는 뜻이 아니다.
+    - ambiguous: 같은 타입 후보가 원본에 둘 이상 있는데, 이 값이 어느
+      후보를 가리키는지 문맥(라벨)으로 특정할 수 없음 → 회색 "확인 필요"
+      표시 대상.
 
     (2026-09-04, 실사용 피드백) 원래 compare_values()는 mismatches만
     반환했다 — "문서가 길어지니 전부 확인한 건지 못 알아보겠다"는 사용자
@@ -503,18 +573,115 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
     생기지 않는다. 상대오차(%) 허용은 금액이 클수록 허용되는 절대 오차도
     커져서, 큰 금액에서 실제 오타를 놓치는 근본적인 결함이 있었다(임계값을
     아무리 좁혀도 해결 안 됨) — 그래서 정확 일치로 되돌린다.
+
+    (2026-09-08 추가, 실제 fixture 테스트로 발견 — D01/D05가 요구한 "문맥상
+    같은 항목으로 연결된 경우에만 비교" 요건이 누락돼 있었다) 이전에는
+    "같은 타입 + 같은 값"이면 항목명이 전혀 달라도 그냥 matches/mismatches로
+    판정했다 — 그 결과 "참여 인원 21명"(원본과 일치)과 아무 관계 없는
+    "회의 횟수도 21회"가 같이 파랑으로 칠해지고, 반대로 "지원 인원 33명"이
+    원본과 달라 빨강으로 칠해질 때 무관한 "자원봉사자도 33명"까지 같이
+    빨갛게 칠해지는 오탐이 실제 한글 문서 테스트로 재현됐다. 이제는 같은
+    타입 후보들의 값이 전부 같을 때만(어느 후보와 비교하든 판정이 똑같을
+    때만, 혼동할 여지가 없을 때만) 문맥 없이 바로 비교하고, 서로 다른 값의
+    후보가 둘 이상이면 report_values의 "context"(값 직전 문장/절 텍스트,
+    extract_amounts 등이 채워둠)에 후보의 "label"(원본
+    쪽 항목명, source_reader.read_excel_source가 채워둠)이 실제로 들어있는
+    경우에만 그 후보와 비교한다. 문맥에 라벨이 전혀 안 걸리면(예: "회의
+    횟수도 21회"의 문맥엔 "참여 인원"도 "지원 인원"도 없음) 어느 후보와도
+    연결됐다고 볼 수 없으므로 ambiguous(회색)로 남긴다. "라벨이 문맥
+    문자열에 포함되는지"라는 단순 부분일치만 쓰는 이유: 이 파일은 외부
+    의존성 없는 순수 규칙 기반 모듈이라 LLM 의미 비교를 쓰지 않는다 —
+    한계는 있지만("이번 사업의 참여 인원은 ... 총 21명"처럼 라벨이 멀리
+    떨어지면 못 잡음), 적어도 완전히 무관한 항목을 같은 항목으로 오인하는
+    사고는 막는다.
     """
-    matches, mismatches, unverifiable = [], [], []
+    matches, mismatches, unverifiable, ambiguous = [], [], [], []
     for rv in report_values:
         candidates = [a for a in answer_pool if a["type"] == rv["type"]]
         if not candidates:
             unverifiable.append(rv)  # 원본에 이 타입 자체가 없음 → 대조 불가
             continue
-        if any(a["normalized"] == rv["normalized"] for a in candidates):
+        distinct_values = {c["normalized"] for c in candidates}
+        if len(distinct_values) == 1:
+            # (2026-09-08 정정) 후보 "개수"가 아니라 후보들의 "서로 다른 값
+            # 개수"로 판단해야 한다 — compute_column_sums 등 원본 파생값이
+            # 같은 값을 라벨 없이 하나 더 answer_pool에 추가하는 경우(예:
+            # 데이터가 한 행뿐인 시트는 "값 합계"가 그 행 값과 같음)가
+            # 실제로 흔해서, "후보 개수==1"만 보면 이런 데이터에서 매번
+            # 라벨 요구 조건에 걸려 정상 판정까지 전부 회색(확인 필요)으로
+            # 잘못 떨어지는 회귀가 실제 self-test로 재현됐다. 후보가 여럿이라도
+            # 값이 전부 같으면 어느 후보와 비교하든 결과가 같으므로(어느
+            # 항목이든 판정이 달라지지 않으므로) 문맥 연결 없이 바로 비교해도
+            # 안전하다.
+            (matches if rv["normalized"] in distinct_values else mismatches).append(rv)
+            continue
+        context = rv.get("context") or ""
+        labeled_candidates = [c for c in candidates if c.get("label") and c["label"] in context]
+        if not labeled_candidates:
+            ambiguous.append(rv)  # 후보가 여럿인데 문맥으로 특정 못 함 → 확인 필요(회색)
+            continue
+        if any(c["normalized"] == rv["normalized"] for c in labeled_candidates):
             matches.append(rv)
         else:
             mismatches.append(rv)
-    return {"matches": matches, "mismatches": mismatches, "unverifiable": unverifiable}
+    return {"matches": matches, "mismatches": mismatches, "unverifiable": unverifiable,
+            "ambiguous": ambiguous}
+
+
+def _selftest_categorize_values_connects_via_label_when_multiple_candidates():
+    """(2026-09-08, 실제 fixture 테스트로 발견한 문제의 재현·수정 확인) 같은
+    타입 후보가 둘 이상이어도, 문맥에 그 후보의 라벨이 들어있으면 정확히
+    그 후보와만 비교해야 한다 — "참여 인원 21명"은 라벨 "참여 인원"이
+    문맥에 있어 21과 비교해 일치(파랑), "지원 인원 33명"은 라벨 "지원
+    인원"이 문맥에 있어 40과 비교해 불일치(빨강)로 갈려야 한다."""
+    answer_pool = [
+        {"type": "amount", "normalized": "21", "raw": "21", "label": "참여 인원",
+         "source_file": "원본.xlsx", "location": "실적!B2"},
+        {"type": "amount", "normalized": "40", "raw": "40", "label": "지원 인원",
+         "source_file": "원본.xlsx", "location": "실적!B3"},
+    ]
+    text = "참여 인원 21명이며, 지원 인원 33명입니다"
+    report_values = extract_values(text, default_year=2026)
+    result = categorize_values(report_values, answer_pool)
+    assert [r["raw"] for r in result["matches"]] == ["21"], result["matches"]
+    assert [r["raw"] for r in result["mismatches"]] == ["33"], result["mismatches"]
+    assert result["ambiguous"] == [], result["ambiguous"]
+    print("_selftest_categorize_values_connects_via_label_when_multiple_candidates 통과:", result)
+
+
+def _selftest_categorize_values_marks_ambiguous_when_context_has_no_label():
+    """같은 타입 후보가 둘 이상인데 문맥에 어느 후보의 라벨도 없으면, 값이
+    우연히 같거나 달라도 matches/mismatches로 단정하지 않고 ambiguous(회색
+    "확인 필요")로 남겨야 한다 — 오탐(무관한 항목을 같은 항목으로 오인)
+    방지가 핵심."""
+    answer_pool = [
+        {"type": "amount", "normalized": "21", "raw": "21", "label": "참여 인원",
+         "source_file": "원본.xlsx", "location": "실적!B2"},
+        {"type": "amount", "normalized": "40", "raw": "40", "label": "지원 인원",
+         "source_file": "원본.xlsx", "location": "실적!B3"},
+    ]
+    text = "참여 인원 21명이며, 회의 횟수도 21회 진행됐고, 자원봉사자도 33명입니다"
+    report_values = extract_values(text, default_year=2026)
+    result = categorize_values(report_values, answer_pool)
+    assert [r["raw"] for r in result["matches"]] == ["21"], result["matches"]  # 첫 "21"만 라벨 연결됨
+    assert result["mismatches"] == [], result["mismatches"]  # 무관한 "33"을 빨강으로 단정하지 않음
+    ambiguous_raw = sorted(r["raw"] for r in result["ambiguous"])
+    assert ambiguous_raw == ["21", "33"], ambiguous_raw  # 문맥 불명확한 두번째 "21"과 "33"
+    print("_selftest_categorize_values_marks_ambiguous_when_context_has_no_label 통과:", result)
+
+
+def _selftest_categorize_values_single_candidate_ignores_missing_label():
+    """(회귀 확인) 같은 타입 후보가 하나뿐이면, 그 후보에 label이 없거나
+    (기존 answer_pool 형태) 문맥이 안 맞아도 여전히 문맥 없이 바로
+    비교해야 한다 — 기존 self-test들이 label 없는 answer_pool을 그대로
+    쓰므로 하위호환이 깨지면 안 된다."""
+    answer_pool = [{"type": "amount", "normalized": "1850000", "raw": "1,850,000",
+                     "source_file": "원본.xlsx", "location": "Sheet1!C15"}]
+    report_values = [{"type": "amount", "normalized": "1850000", "raw": "185만원",
+                       "span": (0, 4), "context": "전혀 무관한 문맥"}]
+    result = categorize_values(report_values, answer_pool)
+    assert [r["raw"] for r in result["matches"]] == ["185만원"], result
+    print("_selftest_categorize_values_single_candidate_ignores_missing_label 통과:", result)
 
 
 def compare_values(report_values: list[dict], answer_pool: list[dict]) -> list[dict]:
@@ -786,6 +953,8 @@ if __name__ == "__main__":
     _selftest_extract_values_excludes_list_marker_paren()
     _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
     _selftest_extract_values_excludes_month_sequence()
+    _selftest_extract_years_full_and_abbreviated()
+    _selftest_extract_values_year_word_excluded_from_amounts()
     _selftest_find_month_sequence_spans_detects_full_run()
     _selftest_find_month_sequence_spans_ignores_partial_run()
     _selftest_find_month_sequence_spans_ignores_non_amount_type()
@@ -796,6 +965,9 @@ if __name__ == "__main__":
     _selftest_compare_values_still_flags_when_type_present_but_no_match()
     _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches()
     _selftest_categorize_values_three_buckets()
+    _selftest_categorize_values_connects_via_label_when_multiple_candidates()
+    _selftest_categorize_values_marks_ambiguous_when_context_has_no_label()
+    _selftest_categorize_values_single_candidate_ignores_missing_label()
     _selftest_compute_column_sums()
     _selftest_compute_column_sums_decimal_no_float_noise()
     _selftest_compute_column_sums_ignores_boolean_column()

@@ -63,6 +63,17 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
 
         for row in (all_rows[header_row_idx + 1:] if header_row_idx is not None else []):
             row_dict = {}
+            # (2026-09-08 추가, D01/D05 문맥 연결 요건) 이 행의 문자열 셀 값을
+            # 전부 모아 "라벨"로 삼는다 — "항목/값" 형태 표처럼 각 행이 한
+            # 지표를 가리키는 경우, 항목명 셀("참여 인원" 등)이 그 행의 숫자·
+            # 날짜 값의 문맥을 나타낸다. verify_numbers.categorize_values()가
+            # 같은 타입 후보가 여럿일 때 보고서 문맥과 이 라벨의 겹침으로
+            # 항목을 연결하는 데 쓴다(라벨이 없으면 그 값은 문맥 연결에서
+            # 항상 빠지고, 후보가 하나뿐일 때만 비교 대상이 됨 — 안전한 기본값).
+            row_label = " ".join(
+                str(cell.value).strip() for cell in row
+                if isinstance(cell.value, str) and cell.value.strip()
+            )
             for col_name, cell in zip(header, row):
                 value = cell.value
                 if value is None:
@@ -73,6 +84,7 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
                     results.append({
                         "type": "date", "normalized": value.strftime("%Y-%m-%d"),
                         "raw": str(value), "source_file": path, "location": f"{ws.title}!{cell.coordinate}",
+                        "label": row_label,
                     })
                 elif isinstance(value, (int, float)) and not isinstance(value, bool):
                     # (2026-08-30 Task 5/6 검토에서 미리 반영) bool은 int의 서브클래스라
@@ -81,12 +93,14 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
                     results.append({
                         "type": "amount", "normalized": _decimal_to_normalized_str(Decimal(str(value))),
                         "raw": str(value), "source_file": path, "location": f"{ws.title}!{cell.coordinate}",
+                        "label": row_label,
                     })
                     row_dict[col_name] = value
                 elif isinstance(value, str):
                     for v in extract_values(value, default_year):
                         v["source_file"] = path
                         v["location"] = f"{ws.title}!{cell.coordinate}"
+                        v["label"] = row_label
                         del v["span"]
                         results.append(v)
             if row_dict:
@@ -110,6 +124,28 @@ def _selftest_read_excel_source():
         assert "500000" in amounts and "300000" in amounts and "800000" in amounts, amounts
         assert all(r["source_file"] == test_path for r in result)
         print("read_excel_source 통과:", len(result), "건")
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_excel_source_attaches_row_label():
+    """(2026-09-08 추가) "항목/값" 형태 표에서, 값 셀의 label에 같은 행의
+    항목명 셀 텍스트가 담겨야 한다 — verify_numbers.categorize_values()가
+    이 label로 보고서 문맥과 항목을 연결한다."""
+    test_path = "_test_원본_라벨.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "실적"
+    ws.append(["항목", "값"])
+    ws.append(["참여 인원", 21])
+    ws.append(["지원 인원", 40])
+    wb.save(test_path)
+    try:
+        result = read_excel_source(test_path, default_year=2026)
+        by_value = {r["normalized"]: r["label"] for r in result if r["type"] == "amount"
+                    and r["normalized"] in ("21", "40")}
+        assert by_value == {"21": "참여 인원", "40": "지원 인원"}, by_value
+        print("read_excel_source_attaches_row_label 통과:", by_value)
     finally:
         os.remove(test_path)
 
@@ -759,6 +795,7 @@ def _selftest_read_source_files_dedup_duplicate_path():
 
 if __name__ == "__main__":
     _selftest_read_excel_source()
+    _selftest_read_excel_source_attaches_row_label()
     _selftest_read_excel_source_date_cell()
     _selftest_read_excel_source_corrupted_file_no_crash()
     _selftest_read_excel_source_title_row_before_real_header()
