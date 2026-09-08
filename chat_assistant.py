@@ -5,7 +5,6 @@ import re
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-import ollama
 from PIL import Image
 
 from attachment_preview import generate_hwp_preview_isolated, generate_text_preview
@@ -106,8 +105,50 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_small_text_file",
+            "description": "첨부된 작은 텍스트 파일(.txt/.md)을 읽어 내용을 돌려준다 - 파일 관련 질문에 답하기 전에 먼저 호출해야 한다",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string", "description": "읽을 파일 이름(첨부된 파일 이름을 그대로)"}},
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_fixture_code",
+            "description": "coding_fixture/split_cost.py의 현재 코드와 지정 테스트 결과를 읽는다 - 코드를 고치기 전에 먼저 호출해야 한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_code_fix",
+            "description": "coding_fixture/split_cost.py에 적용할 새 코드 전체를 제안한다(파일에 바로 쓰지 않음, 사용자 승인 후에만 적용됨)",
+            "parameters": {
+                "type": "object",
+                "properties": {"new_code": {"type": "string", "description": "적용을 제안하는 새 파이썬 코드 전체"}},
+                "required": ["new_code"],
+            },
+        },
+    },
 ]
 
+
+# (2026-09-08) 이 도구들은 이미 정확한 구조화된 결과를 채팅창에 보여준다
+# (_handle_tool_result 참고) - 그 위에 모델이 다시 요약한 final_text까지
+# 덧붙이면, 작은 로컬 모델이 구조화된 결과를 잘못 요약해 전달할 위험만
+# 늘어난다(예: 검증에서 불일치가 있는데 "모두 정상입니다"라고 잘못 요약).
+# 그래서 이 도구들이 실행됐을 때는 모델의 마무리 문장을 생략한다.
+_AUTHORITATIVE_RESULT_TOOLS = {
+    "verify_numbers", "polish_to_formal_style", "merge_weekly_reports",
+    "fit_to_one_page", "insert_table", "insert_numbering", "propose_code_fix",
+}
 
 _VERIFY_KEYWORDS = [
     "검증", "확인", "대조", "체크", "맞는지", "틀린",
@@ -116,6 +157,12 @@ _VERIFY_KEYWORDS = [
     # "최종 검토"). "점검"/"검사"/"오류"도 비개발자가 같은 요청을 할 법한 표현이라 추가.
     "검토", "점검", "검사", "오류",
 ]
+
+# (2026-09-08, 하네스 재설계) "고쳐줘"는 _POLISH_KEYWORDS에도 있어 "코드
+# 고쳐줘"류 문장이 둘 다에 걸릴 수 있다 - "코드"/"버그"/"결함"/"테스트 실패"는
+# _POLISH_KEYWORDS에는 없는 훨씬 더 구체적인 신호라, 아래 _route_by_keywords에서
+# _POLISH_KEYWORDS보다 먼저 확인해 우선권을 준다.
+_CODE_FIX_KEYWORDS = ["코드", "버그", "결함", "테스트 실패", "실패하는 테스트"]
 
 _POLISH_KEYWORDS = [
     "공문서", "다듬어", "정리해", "써줘", "작성해", "바꿔줘", "고쳐줘",
@@ -195,6 +242,12 @@ def _route_by_keywords(user_message: str) -> str | None:
     # 더 늘어나면 재검토 대상.
     if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
+    # (2026-09-08) 코드 관련 요청은 실제 수정 코드까지 모델이 생성해야 해서
+    # (propose_code_fix의 new_code는 키워드만으로 만들 수 없음) 여기서는
+    # read_fixture_code까지만 결정론적으로 대신한다 - 현재 결함/테스트 상태를
+    # 보여주면 사용자가 다시 구체적으로 요청할 실마리가 된다.
+    if any(keyword in cleaned_message for keyword in _CODE_FIX_KEYWORDS):
+        return "read_fixture_code"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
@@ -221,30 +274,6 @@ def _route_by_keywords(user_message: str) -> str | None:
     return None
 
 
-def route_intent(user_message: str) -> str | None:
-    """사용자의 자연어 입력이 어느 도구(verify_numbers/polish_to_formal_style/
-    insert_table/insert_numbering)를 원하는지 판단한다. "뜻을 이해"하는
-    역할은 로컬 LLM(qwen3.5:2b)의 도구호출이 담당하고, `_route_by_keywords()`는
-    그 도구호출이 실패했을 때의 안전망이다(F11에서 실측된 도구호출 성공률
-    약 33% — 코드만으로 완전한 자유 이해를 만들 수는 없고, 이는 결국 로컬
-    모델 성능/하드웨어에 달린 문제).
-
-    이 함수 자체는 매 호출마다 ollama.chat()을 실제로 부르므로 결정적이지
-    않다(LLM 응답에 따라 같은 입력도 다른 결과가 나올 수 있음) — 그래서
-    self-test는 이 함수가 아니라 `_route_by_keywords()`를 직접 검증한다
-    (아래 _selftest_route_intent 참고). 이 함수는 실사용 흐름(chat_assistant
-    실행 후 채팅 입력)에서 쓰인다."""
-    response = ollama.chat(
-        model="qwen3.5:2b",
-        messages=[{"role": "user", "content": user_message}],
-        tools=_TOOLS,
-    )
-    tool_calls = response.get("message", {}).get("tool_calls") or []
-    if tool_calls:
-        return tool_calls[0]["function"]["name"]
-    return _route_by_keywords(user_message)
-
-
 class ChatAssistant(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -258,6 +287,7 @@ class ChatAssistant(ctk.CTk):
         self._busy = False
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
         self._last_mismatch_items: list[str] = []  # list[str] - 마지막 숫자검증에서 빨갛게 표시된 항목들(span 순서)
+        self._pending_code_approval: str | None = None  # str | None - propose_code_fix가 만든 approval_id(승인/거절 대기 중)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
         # UI라, 채팅 안의 스타일 선택 버튼(그 순간 골라야 하는 것)과 같은
@@ -578,7 +608,7 @@ class ChatAssistant(ctk.CTk):
         source_reader.py 참고)을 구현해 이 문제를 해결했으므로, .hwp/.hwpx도
         다시 선택 가능하게 되돌린다."""
         paths = filedialog.askopenfilenames(
-            filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf")]
+            filetypes=[("원본자료", "*.xlsx *.xls *.hwp *.hwpx *.pdf *.txt *.md")]
         )
         if not paths:
             return False
@@ -659,6 +689,32 @@ class ChatAssistant(ctk.CTk):
         self.input_box.delete(0, "end")
         self._log(text, role="user")
 
+        # (2026-09-08, 하네스 재설계) 코드 변경 승인/거절은 self.report나
+        # source_paths와 무관하고, 아래 PII/보고서선택 검사를 거칠 이유가
+        # 없어 가장 먼저 확인한다. 승인 여부는 반드시 사용자의 실제 메시지로만
+        # 결정한다 - 모델에게 도구로 맡기면 모델이 스스로 승인해버릴 수 있어
+        # code_fix_tool.apply_fix_and_test를 의도적으로 모델 도구 목록에서
+        # 뺐다(INTERFACES.md 참고). 이 결정이 이번 메시지의 유일한 목적이므로
+        # 다른 처리와 섞지 않고 여기서 바로 끝낸다.
+        if self._pending_code_approval is not None:
+            approved = parse_approval_response(text)
+            if approved is not None:
+                from code_fix_tool import apply_fix_and_test
+                approval_id = self._pending_code_approval
+                self._pending_code_approval = None
+                result = apply_fix_and_test(approval_id, approved=approved)
+                if not result.get("ok", False):
+                    self._log(f"처리하지 못했어요 - {result['error']['message']}", role="error")
+                elif not result["applied"]:
+                    self._log("적용하지 않았어요(거절). 파일은 그대로예요.", role="assistant")
+                else:
+                    status = "통과" if result["test_result"] == "PASS" else "실패"
+                    self._log(f"적용했어요. 테스트 결과: {status}\n{result['test_output']}",
+                               role="success" if result["test_result"] == "PASS" else "error")
+                return
+            # 승인/거절 의사가 불명확하면 대기 상태를 유지하고 계속 진행 —
+            # 이번 메시지는 무관한 다른 요청일 수 있다(예: 딴 얘기를 꺼냄).
+
         # (F13) 개인정보로 보이는 패턴이 있으면 처리 전에 확인만 구한다 —
         # 정규식 기반 감지라 오탐 가능(privacy_guard.py 참고)하므로 그대로
         # 차단하지 않고 사용자 판단에 맡긴다.
@@ -738,105 +794,242 @@ class ChatAssistant(ctk.CTk):
                 # 애매하면 처음 의도는 잊혀지고 사용자가 처음부터 다시 말해야
                 # 한다(2026-09-01 Task9 리뷰에서 확인, 도구가 늘어나는 다음
                 # 라운드에서 누적형으로 재검토할 만함).
-                combined = f"{self._pending_clarification} {text}"
-                tool_name = route_intent(combined)
+                loop_message = f"{self._pending_clarification} {text}"
                 self._pending_clarification = None
             else:
-                tool_name = route_intent(text)
+                loop_message = text
 
-            if tool_name == "verify_numbers":
-                if not self.source_paths:
-                    self._log("숫자 검증을 하려면 먼저 원본자료를 '+'로 첨부해주세요.")
-                else:
-                    from verify_tool import run_verification
-                    result = run_verification(self.report, self.source_paths, default_year=2026)
-                    self._last_mismatch_items = result["mismatch_items"]  # (F13) "N번째로 가줘" 이동용
-                    # (2026-09-04, 실사용 피드백) 문서에 색으로 표시만 해서는
-                    # "빨강/파랑/초록이 각각 무슨 뜻인지" 알 수 없다는 지적을
-                    # 받아, 검증 결과와 함께 매번 색 범례를 같이 보여준다.
-                    self._log(
-                        "빨강: 원본과 다름(오류) / 파랑: 원본과 일치(정상) / "
-                        "초록: 원본에 항목 자체가 없어 대조불가",
-                        role="assistant",
-                    )
-                    self._log(result["summary"], role="success")
-            elif tool_name == "polish_to_formal_style":
-                from polish_tool import polish_to_formal_style
-                from speed_tracker import estimate_seconds
-                # (F13) 입력 글자수 × 1.5를 예상 출력 토큰수로 대략 추정해서,
-                # 지금까지 기록된 실제 속도로 예상 소요시간을 미리 보여준다.
-                # 기록이 아직 없으면(첫 실행) estimate_seconds가 None을
-                # 반환하므로 이 메시지 자체를 생략한다.
-                expected_tokens = int(len(text) * 1.5)
-                estimate = estimate_seconds(expected_tokens)
-                if estimate is not None:
-                    lo, hi = estimate
-                    self._log(
-                        f"공문서체로 다듬는 중이에요... (예상 소요시간 약 {lo:.0f}~{hi:.0f}초)",
-                        role="assistant",
-                    )
-                result = polish_to_formal_style(self.report, text)
-                if result["applied"]:
-                    self._log(f"다듬었어요 → {result['polished_text']}", role="success")
-                else:
-                    # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
-                    # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
-                    # 드물지 않게 발생), 여기서 그걸 무시하고 항상 성공 메시지
-                    # 형태(f"...다듬었어요 → {빈 문자열}")로 로그를 남기면
-                    # "다듬었어요 → " 뒤에 아무것도 없는 채로 찍혀 실제로는
-                    # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
-                    # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
-                    self._log("다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.", role="error")
-            elif tool_name == "insert_table":
-                self._show_table_style_picker()
-            elif tool_name == "insert_numbering":
-                self._show_numbering_style_picker()
-            elif tool_name == "merge_weekly_reports":
-                if not self.source_paths:
-                    self._log("먼저 취합할 주간업무보고 문서들을 '+'로 첨부해주세요.")
-                else:
-                    from weekly_report_tool import merge_weekly_reports
-                    result = self._run_tool_safely(merge_weekly_reports, self.report, self.source_paths)
-                    if result is not None:
-                        merged_names = ", ".join(os.path.basename(p) for p in result["merged_files"])
-                        lines = []
-                        if result["merged_files"]:
-                            lines.append(f"{len(result['merged_files'])}건 취합했어요: {merged_names}")
-                        if result["no_content_files"]:
-                            names = ", ".join(os.path.basename(p) for p in result["no_content_files"])
-                            lines.append(f"파란색 내용이 없어 건너뜀: {names}")
-                        if result["skipped_files"]:
-                            names = ", ".join(os.path.basename(p) for p in result["skipped_files"])
-                            lines.append(f"한글 문서가 아니라 건너뜀: {names}")
-                        self._log("\n".join(lines) if lines else "취합할 내용이 없었어요.", role="success")
-            elif tool_name == "fit_to_one_page":
-                from fit_to_page_tool import fit_to_one_page
-                result = self._run_tool_safely(fit_to_one_page, self.report)
-                if result is not None:
-                    if result["fitted"]:
-                        method_label = {
-                            "already_one_page": "이미 1페이지였어요",
-                            "linespacing": "행간을 줄여서",
-                            "spacing": "자간까지 줄여서",
-                            "font_size": "글자크기까지 줄여서",
-                        }[result["method"]]
-                        self._log(f"{method_label} 1페이지로 맞췄어요.", role="success")
-                    else:
-                        self._log("행간/자간/글자크기를 다 줄여봐도 1페이지에 안 들어가요. 내용을 좀 줄여주세요.", role="error")
-            else:
-                # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
-                # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
-                self._pending_clarification = text
-                self._log(
-                    "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
-                    "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고 "
-                    "한 번 더 말씀해주시겠어요?"
+            # (2026-09-08, 하네스 재설계) route_intent()의 "이름 하나만 고르고
+            # 끝나는" 1회성 호출을 agent_loop.run_agent_loop()로 바꾼다 -
+            # 모델이 도구를 부르면 실제로 실행한 결과를 다시 모델에게 보여주고
+            # 다음 판단을 잇는 반복 구조다(agent_loop.py 참고). dispatch는
+            # 이번 메시지의 첨부/문서 상태를 클로저로 묶어 매번 새로 만든다.
+            from agent_loop import run_agent_loop
+            dispatch = self._build_tool_dispatch(loop_message)
+            result = run_agent_loop(
+                loop_message, tools_schema=_TOOLS, dispatch=dispatch,
+                on_step=lambda step: (self._log(step, role="assistant"), self.update()),
+            )
+
+            if result["trace"]:
+                # 모델이 도구를 하나 이상 실제로 불러 실행까지 이어진 정상
+                # 경로 - 각 실행 결과를 도구별 형식으로 보여준다.
+                for step in result["trace"]:
+                    self._handle_tool_result(step["tool"], step["result"])
+                ran_authoritative = any(
+                    step["tool"] in _AUTHORITATIVE_RESULT_TOOLS for step in result["trace"]
                 )
+                # verify_numbers 등은 이미 정확한 구조화된 결과를 보여줬으므로,
+                # 그 위에 모델이 다시 요약한 문장을 덧붙이면 모델이 구조화된
+                # 결과를 잘못 요약할 위험(작은 로컬 모델에서 드물지 않음)만
+                # 늘린다 - 이런 도구는 모델의 마무리 문장을 생략한다.
+                if result["status"] == "completed" and result["final_text"] and not ran_authoritative:
+                    self._log(result["final_text"], role="assistant")
+            else:
+                # 모델이 도구를 하나도 안 불렀다(답만 하거나, provider·반복
+                # 한도 문제) - 키워드 안전망으로 재시도한다(F11에서 실측된
+                # 도구호출 성공률 약 33% - 로컬 모델 성능/하드웨어 한계라
+                # 코드만으로 완전히 없앨 수 없음). _route_by_keywords는
+                # ollama.chat()을 안 부르므로 provider 실패 상황에서도 동작한다.
+                tool_name = _route_by_keywords(loop_message)
+                text_sources = [
+                    path for path in self.source_paths
+                    if os.path.splitext(path)[1].lower() in {".txt", ".md"}
+                ]
+                if tool_name is None and len(text_sources) == 1:
+                    # 텍스트 파일이 하나만 첨부돼 있으면 별다른 키워드가 없어도
+                    # "이 파일에 대한 질문"으로 본다 - file_answer.answer_file_question은
+                    # 읽기+질문답변을 한 번에(Ollama→vLLM 폴백 포함) 처리하므로,
+                    # 도구 호출 없이도 정확한 답을 준다(agent_loop를 다시 돌
+                    # 필요 없음).
+                    from file_answer import answer_file_question
+                    self._log("파일 읽는 중...", role="assistant")
+                    self.update()
+                    answer = answer_file_question(text_sources[0], loop_message)
+                    self._log(answer, role="success")
+                elif tool_name is not None:
+                    step_result = dispatch[tool_name]()
+                    self._handle_tool_result(tool_name, step_result)
+                else:
+                    # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
+                    # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
+                    self._pending_clarification = text
+                    self._log(
+                        "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
+                        "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고 "
+                        "한 번 더 말씀해주시겠어요?"
+                    )
         except Exception as e:
             self._log(f"오류가 발생했습니다 - {e}", role="error")
         finally:
             self._busy = False
             self.input_box.configure(state="normal")
+
+    def _build_tool_dispatch(self, user_message: str) -> dict:
+        """agent_loop가 호출할 "도구 이름 → 인자없는 실행 함수" 매핑을 이번
+        메시지 기준으로 새로 만든다. self.report/self.source_paths(그 순간의
+        첨부·문서 상태)와 user_message(공문서체 변환 등이 필요로 함)를
+        클로저로 묶는다 - 매 메시지마다 상태가 바뀔 수 있어(새 첨부, 새 문서)
+        한 번만 만들어 재사용하지 않는다.
+
+        각 함수는 agent_loop의 도구 계약대로 항상 {"ok": bool, ...}를
+        반환한다 - 예외를 던지는 경우는 agent_loop.run_agent_loop가 공통으로
+        잡아 TOOL_EXECUTION_ERROR로 바꾼다(여기서 각자 try/except할 필요 없음).
+        """
+        def verify_numbers_tool():
+            if not self.source_paths:
+                return {"ok": False, "error": {
+                    "code": "NO_SOURCE_ATTACHED", "message": "원본자료를 먼저 '+'로 첨부해주세요.",
+                }}
+            from verify_tool import run_verification
+            return {"ok": True, **run_verification(self.report, self.source_paths, default_year=2026)}
+
+        def polish_tool():
+            from polish_tool import polish_to_formal_style
+            from speed_tracker import estimate_seconds
+            # (F13) 입력 글자수 × 1.5를 예상 출력 토큰수로 대략 추정해서,
+            # 지금까지 기록된 실제 속도로 예상 소요시간을 미리 보여준다.
+            # 기록이 아직 없으면(첫 실행) estimate_seconds가 None을
+            # 반환하므로 이 메시지 자체를 생략한다.
+            expected_tokens = int(len(user_message) * 1.5)
+            estimate = estimate_seconds(expected_tokens)
+            if estimate is not None:
+                lo, hi = estimate
+                self._log(f"공문서체로 다듬는 중이에요... (예상 소요시간 약 {lo:.0f}~{hi:.0f}초)", role="assistant")
+                self.update()
+            return {"ok": True, **polish_to_formal_style(self.report, user_message)}
+
+        def merge_weekly_tool():
+            if not self.source_paths:
+                return {"ok": False, "error": {
+                    "code": "NO_SOURCE_ATTACHED", "message": "취합할 주간업무보고 문서들을 먼저 '+'로 첨부해주세요.",
+                }}
+            from weekly_report_tool import merge_weekly_reports
+            return {"ok": True, **merge_weekly_reports(self.report, self.source_paths)}
+
+        def fit_to_page_tool():
+            from fit_to_page_tool import fit_to_one_page
+            return {"ok": True, **fit_to_one_page(self.report)}
+
+        def insert_table_tool():
+            # 실제 삽입은 스타일 카드에서 사용자가 버튼을 눌러야 이어진다 -
+            # 이 함수는 카드를 보여주는 데까지만 책임진다(팝업 자체가
+            # "행동이 실행됐다"는 사용자 확인 장치, D06/기존 UX 유지).
+            self._show_table_style_picker()
+            return {"ok": True, "note": "스타일 선택 카드를 보여드렸어요"}
+
+        def insert_numbering_tool():
+            self._show_numbering_style_picker()
+            return {"ok": True, "note": "스타일 선택 카드를 보여드렸어요"}
+
+        def read_small_text_file_tool(path: str = ""):
+            from file_answer import read_small_text_file
+            text_sources = [
+                p for p in self.source_paths if os.path.splitext(p)[1].lower() in {".txt", ".md"}
+            ]
+            if not text_sources:
+                return {"ok": False, "error": {
+                    "code": "NO_SOURCE_ATTACHED", "message": ".txt/.md 파일을 먼저 '+'로 첨부해주세요.",
+                }}
+            # 모델이 준 path는 무시하고 실제 첨부된 파일을 읽는다 - 작은
+            # 로컬 모델이 파일명을 정확히 그대로 되돌려준다는 보장이 없어
+            # (도구호출 성공률 약 33%, _route_by_keywords 주석 참고), 이미
+            # UI로 확정된 첨부 상태를 신뢰하는 쪽을 택했다(기존 5개 도구와
+            # 같은 판단 - verify_numbers 등도 모델에게 경로를 안 받는다).
+            try:
+                return {"ok": True, **read_small_text_file(text_sources[0])}
+            except (ValueError, FileNotFoundError) as error:
+                return {"ok": False, "error": {"code": "FILE_READ_ERROR", "message": str(error)}}
+
+        from code_fix_tool import propose_code_fix, read_fixture_code
+
+        return {
+            "verify_numbers": verify_numbers_tool,
+            "polish_to_formal_style": polish_tool,
+            "merge_weekly_reports": merge_weekly_tool,
+            "fit_to_one_page": fit_to_page_tool,
+            "insert_table": insert_table_tool,
+            "insert_numbering": insert_numbering_tool,
+            "read_small_text_file": read_small_text_file_tool,
+            "read_fixture_code": read_fixture_code,
+            "propose_code_fix": propose_code_fix,
+        }
+
+    def _handle_tool_result(self, tool_name: str, result: dict):
+        """agent_loop(또는 키워드 안전망의 직접 실행)가 실행한 도구 하나의
+        결과를 채팅창에 사람이 읽을 메시지로 바꾸고, 필요한 세션 상태(마지막
+        검증 결과, 승인 대기 등)를 갱신한다. 도구별 반환 형태가 달라
+        INTERFACES.md의 도구별 계약과 1:1로 대응해 분기한다.
+
+        read_small_text_file/read_fixture_code는 여기서 별도로 로그를
+        남기지 않는다 - 전자는 agent_loop 반복에서 모델이 파일 내용을 보고
+        다음 턴에 만드는 final_text가 실제 답이고(_on_submit 참고), 후자는
+        모델이 이어서 propose_code_fix를 부르거나 final_text로 설명하므로
+        원본 코드를 여기서 또 통째로 찍으면 중복이다."""
+        if not result.get("ok", False):
+            error = result.get("error", {})
+            self._log(f"실패했어요 - {error.get('message', error.get('code', '알 수 없는 오류'))}", role="error")
+            return
+
+        if tool_name == "verify_numbers":
+            self._last_mismatch_items = result["mismatch_items"]  # (F13) "N번째로 가줘" 이동용
+            # (2026-09-04, 실사용 피드백) 문서에 색으로 표시만 해서는
+            # "빨강/파랑/초록/회색이 각각 무슨 뜻인지" 알 수 없다는 지적을
+            # 받아, 검증 결과와 함께 매번 색 범례를 같이 보여준다(회색은
+            # 2026-09-08 문맥 연결 판정 추가로 새로 생긴 4번째 색).
+            self._log(
+                "빨강: 원본과 다름(오류) / 파랑: 원본과 일치(정상) / "
+                "초록: 원본에 항목 자체가 없어 대조불가 / 회색: 문맥상 어느 항목인지 불명확(확인 필요)",
+                role="assistant",
+            )
+            self._log(result["summary"], role="success")
+        elif tool_name == "polish_to_formal_style":
+            if result["applied"]:
+                self._log(f"다듬었어요 → {result['polished_text']}", role="success")
+            else:
+                # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
+                # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
+                # 드물지 않게 발생), 여기서 그걸 무시하고 항상 성공 메시지
+                # 형태(f"...다듬었어요 → {빈 문자열}")로 로그를 남기면
+                # "다듬었어요 → " 뒤에 아무것도 없는 채로 찍혀 실제로는
+                # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
+                # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
+                self._log("다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.", role="error")
+        elif tool_name == "merge_weekly_reports":
+            merged_names = ", ".join(os.path.basename(p) for p in result["merged_files"])
+            lines = []
+            if result["merged_files"]:
+                lines.append(f"{len(result['merged_files'])}건 취합했어요: {merged_names}")
+            if result["no_content_files"]:
+                names = ", ".join(os.path.basename(p) for p in result["no_content_files"])
+                lines.append(f"파란색 내용이 없어 건너뜀: {names}")
+            if result["skipped_files"]:
+                names = ", ".join(os.path.basename(p) for p in result["skipped_files"])
+                lines.append(f"한글 문서가 아니라 건너뜀: {names}")
+            self._log("\n".join(lines) if lines else "취합할 내용이 없었어요.", role="success")
+        elif tool_name == "fit_to_one_page":
+            if result["fitted"]:
+                method_label = {
+                    "already_one_page": "이미 1페이지였어요",
+                    "linespacing": "행간을 줄여서",
+                    "spacing": "자간까지 줄여서",
+                    "font_size": "글자크기까지 줄여서",
+                }[result["method"]]
+                self._log(f"{method_label} 1페이지로 맞췄어요.", role="success")
+            else:
+                self._log("행간/자간/글자크기를 다 줄여봐도 1페이지에 안 들어가요. 내용을 좀 줄여주세요.", role="error")
+        elif tool_name == "propose_code_fix":
+            self._pending_code_approval = result["approval_id"]
+            self._log(
+                f"변경 전:\n{result['current_code']}\n\n변경 후(제안):\n{result['proposed_code']}\n\n"
+                "적용할까요? '승인' 또는 '거절'로 답해주세요.",
+                role="assistant",
+            )
+        elif tool_name == "read_fixture_code":
+            status = "실패(FAIL)" if result["test_result"] == "FAIL" else "통과(PASS)"
+            self._log(f"현재 코드:\n{result['code']}\n\n지정 테스트 결과: {status}", role="assistant")
+        # insert_table/insert_numbering/read_small_text_file은 위 docstring
+        # 참고 - 의도적으로 여기서 아무것도 로그하지 않는다.
 
 
 def _selftest_build_preview_message_routes_by_extension():
@@ -920,6 +1113,22 @@ def _selftest_route_intent():
     assert fit_choice == "fit_to_one_page", fit_choice
     print("route_intent 통과 (한 페이지 맞춤):", fit_choice)
 
+    # 11) 2026-09-08 하네스 재설계: 코드 관련 요청이 read_fixture_code로 잡히는지 확인
+    code_choice = _route_by_keywords("코드에 버그가 있는 것 같아")
+    assert code_choice == "read_fixture_code", code_choice
+    print("route_intent 통과 (코드 결함 조회):", code_choice)
+
+    # 12) "고쳐줘"만으로는 여전히 polish - _CODE_FIX_KEYWORDS가 없는 문장은
+    # 기존 우선순위(_POLISH_KEYWORDS)를 그대로 따라야 회귀가 아니다.
+    polish_still_wins = _route_by_keywords("이 문장 고쳐줘")
+    assert polish_still_wins == "polish_to_formal_style", polish_still_wins
+    print("route_intent 통과 (코드 키워드 없는 '고쳐줘'는 여전히 공문서체):", polish_still_wins)
+
+    # 13) "코드"+"고쳐줘"가 같이 있으면 read_fixture_code가 이긴다(더 구체적인 신호 우선)
+    code_over_polish = _route_by_keywords("코드 고쳐줘")
+    assert code_over_polish == "read_fixture_code", code_over_polish
+    print("route_intent 통과 (코드+고쳐줘 동시 등장 시 코드 우선):", code_over_polish)
+
 
 def parse_goto_index(text: str) -> int | None:
     """"3번째로 가줘"류 입력에서 순서 번호(1-based)를 뽑는다. 매치 안 되면
@@ -957,12 +1166,42 @@ def _selftest_parse_ignore_index():
     print("parse_ignore_index 통과")
 
 
+def parse_approval_response(text: str) -> bool | None:
+    """propose_code_fix가 만든 변경 제안이 승인 대기 중일 때, 사용자의 다음
+    메시지가 승인인지 거절인지 판단한다. True/False/None(의사 불명확) 중
+    하나를 반환한다 - 모델에게 판단을 맡기지 않는다(code_fix_tool.py의
+    apply_fix_and_test docstring 참고, R05 승인 자기결정 방지).
+
+    거절 키워드를 승인 키워드보다 먼저 확인한다 - "거절"에는 "절" 안에
+    다른 승인 키워드가 우연히 겹칠 걱정은 없지만, 모호한 표현(예: "아니
+    이거 말고 승인해줘")에서는 안전 쪽(거절)으로 치우치는 게 이 프로젝트의
+    일관된 원칙(예: verify_numbers의 ambiguous 회색 판정)과 같은 방향이다."""
+    if any(keyword in text for keyword in ("거절", "취소", "안 할래", "하지마", "하지 마")):
+        return False
+    if any(keyword in text for keyword in ("승인", "적용해", "적용", "네", "예", "좋아")):
+        return True
+    return None
+
+
+def _selftest_parse_approval_response():
+    assert parse_approval_response("승인") is True
+    assert parse_approval_response("적용해줘") is True
+    assert parse_approval_response("네") is True
+    assert parse_approval_response("거절") is False
+    assert parse_approval_response("아니 취소할래") is False
+    assert parse_approval_response("오늘 날씨 어때") is None
+    # 거절 키워드가 있으면 승인 키워드가 같이 있어도 안전 쪽(거절)으로 처리
+    assert parse_approval_response("거절할래, 승인 아니야") is False
+    print("parse_approval_response 통과")
+
+
 if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         _selftest_route_intent()
         _selftest_parse_goto_index()
         _selftest_parse_ignore_index()
+        _selftest_parse_approval_response()
         _selftest_build_preview_message_routes_by_extension()
     else:
         app = ChatAssistant()
