@@ -1,0 +1,3 @@
+{"event": "model_start", "elapsed_seconds": 0.0075, "step": 1}
+{"event": "run_error", "elapsed_seconds": 0.1703, "error_type": "HTTPStatusError"}
+{"event": "run_end", "elapsed_seconds": 0.1787, "status": "failed", "metrics": {"model_calls": 1, "tool_calls": 0, "tool_errors": 0, "input_tokens": 0, "output_tokens": 0, "elapsed_seconds": 0.17871780006680638, "usage_known": false}}

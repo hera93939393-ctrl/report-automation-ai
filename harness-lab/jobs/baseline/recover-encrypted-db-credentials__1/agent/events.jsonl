@@ -1,0 +1,14 @@
+{"event": "model_start", "elapsed_seconds": 0.0163, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 67.9223, "name": "list_files", "call_id": "call_qkr6hijp"}
+{"event": "tool_end", "elapsed_seconds": 67.9487, "name": "list_files", "call_id": "call_qkr6hijp", "ok": true}
+{"event": "model_start", "elapsed_seconds": 67.9505, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 90.6533, "name": "run_python", "call_id": "call_jgkde1cj"}
+{"event": "tool_end", "elapsed_seconds": 90.6804, "name": "run_python", "call_id": "call_jgkde1cj", "ok": false}
+{"event": "model_start", "elapsed_seconds": 90.6821, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 110.9301, "name": "list_files", "call_id": "call_vxwiaccy"}
+{"event": "tool_end", "elapsed_seconds": 110.9627, "name": "list_files", "call_id": "call_vxwiaccy", "ok": true}
+{"event": "model_start", "elapsed_seconds": 110.9648, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 215.0369, "name": "write_file", "call_id": "call_ls3fmuzt"}
+{"event": "tool_end", "elapsed_seconds": 215.0594, "name": "write_file", "call_id": "call_ls3fmuzt", "ok": false}
+{"event": "model_start", "elapsed_seconds": 215.0608, "step": 5}
+{"event": "run_end", "elapsed_seconds": 300.0479, "status": "timeout", "metrics": {"model_calls": 5, "tool_calls": 4, "tool_errors": 2, "input_tokens": 7095, "output_tokens": 988, "elapsed_seconds": 300.0478593999287, "usage_known": false}}

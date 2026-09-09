@@ -1,0 +1,352 @@
+FFF..FFFFF..F                                                            [100%]
+================================== FAILURES ===================================
+_____________________________ test_script_exists ______________________________
+
+    def test_script_exists():
+>       assert os.path.exists(SCRIPT_PATH), f"Script {SCRIPT_PATH} not found"
+E       AssertionError: Script C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py not found
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:46: AssertionError
+___________________________ test_basic_solution_run ___________________________
+
+setup_teardown = None
+
+    def test_basic_solution_run(setup_teardown):
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n1\nCOL_CLUES:\n0\n"
+        result = run_solver_on_content(content)
+>       assert result.returncode == 0, f"Script failed with output: {result.stderr}"
+E       AssertionError: Script failed with output: None
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:51: AssertionError
+__________________________ test_solvable_puzzle_run ___________________________
+
+setup_teardown = None
+
+    def test_solvable_puzzle_run(setup_teardown):
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n1\nCOL_CLUES:\n1\n"
+        result = run_solver_on_content(content)
+>       assert result.returncode == 0, f"Script failed with output: {result.stderr}"
+E       AssertionError: Script failed with output: None
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:61: AssertionError
+_________________________ test_edge_case_empty_puzzle _________________________
+
+setup_teardown = None
+
+    def test_edge_case_empty_puzzle(setup_teardown):
+        result = run_solver_on_file('empty_3x3.txt')
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:81: AssertionError
+____________________________ test_checkerboard_5x5 ____________________________
+
+setup_teardown = None
+
+    def test_checkerboard_5x5(setup_teardown):
+        result = run_solver_on_file('checkerboard_5x5.txt')
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:91: AssertionError
+________________________________ test_full_3x3 ________________________________
+
+setup_teardown = None
+
+    def test_full_3x3(setup_teardown):
+        result = run_solver_on_file('full_3x3.txt')
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:107: AssertionError
+_____________________________ test_unsolvable_2x2 _____________________________
+
+setup_teardown = None
+
+    def test_unsolvable_2x2(setup_teardown):
+        result = run_solver_on_file('unsolvable_2x2.txt')
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:121: AssertionError
+_____________________________ test_hollow_box_5x5 _____________________________
+
+setup_teardown = None
+
+    def test_hollow_box_5x5(setup_teardown):
+        result = run_solver_on_file('hollow_box_5x5.txt')
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:129: AssertionError
+_________________________ test_large_numbers_in_clues _________________________
+
+setup_teardown = None
+
+    def test_large_numbers_in_clues(setup_teardown):
+        # Clue larger than dimension
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n5\nCOL_CLUES:\n1\n"
+        result = run_solver_on_content(content)
+        # Should be unsolvable (NO SOLUTION) or fail validation.
+        # Logic-wise: 5 > 1, so check_line will never match.
+        # So it should be NO SOLUTION.
+>       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ss-lab/jobs/baseline-vllm/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:163: AssertionError
+============================== warnings summary ===============================
+test_outputs.py::test_basic_solution_run
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-2 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_solvable_puzzle_run
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-4 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_missing_input_file
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-6 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_malformed_input
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-8 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_edge_case_empty_puzzle
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-10 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_checkerboard_5x5
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-12 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_full_3x3
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-14 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_unsolvable_2x2
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-16 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_hollow_box_5x5
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-18 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_invalid_dimensions
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-20 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_mismatched_clues
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-22 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+test_outputs.py::test_large_numbers_in_clues
+  C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\.venv\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-24 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\lakka\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 1615, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+  UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 31: illegal multibyte sequence
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\baseline-vllm\implement-nonogram-puzzle-solver__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\verifier\test_outputs.py::test_script_exists - AssertionError: S...
+FAILED ..\..\verifier\test_outputs.py::test_basic_solution_run - AssertionErr...
+FAILED ..\..\verifier\test_outputs.py::test_solvable_puzzle_run - AssertionEr...
+FAILED ..\..\verifier\test_outputs.py::test_edge_case_empty_puzzle - Assertio...
+FAILED ..\..\verifier\test_outputs.py::test_checkerboard_5x5 - AssertionError...
+FAILED ..\..\verifier\test_outputs.py::test_full_3x3 - AssertionError: assert...
+FAILED ..\..\verifier\test_outputs.py::test_unsolvable_2x2 - AssertionError: ...
+FAILED ..\..\verifier\test_outputs.py::test_hollow_box_5x5 - AssertionError: ...
+FAILED ..\..\verifier\test_outputs.py::test_large_numbers_in_clues - Assertio...
+9 failed, 4 passed, 12 warnings in 3.86s

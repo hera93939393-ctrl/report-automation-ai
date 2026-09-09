@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="13" time="4.042" timestamp="2026-09-08T20:33:18.119120+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_script_exists" time="0.002"><failure message="AssertionError: Script C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py not found&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_script_exists():
+&gt;       assert os.path.exists(SCRIPT_PATH), f"Script {SCRIPT_PATH} not found"
+E       AssertionError: Script C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py not found
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:46: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_basic_solution_run" time="0.338"><failure message="AssertionError: Script failed with output: None&#10;assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_basic_solution_run(setup_teardown):
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n1\nCOL_CLUES:\n0\n"
+        result = run_solver_on_content(content)
+&gt;       assert result.returncode == 0, f"Script failed with output: {result.stderr}"
+E       AssertionError: Script failed with output: None
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:51: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_solvable_puzzle_run" time="0.219"><failure message="AssertionError: Script failed with output: None&#10;assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_solvable_puzzle_run(setup_teardown):
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n1\nCOL_CLUES:\n1\n"
+        result = run_solver_on_content(content)
+&gt;       assert result.returncode == 0, f"Script failed with output: {result.stderr}"
+E       AssertionError: Script failed with output: None
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:61: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_missing_input_file" time="0.278" /><testcase classname="test_outputs" name="test_malformed_input" time="0.274" /><testcase classname="test_outputs" name="test_edge_case_empty_puzzle" time="0.222"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_edge_case_empty_puzzle(setup_teardown):
+        result = run_solver_on_file('empty_3x3.txt')
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:81: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_checkerboard_5x5" time="0.208"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_checkerboard_5x5(setup_teardown):
+        result = run_solver_on_file('checkerboard_5x5.txt')
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:91: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_full_3x3" time="0.197"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_full_3x3(setup_teardown):
+        result = run_solver_on_file('full_3x3.txt')
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:107: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_unsolvable_2x2" time="0.241"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_unsolvable_2x2(setup_teardown):
+        result = run_solver_on_file('unsolvable_2x2.txt')
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:121: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_hollow_box_5x5" time="0.419"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_hollow_box_5x5(setup_teardown):
+        result = run_solver_on_file('hollow_box_5x5.txt')
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:129: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_invalid_dimensions" time="0.324" /><testcase classname="test_outputs" name="test_mismatched_clues" time="0.214" /><testcase classname="test_outputs" name="test_large_numbers_in_clues" time="0.213"><failure message="AssertionError: assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode">setup_teardown = None
+
+    def test_large_numbers_in_clues(setup_teardown):
+        # Clue larger than dimension
+        content = "ROWS: 1\nCOLS: 1\nROW_CLUES:\n5\nCOL_CLUES:\n1\n"
+        result = run_solver_on_content(content)
+        # Should be unsolvable (NO SOLUTION) or fail validation.
+        # Logic-wise: 5 &gt; 1, so check_line will never match.
+        # So it should be NO SOLUTION.
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/baseline/implement-nonogram-puzzle-solver__1/workspace/app/solve_puzzle.py'], returncode=2, stdout='').returncode
+
+..\..\verifier\test_outputs.py:163: AssertionError</failure></testcase></testsuite></testsuites>

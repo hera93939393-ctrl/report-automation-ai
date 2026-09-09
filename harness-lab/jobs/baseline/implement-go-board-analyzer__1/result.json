@@ -1,0 +1,53 @@
+{
+  "id": "ad0c0d14be184668801b577da6e26c3c",
+  "task_name": "implement-go-board-analyzer",
+  "trial_name": "implement-go-board-analyzer__1",
+  "started_at": "2026-09-08T11:03:19.994089+00:00",
+  "finished_at": "2026-09-08T11:07:08.955658+00:00",
+  "agent_result": {
+    "status": "failed",
+    "answer": "Execution failed (ValueError)",
+    "metrics": {
+      "model_calls": 5,
+      "tool_calls": 4,
+      "tool_errors": 0,
+      "input_tokens": 7846,
+      "output_tokens": 347,
+      "elapsed_seconds": 225.9200651999563,
+      "usage_known": false
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "protected/board_001.json": "d410d1d2f8c09b32b53ad0608bf1c2b9311d3be67c90889dc622cf024c8fd2fa",
+    "protected/board_002.json": "69bb75d4e2b6110c5b187b1457986323f8f7ec47030bc76c62d53eecf0c2c5e3",
+    "protected/board_003.json": "a264baccde83fe0ec0e7ec8c7552deca21e9632df00ef618763d66798572903a"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 16,
+    "checks_failed": 16,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\implement-go-board-analyzer__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\implement-go-board-analyzer__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\implement-go-board-analyzer__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "failed"
+  }
+}

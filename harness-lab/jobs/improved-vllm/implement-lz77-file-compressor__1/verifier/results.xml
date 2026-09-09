@@ -1,0 +1,1384 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="83" skipped="0" tests="85" time="153.208" timestamp="2026-09-09T12:15:06.837404+09:00" hostname="KJGAHJ"><testcase classname="test_outputs.TestFileExistence" name="test_compressed_dir_exists" time="0.005" /><testcase classname="test_outputs.TestFileExistence" name="test_simple_file_exists" time="0.005"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'simple.txt.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C39BDED50&gt;
+
+    def test_simple_file_exists(self):
+        """Test simple.txt.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'simple.txt.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'simple.txt.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:102: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_empty_file_exists" time="0.014"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'empty.txt.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C3A998C30&gt;
+
+    def test_empty_file_exists(self):
+        """Test empty.txt.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'empty.txt.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'empty.txt.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:106: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_single_file_exists" time="0.018"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'single.txt.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C3A998E90&gt;
+
+    def test_single_file_exists(self):
+        """Test single.txt.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'single.txt.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'single.txt.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:110: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_binary_file_exists" time="0.006"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\binary_all_bytes.bin.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\binary_all_bytes.bin.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'binary_all_bytes.bin.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C39BFDD90&gt;
+
+    def test_binary_file_exists(self):
+        """Test binary_all_bytes.bin.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'binary_all_bytes.bin.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\binary_all_bytes.bin.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\binary_all_bytes.bin.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'binary_all_bytes.bin.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:114: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_cyclic_file_exists" time="0.008"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'cyclic.txt.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C382AC8D0&gt;
+
+    def test_cyclic_file_exists(self):
+        """Test cyclic.txt.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'cyclic.txt.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'cyclic.txt.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:118: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_large_file_exists" time="0.005"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'large.txt.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C382AE140&gt;
+
+    def test_large_file_exists(self):
+        """Test large.txt.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'large.txt.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'large.txt.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:122: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_nullbytes_file_exists" time="0.013"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&#10; +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'nullbytes.bin.lz77')&#10; +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join&#10; +        where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C3A9A4150&gt;
+
+    def test_nullbytes_file_exists(self):
+        """Test nullbytes.bin.lz77 exists"""
+&gt;       assert os.path.exists(os.path.join(COMPRESSED_DIR, 'nullbytes.bin.lz77'))
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+E        +    and   'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77' = &lt;function join at 0x0000013C370DC2C0&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed', 'nullbytes.bin.lz77')
+E        +      where &lt;function join at 0x0000013C370DC2C0&gt; = &lt;module 'ntpath' (frozen)&gt;.join
+E        +        where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:126: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_all_test_files_compressed" time="0.034"><failure message="AssertionError: Missing compressed file: alternating.txt.lz77&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestFileExistence object at 0x0000013C3A9A4350&gt;
+
+    def test_all_test_files_compressed(self):
+        """Test that all test files have corresponding compressed files"""
+        test_files = get_test_files()
+        assert len(test_files) &gt; 0, "No test files found"
+        for filename in test_files:
+            compressed_path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;           assert os.path.exists(compressed_path), f"Missing compressed file: {filename}.lz77"
+E           AssertionError: Missing compressed file: alternating.txt.lz77
+E           assert False
+E            +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77')
+E            +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E            +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:134: AssertionError</failure></testcase><testcase classname="test_outputs.TestFileExistence" name="test_no_extra_compressed_files" time="0.026" /><testcase classname="test_outputs.TestBinaryFormat" name="test_tuple_size_multiple_of_4" time="0.027"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39BDE350&gt;
+
+    def test_tuple_size_multiple_of_4(self):
+        """Test that all compressed files have size that is multiple of 4"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_empty_file_format" time="0.006"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39BDEE90&gt;
+
+    def test_empty_file_format(self):
+        """Test empty file produces 0 bytes (no tuples)"""
+&gt;       compressed = read_compressed('empty.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'empty.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\empty.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_single_byte_format" time="0.007"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C3A998D60&gt;
+
+    def test_single_byte_format(self):
+        """Test single byte file format: (0, 0, byte)"""
+        original = read_original('single.txt')
+&gt;       compressed = read_compressed('single.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'single.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\single.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_offset_range" time="0.063"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C3A998FC0&gt;
+
+    def test_offset_range(self):
+        """Test that all offsets are within valid range [0, 4096]"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_length_range" time="0.035"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39BFF530&gt;
+
+    def test_length_range(self):
+        """Test that all lengths are within valid range [0, 18]"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:185: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_first_tuple_zero_offset" time="1.415"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C382AE470&gt;
+
+    def test_first_tuple_zero_offset(self):
+        """Test that first tuple has zero offset (nothing to reference yet)"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_offset_not_exceed_position" time="0.045"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C382AE580&gt;
+
+    def test_offset_not_exceed_position(self):
+        """Test that offset never exceeds current decompressed position"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_big_endian_format" time="0.004"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C3A9A4250&gt;
+
+    def test_big_endian_format(self):
+        """Test that format is big-endian by checking known values"""
+&gt;       compressed = read_compressed('simple.txt')  # "abcabcabcabc"
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:218: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'simple.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_valid_byte_sequences" time="0.029"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C3A9A4450&gt;
+
+    def test_valid_byte_sequences(self):
+        """Test that all byte values in tuples are valid"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_non_empty_compressed_size" time="0.032"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C382E3200&gt;
+
+    def test_non_empty_compressed_size(self):
+        """Test compressed size is at least 4 bytes for non-empty files"""
+        for filename in get_test_files():
+            original = read_original(filename)
+            if len(original) == 0:
+                continue  # Skip empty files
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_tuples_aligned" time="0.034"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C382E3110&gt;
+
+    def test_tuples_aligned(self):
+        """Test all tuples are properly 4-byte aligned"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:246: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_terminal_tuple_format" time="0.004"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\exact_end.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39C8D0F0&gt;
+
+    def test_terminal_tuple_format(self):
+        """Test that files ending with exact match have null next_char"""
+        # Files where length of original is achievable through matches
+&gt;       compressed = read_compressed('exact_end.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:256: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'exact_end.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\exact_end.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_consistent_tuple_count" time="0.045"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39C8D390&gt;
+
+    def test_consistent_tuple_count(self):
+        """Test tuple count is consistent with decompressed length"""
+        for filename in get_test_files():
+            original = read_original(filename)
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:266: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_no_unnecessary_null_tuples" time="0.036"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C39BEC940&gt;
+
+    def test_no_unnecessary_null_tuples(self):
+        """Test no (0, 0, 0) tuples in middle of file"""
+        for filename in get_test_files():
+            original = read_original(filename)
+            if len(original) == 0:
+                continue
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:280: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestBinaryFormat" name="test_length_zero_means_literal" time="0.004"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'">self = &lt;test_outputs.TestBinaryFormat object at 0x0000013C381D6D50&gt;
+
+    def test_length_zero_means_literal(self):
+        """Test that length=0 means literal encoding (just next_char)"""
+&gt;       compressed = read_compressed('simple.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:292: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'simple.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_simple" time="0.006"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39BDEFD0&gt;
+
+    def test_decompress_simple(self):
+        """Test simple.txt decompresses correctly"""
+        original = read_original('simple.txt')
+&gt;       compressed = read_compressed('simple.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:307: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'simple.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_empty" time="1.852"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\empty.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39BDF110&gt;
+
+    def test_decompress_empty(self):
+        """Test empty.txt decompresses correctly"""
+        original = read_original('empty.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'empty.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\empty.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:322: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_single" time="1.204"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\single.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C3A9990F0&gt;
+
+    def test_decompress_single(self):
+        """Test single.txt decompresses correctly"""
+        original = read_original('single.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'single.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\single.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:332: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_binary_all_bytes" time="2.820"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\binary_all_bytes.bin.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C3A999220&gt;
+
+    def test_decompress_binary_all_bytes(self):
+        """Test binary_all_bytes.bin decompresses correctly"""
+        original = read_original('binary_all_bytes.bin')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'binary_all_bytes.bin.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\binary_all_bytes.bin.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:342: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_cyclic" time="2.172"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cyclic.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39C89910&gt;
+
+    def test_decompress_cyclic(self):
+        """Test cyclic.txt decompresses correctly"""
+        original = read_original('cyclic.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'cyclic.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cyclic.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:352: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_long_repeat" time="3.267"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\long_repeat.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C382AE360&gt;
+
+    def test_decompress_long_repeat(self):
+        """Test long_repeat.txt decompresses correctly"""
+        original = read_original('long_repeat.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'long_repeat.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\long_repeat.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:362: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_nullbytes" time="1.977"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\nullbytes.bin.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C382AE690&gt;
+
+    def test_decompress_nullbytes(self):
+        """Test nullbytes.bin decompresses correctly"""
+        original = read_original('nullbytes.bin')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'nullbytes.bin.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\nullbytes.bin.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:372: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_window_boundary" time="2.711"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...s-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\window_boundary.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C3A9A4650&gt;
+
+    def test_decompress_window_boundary(self):
+        """Test window_boundary.txt decompresses correctly"""
+        original = read_original('window_boundary.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'window_boundary.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...s-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\window_boundary.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:382: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_cross_window" time="2.614"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cross_window.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C3A9A4850&gt;
+
+    def test_decompress_cross_window(self):
+        """Test cross_window.txt decompresses correctly"""
+        original = read_original('cross_window.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'cross_window.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cross_window.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:392: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_multi_match" time="4.449"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\multi_match.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C382E3020&gt;
+
+    def test_decompress_multi_match(self):
+        """Test multi_match.txt decompresses correctly"""
+        original = read_original('multi_match.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'multi_match.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\multi_match.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:402: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_incremental" time="8.494"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\incremental.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C382E2F30&gt;
+
+    def test_decompress_incremental(self):
+        """Test incremental.txt decompresses correctly"""
+        original = read_original('incremental.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'incremental.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\incremental.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:412: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_large" time="5.662"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\large.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39C8EDD0&gt;
+
+    def test_decompress_large(self):
+        """Test large.txt decompresses correctly"""
+        original = read_original('large.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'large.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\large.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:422: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_exact_end" time="7.476"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\exact_end.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39C8F070&gt;
+
+    def test_decompress_exact_end(self):
+        """Test exact_end.txt decompresses correctly"""
+        original = read_original('exact_end.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'exact_end.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\exact_end.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:432: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_two_same" time="2.936"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho.../harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\two_same.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39BECE20&gt;
+
+    def test_decompress_two_same(self):
+        """Test two_same.txt decompresses correctly"""
+        original = read_original('two_same.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'two_same.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho.../harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\two_same.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:442: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_alternating" time="3.537"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\alternating.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C381D7B90&gt;
+
+    def test_decompress_alternating(self):
+        """Test alternating.txt decompresses correctly"""
+        original = read_original('alternating.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'alternating.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\alternating.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:452: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_progressive" time="3.029"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\progressive.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39BE8110&gt;
+
+    def test_decompress_progressive(self):
+        """Test progressive.txt decompresses correctly"""
+        original = read_original('progressive.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'progressive.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\progressive.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:462: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_special_ascii" time="1.752"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ess-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\special_ascii.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C38243AC0&gt;
+
+    def test_decompress_special_ascii(self):
+        """Test special_ascii.txt decompresses correctly"""
+        original = read_original('special_ascii.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'special_ascii.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ess-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\special_ascii.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:472: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_utf8" time="1.284"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\utf8.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C382D5BD0&gt;
+
+    def test_decompress_utf8(self):
+        """Test utf8.txt decompresses correctly"""
+        original = read_original('utf8.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'utf8.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\utf8.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:482: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_code" time="1.595"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\code.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39C949B0&gt;
+
+    def test_decompress_code(self):
+        """Test code.txt decompresses correctly"""
+        original = read_original('code.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'code.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\code.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:492: AssertionError</failure></testcase><testcase classname="test_outputs.TestDecompressionCorrectness" name="test_decompress_logs" time="1.537"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\logs.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestDecompressionCorrectness object at 0x0000013C39C94910&gt;
+
+    def test_decompress_logs(self):
+        """Test logs.txt decompresses correctly"""
+        original = read_original('logs.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'logs.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\logs.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:502: AssertionError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_compression_ratio_simple" time="0.009"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C39BDF390&gt;
+
+    def test_compression_ratio_simple(self):
+        """Test simple.txt achieves compression"""
+        original = read_original('simple.txt')
+&gt;       compressed = read_compressed('simple.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:516: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'simple.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\simple.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_compression_ratio_cyclic" time="0.014"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C39BDF250&gt;
+
+    def test_compression_ratio_cyclic(self):
+        """Test cyclic.txt achieves good compression"""
+        original = read_original('cyclic.txt')
+&gt;       compressed = read_compressed('cyclic.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:524: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'cyclic.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_compression_ratio_long_repeat" time="0.144"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\long_repeat.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C3A999350&gt;
+
+    def test_compression_ratio_long_repeat(self):
+        """Test long_repeat.txt achieves good compression"""
+        original = read_original('long_repeat.txt')
+&gt;       compressed = read_compressed('long_repeat.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:531: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'long_repeat.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\long_repeat.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_compression_ratio_large" time="0.011"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C3A999480&gt;
+
+    def test_compression_ratio_large(self):
+        """Test large.txt achieves reasonable compression"""
+        original = read_original('large.txt')
+&gt;       compressed = read_compressed('large.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'large.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\large.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_compression_not_bloated" time="0.041"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C39C8BBF0&gt;
+
+    def test_compression_not_bloated(self):
+        """Test compressed files aren't ridiculously larger than original"""
+        for filename in get_test_files():
+            original = read_original(filename)
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:546: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_alternating_pattern_compression" time="0.007"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C382AC270&gt;
+
+    def test_alternating_pattern_compression(self):
+        """Test alternating pattern compresses well"""
+        original = read_original('alternating.txt')
+&gt;       compressed = read_compressed('alternating.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:560: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_nullbytes_compression" time="0.084"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C382AE7A0&gt;
+
+    def test_nullbytes_compression(self):
+        """Test nullbytes compresses well"""
+        original = read_original('nullbytes.bin')
+&gt;       compressed = read_compressed('nullbytes.bin')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:567: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'nullbytes.bin'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\nullbytes.bin.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_logs_compression" time="0.062"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\logs.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C38293D50&gt;
+
+    def test_logs_compression(self):
+        """Test logs.txt compresses reasonably"""
+        original = read_original('logs.txt')
+&gt;       compressed = read_compressed('logs.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:574: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'logs.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\logs.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_code_compression" time="0.010"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\code.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C3A9A4A50&gt;
+
+    def test_code_compression(self):
+        """Test code.txt compresses reasonably"""
+        original = read_original('code.txt')
+&gt;       compressed = read_compressed('code.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:581: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'code.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\code.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestCompressionEfficiency" name="test_minimum_tuple_count" time="0.634"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestCompressionEfficiency object at 0x0000013C382E2A80&gt;
+
+    def test_minimum_tuple_count(self):
+        """Test compression uses reasonable number of tuples"""
+        for filename in get_test_files():
+            original = read_original(filename)
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:589: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_greedy_matching" time="0.018"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C39BDF4D0&gt;
+
+    def test_greedy_matching(self):
+        """Test that longest possible match is always selected"""
+        # Verify by checking compression is optimal-ish
+        original = read_original('cyclic.txt')  # ABABAB...
+&gt;       compressed = read_compressed('cyclic.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:608: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'cyclic.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_smallest_offset_selection" time="0.012"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\multi_match.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C39BDD1D0&gt;
+
+    def test_smallest_offset_selection(self):
+        """Test that smallest offset is selected for equal-length matches"""
+        # multi_match.txt has: ABC---ABC===ABC...ABC
+        # The last ABC should match with smallest offset (most recent ABC)
+&gt;       compressed = read_compressed('multi_match.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:617: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'multi_match.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\multi_match.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_max_match_length_18" time="0.215"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C3A998B00&gt;
+
+    def test_max_match_length_18(self):
+        """Test that match length never exceeds 18"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:629: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_cyclic_pattern_extension" time="0.011"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C3A9995B0&gt;
+
+    def test_cyclic_pattern_extension(self):
+        """Test that cyclic patterns are extended properly"""
+        # cyclic.txt is "ABAB" repeated
+        original = read_original('cyclic.txt')
+&gt;       compressed = read_compressed('cyclic.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:638: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'cyclic.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\cyclic.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_no_match_for_first_char" time="0.121"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C39C88B90&gt;
+
+    def test_no_match_for_first_char(self):
+        """Test first character is always literal (no match possible)"""
+        for filename in get_test_files():
+            original = read_original(filename)
+            if len(original) == 0:
+                continue
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:651: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_match_within_window" time="0.068"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C382AE8B0&gt;
+
+    def test_match_within_window(self):
+        """Test matches only reference within window size"""
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:661: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_window_boundary_matches" time="3.657"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...s-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\window_boundary.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C382AE9C0&gt;
+
+    def test_window_boundary_matches(self):
+        """Test matches at window boundary work correctly"""
+        original = read_original('window_boundary.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'window_boundary.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...s-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\window_boundary.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:673: AssertionError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_cross_window_no_match" time="4.893"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cross_window.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C3A9A4750&gt;
+
+    def test_cross_window_no_match(self):
+        """Test that patterns outside window aren't matched"""
+        # cross_window.txt has pattern at start, then 4086 bytes, then pattern again
+        # The second pattern occurrence should still find a match if within window
+        original = read_original('cross_window.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'cross_window.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...ness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\cross_window.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:685: AssertionError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_prefer_recent_over_old" time="3.525"><failure message="AssertionError: multi_match.txt: match selection wrong&#10;assert b'' == b'ABC---ABC===ABC...ABC'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C3A9A4B50&gt;
+
+    def test_prefer_recent_over_old(self):
+        """Test that recent matches are preferred over old ones"""
+        # This is verified by correctness - if wrong offset chosen, decompression fails
+        for filename in ['multi_match.txt', 'incremental.txt']:
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.stdout == original, f"{filename}: match selection wrong"
+E           AssertionError: multi_match.txt: match selection wrong
+E           assert b'' == b'ABC---ABC===ABC...ABC'
+E             
+E             Use -v to get more diff
+
+..\..\verifier\test_outputs.py:697: AssertionError</failure></testcase><testcase classname="test_outputs.TestMatchSelection" name="test_overlapping_match_handling" time="0.012"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\two_same.txt.lz77'">self = &lt;test_outputs.TestMatchSelection object at 0x0000013C382E2990&gt;
+
+    def test_overlapping_match_handling(self):
+        """Test handling of overlapping matches"""
+        # two_same.txt is "AA" - second A can match first A
+&gt;       compressed = read_compressed('two_same.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:702: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'two_same.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\two_same.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_nul_byte_handling" time="3.476"><failure message="AssertionError: assert b'' == b'\x00\x00\x0...00\x00\x00ABC'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39BDF610&gt;
+
+    def test_nul_byte_handling(self):
+        """Test NUL bytes (0x00) are handled correctly"""
+        original = read_original('nullbytes.bin')
+        assert b'\x00' in original, "Test file should contain NUL bytes"
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'nullbytes.bin.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'\x00\x00\x0...00\x00\x00ABC'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:726: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_all_256_byte_values" time="1.612"><failure message="AssertionError: assert b'' == b'\x00\x01\x0...c\xfd\xfe\xff'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39BDF750&gt;
+
+    def test_all_256_byte_values(self):
+        """Test all 256 possible byte values are handled"""
+        original = read_original('binary_all_bytes.bin')
+        assert len(original) == 256, "Should have all 256 bytes"
+        assert set(original) == set(range(256)), "Should contain all byte values"
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'binary_all_bytes.bin.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'\x00\x01\x0...c\xfd\xfe\xff'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:737: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_high_bytes" time="1.876"><failure message="AssertionError: assert b'' == b'\x00\x01\x0...c\xfd\xfe\xff'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C3A9996E0&gt;
+
+    def test_high_bytes(self):
+        """Test bytes 128-255 are handled correctly"""
+        original = read_original('binary_all_bytes.bin')
+        high_bytes = bytes(range(128, 256))
+        assert all(b in original for b in high_bytes)
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'binary_all_bytes.bin.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'\x00\x01\x0...c\xfd\xfe\xff'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:748: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_control_characters" time="1.640"><failure message="AssertionError: assert b'' == b'\x00\x01\x0...c\x1d\x1e\x1f'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C3A999810&gt;
+
+    def test_control_characters(self):
+        """Test control characters (0x00-0x1F) are handled"""
+        original = read_original('special_ascii.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'special_ascii.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'\x00\x01\x0...c\x1d\x1e\x1f'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:757: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_utf8_multibyte" time="2.180"><failure message="AssertionError: assert b'' == b'\xe4\xbd\xa...6\xe7\x95\x8c'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39BFDB50&gt;
+
+    def test_utf8_multibyte(self):
+        """Test UTF-8 multibyte sequences are handled"""
+        original = read_original('utf8.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'utf8.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'\xe4\xbd\xa...6\xe7\x95\x8c'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:766: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_exact_18_byte_match" time="0.008"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\long_repeat.txt.lz77'">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C382AEAD0&gt;
+
+    def test_exact_18_byte_match(self):
+        """Test exact 18-byte match (max length)"""
+        # long_repeat.txt has 20-byte pattern repeated
+        # Should be able to get 18-byte matches
+&gt;       compressed = read_compressed('long_repeat.txt')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:772: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'long_repeat.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\long_repeat.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_file_ending_with_match" time="4.297"><failure message="AssertionError: assert b'' == b'ABCABC'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C382AEBE0&gt;
+
+    def test_file_ending_with_match(self):
+        """Test file that ends exactly with a match"""
+        original = read_original('exact_end.txt')  # "ABCABC"
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'exact_end.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'ABCABC'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:788: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_very_short_patterns" time="4.833"><failure message="AssertionError: assert b'' == b'X'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C3A9A4C50&gt;
+
+    def test_very_short_patterns(self):
+        """Test 1 and 2 byte patterns"""
+        for filename in ['single.txt', 'two_same.txt']:
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.stdout == original
+E           AssertionError: assert b'' == b'X'
+E             
+E             Use -v to get more diff
+
+..\..\verifier\test_outputs.py:798: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_progressive_lengths" time="5.040"><failure message="AssertionError: assert b'' == b'R_RR_RRR_RR...RRRRRRRRRRRR_'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C3A9A4D50&gt;
+
+    def test_progressive_lengths(self):
+        """Test progressive pattern lengths"""
+        original = read_original('progressive.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'progressive.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'R_RR_RRR_RR...RRRRRRRRRRRR_'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:807: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_incremental_patterns" time="2.612"><failure message="AssertionError: assert b'' == b'AABABCABCDABCDEABCDEF'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C382E3980&gt;
+
+    def test_incremental_patterns(self):
+        """Test incrementally longer patterns"""
+        original = read_original('incremental.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'incremental.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'AABABCABCDABCDEABCDEF'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:816: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_newline_handling" time="2.997"><failure message="AssertionError: assert b'' == b'The quick b...zy dog. 499\n'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C382E3C50&gt;
+
+    def test_newline_handling(self):
+        """Test newlines are preserved"""
+        original = read_original('large.txt')
+        assert b'\n' in original, "Test file should contain newlines"
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'large.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'The quick b...zy dog. 499\n'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:826: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_carriage_return_handling" time="4.947"><failure message="AssertionError: assert b'' == b'XYXYXYXYXYXYXYXYXYXY'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39C409F0&gt;
+
+    def test_carriage_return_handling(self):
+        """Test CR characters if present"""
+        # Just verify no corruption happens
+        for filename in get_test_files():
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.stdout == original
+E           AssertionError: assert b'' == b'XYXYXYXYXYXYXYXYXYXY'
+E             
+E             Use -v to get more diff
+
+..\..\verifier\test_outputs.py:838: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_tab_handling" time="2.235"><failure message="AssertionError: assert b'' == b'def fibonac...torial(n-1)\n'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39C40C90&gt;
+
+    def test_tab_handling(self):
+        """Test tab characters if present"""
+        for filename in ['code.txt']:
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.stdout == original
+E           AssertionError: assert b'' == b'def fibonac...torial(n-1)\n'
+E             
+E             Use -v to get more diff
+
+..\..\verifier\test_outputs.py:848: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_space_sequences" time="1.423"><failure message="AssertionError: assert b'' == b'def fibonac...torial(n-1)\n'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39BEC6D0&gt;
+
+    def test_space_sequences(self):
+        """Test sequences of spaces"""
+        for filename in ['code.txt', 'logs.txt']:
+            original = read_original(filename)
+            if b'  ' in original:  # Has multiple spaces
+                result = subprocess.run(
+                    ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                    capture_output=True
+                )
+&gt;               assert result.stdout == original
+E               AssertionError: assert b'' == b'def fibonac...torial(n-1)\n'
+E                 
+E                 Use -v to get more diff
+
+..\..\verifier\test_outputs.py:859: AssertionError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_mixed_content" time="1.230"><failure message="AssertionError: code.txt: mixed content handling failed&#10;assert b'' == b'def fibonac...torial(n-1)\n'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestEdgeCases object at 0x0000013C39BE81D0&gt;
+
+    def test_mixed_content(self):
+        """Test files with mixed content types"""
+        for filename in ['code.txt', 'logs.txt', 'large.txt']:
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.stdout == original, f"{filename}: mixed content handling failed"
+E           AssertionError: code.txt: mixed content handling failed
+E           assert b'' == b'def fibonac...torial(n-1)\n'
+E             
+E             Use -v to get more diff
+
+..\..\verifier\test_outputs.py:869: AssertionError</failure></testcase><testcase classname="test_outputs.TestStress" name="test_large_file_integrity" time="1.241"><failure message="AssertionError: assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\large.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestStress object at 0x0000013C39BDF890&gt;
+
+    def test_large_file_integrity(self):
+        """Test large file compresses and decompresses correctly"""
+        original = read_original('large.txt')
+        assert len(original) &gt; 10000, "Large file should be &gt; 10KB"
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'large.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\large.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:887: AssertionError</failure></testcase><testcase classname="test_outputs.TestStress" name="test_all_files_roundtrip" time="1.157"><failure message="AssertionError: alternating.txt: decompression failed&#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\alternating.txt.lz77\'\r\n').returncode">self = &lt;test_outputs.TestStress object at 0x0000013C39BDF9D0&gt;
+
+    def test_all_files_roundtrip(self):
+        """Test all files survive compress/decompress roundtrip"""
+        for filename in get_test_files():
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+&gt;           assert result.returncode == 0, f"{filename}: decompression failed"
+E           AssertionError: alternating.txt: decompression failed
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...rness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\\\alternating.txt.lz77\'\r\n').returncode
+
+..\..\verifier\test_outputs.py:899: AssertionError</failure></testcase><testcase classname="test_outputs.TestStress" name="test_byte_by_byte_comparison" time="1.179"><failure message="AssertionError: alternating.txt: length mismatch 0 vs 20&#10;assert 0 == 20&#10; +  where 0 = len(b'')&#10; +  and   20 = len(b'XYXYXYXYXYXYXYXYXYXY')">self = &lt;test_outputs.TestStress object at 0x0000013C3A999940&gt;
+
+    def test_byte_by_byte_comparison(self):
+        """Test byte-by-byte comparison for all files"""
+        for filename in get_test_files():
+            original = read_original(filename)
+            result = subprocess.run(
+                ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, filename + '.lz77')],
+                capture_output=True
+            )
+            decompressed = result.stdout
+&gt;           assert len(decompressed) == len(original), \
+                f"{filename}: length mismatch {len(decompressed)} vs {len(original)}"
+E           AssertionError: alternating.txt: length mismatch 0 vs 20
+E           assert 0 == 20
+E            +  where 0 = len(b'')
+E            +  and   20 = len(b'XYXYXYXYXYXYXYXYXYXY')
+
+..\..\verifier\test_outputs.py:911: AssertionError</failure></testcase><testcase classname="test_outputs.TestStress" name="test_window_boundary_stress" time="1.188"><failure message="AssertionError: assert b'' == b'XXXXXXXXXXX...XXXXXXXXXXXXX'&#10;  &#10;  Use -v to get more diff">self = &lt;test_outputs.TestStress object at 0x0000013C3A999A70&gt;
+
+    def test_window_boundary_stress(self):
+        """Test handling at exact window boundaries"""
+        original = read_original('window_boundary.txt')
+        result = subprocess.run(
+            ['python3', DECOMPRESS_SCRIPT, os.path.join(COMPRESSED_DIR, 'window_boundary.txt.lz77')],
+            capture_output=True
+        )
+&gt;       assert result.stdout == original
+E       AssertionError: assert b'' == b'XXXXXXXXXXX...XXXXXXXXXXXXX'
+E         
+E         Use -v to get more diff
+
+..\..\verifier\test_outputs.py:923: AssertionError</failure></testcase><testcase classname="test_outputs.TestStress" name="test_compression_determinism" time="0.031"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'">self = &lt;test_outputs.TestStress object at 0x0000013C39C82210&gt;
+
+    def test_compression_determinism(self):
+        """Test that compression produces consistent output"""
+        # Since we're testing after compression, just verify format is valid
+        for filename in get_test_files():
+&gt;           compressed = read_compressed(filename)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:929: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'alternating.txt'
+
+    def read_compressed(filename):
+        """Read compressed file"""
+        path = os.path.join(COMPRESSED_DIR, filename + '.lz77')
+&gt;       with open(path, 'rb') as f:
+             ^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/implement-lz77-file-compressor__1/workspace/app/compressed\\alternating.txt.lz77'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase></testsuite></testsuites>

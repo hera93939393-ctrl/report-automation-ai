@@ -1,0 +1,9 @@
+{"event": "model_start", "elapsed_seconds": 0.0092, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 63.515, "name": "list_files", "call_id": "call_qtgw32u0"}
+{"event": "tool_end", "elapsed_seconds": 63.5551, "name": "list_files", "call_id": "call_qtgw32u0", "ok": true}
+{"event": "model_start", "elapsed_seconds": 63.5569, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 79.191, "name": "read_file", "call_id": "call_1uvj6862"}
+{"event": "tool_end", "elapsed_seconds": 79.2164, "name": "read_file", "call_id": "call_1uvj6862", "ok": true}
+{"event": "model_start", "elapsed_seconds": 79.2182, "step": 3}
+{"event": "run_error", "elapsed_seconds": 199.2909, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 199.3895, "status": "failed", "metrics": {"model_calls": 3, "tool_calls": 2, "tool_errors": 0, "input_tokens": 3081, "output_tokens": 248, "elapsed_seconds": 199.38945229991805, "usage_known": false}}

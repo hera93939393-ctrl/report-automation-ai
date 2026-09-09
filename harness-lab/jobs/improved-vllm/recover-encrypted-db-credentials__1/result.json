@@ -1,0 +1,64 @@
+{
+  "id": "907c14e3dbda44b9b93846ecd9378ecc",
+  "task_name": "recover-encrypted-db-credentials",
+  "trial_name": "recover-encrypted-db-credentials__1",
+  "started_at": "2026-09-09T02:59:30.148728+00:00",
+  "finished_at": "2026-09-09T03:04:52.388965+00:00",
+  "agent_result": {
+    "status": "timeout",
+    "answer": "Stopped at the total time limit; inspect actual tool state",
+    "metrics": {
+      "model_calls": 20,
+      "tool_calls": 19,
+      "tool_errors": 4,
+      "input_tokens": 93143,
+      "output_tokens": 3273,
+      "elapsed_seconds": 300.06603919994086,
+      "usage_known": false
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "db/.disk_blocks/.metadata": "d8edfff2a266f29f0ff5022d3be5b92c9225ad993bdbf59316a69752ab709471",
+    "db/.disk_blocks/block_000.bin": "0caf8d5bbd7a2afbc3369386311731003afafe92f882d54f2682eab81aac4ec5",
+    "db/.disk_blocks/block_001.bin": "c1b4898bdc272c41f6a90bfe4e4589696bc047328c88801ae16a14b2fefde9d9",
+    "db/.disk_blocks/block_002.bin": "7e1e71a19123772cee65ae4502fa2843f1f74204e1ca51ff364c0490f391726f",
+    "db/.disk_blocks/block_003.bin": "e45ae0580e8f0bea1b432e7a7c69ac18125912ff402ccf580d4ffb8fb9758816",
+    "db/.disk_blocks/block_004.bin": "cce2c62515416a66172b296b02ad850dd67cbdeadaef1cab4aa5576da603b20b",
+    "db/.disk_blocks/block_005.bin": "f397db662568ed05308b5a63df0359de14c5a16e4643441f2d484ceac21d767a",
+    "db/.disk_blocks/block_006.bin": "13b8231996b8a2e2250d3ce4151b679fb935f16619cfc005f01c254e6d1bbe50",
+    "db/.disk_blocks/block_007.bin": "f8d2b94f13e8d50f9b55972bcae00fd1d86f30788189cbe3d0b2fe78985019e3",
+    "db/.disk_blocks/block_garbage_1000.bin": "62e09c756df810d218e290b399c3dcc6515a0c90ed0aab6a0c8d12471be51799",
+    "db/.disk_blocks/block_garbage_255.bin": "07344f503595b4e4cac9873ba41f8804ccd90993e5bdb83e78c51ae7e64387e1",
+    "db/.disk_blocks/block_garbage_256.bin": "9fa83618f04c14f44c16530b42ad74a5a7af8ed3724963ad84fc2ea69d3bf2df",
+    "db/.disk_blocks/block_garbage_999.bin": "edfd081ec733bdb6a39eb67675309ded1089ea8e5cecf35faf3d7828b50eae84",
+    "db/.recovery_notes.txt": "ca45a73c158735f45ea64a92335f550ecddd73a26e82b81799245d0a94ccd2dd"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 30,
+    "checks_failed": 28,
+    "checks_errors": 0,
+    "checks_skipped": 2,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\improved-vllm\\recover-encrypted-db-credentials__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\improved-vllm\\recover-encrypted-db-credentials__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\improved-vllm\\recover-encrypted-db-credentials__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "timeout"
+  }
+}

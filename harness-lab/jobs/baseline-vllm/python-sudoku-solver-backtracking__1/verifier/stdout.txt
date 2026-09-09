@@ -1,0 +1,129 @@
+................FFF...                                                   [100%]
+================================== FAILURES ===================================
+_______________________ test_easy_puzzle_can_be_solved ________________________
+
+    def test_easy_puzzle_can_be_solved():
+        """\u6d4b\u8bd517: \u6d4b\u8bd5\u7b80\u5355\u96be\u5ea6\u6570\u72ec\u53ef\u4ee5\u88ab\u6c42\u89e3"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/easy_puzzle.txt'):
+            return  # \u8df3\u8fc7\u5982\u679c\u6587\u4ef6\u4e0d\u5b58\u5728
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # \u590d\u5236\u6c42\u89e3\u5668
+            if os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/easy_puzzle.txt', puzzle_path)
+    
+                # \u521b\u5efa\u4e34\u65f6\u6c42\u89e3\u811a\u672c
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+>                   f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    # \u8986\u76d6\u8def\u5f84
+    sudoku_solver.main.__globals__['input_file'] = '{puzzle_path}'
+    sudoku_solver.main.__globals__['output_file'] = '{solution_path}'
+    
+    # \u8bfb\u53d6\u9898\u76ee
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    # ϴ��
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+E                   UnicodeEncodeError: 'cp949' codec can't encode character '\u5f84' in position 126: illegal multibyte sequence
+
+..\..\verifier\test_outputs.py:240: UnicodeEncodeError
+_______________________ test_hard_puzzle_can_be_solved ________________________
+
+    def test_hard_puzzle_can_be_solved():
+        """\u6d4b\u8bd518: \u6d4b\u8bd5\u56f0\u96be\u96be\u5ea6\u6570\u72ec\u53ef\u4ee5\u88ab\u6c42\u89e3"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/hard_puzzle.txt'):
+            return  # \u8df3\u8fc7\u5982\u679c\u6587\u4ef6\u4e0d\u5b58\u5728
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            if os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/hard_puzzle.txt', puzzle_path)
+    
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+                    f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+    
+                result = subprocess.run(['python3', solver_script],
+                                      capture_output=True, timeout=30)
+    
+>               assert result.returncode == 0, "\u56f0\u96be\u6570\u72ec\u6c42\u89e3\u5931\u8d25"
+E               AssertionError: \u56f0\u96be\u6570\u72ec\u6c42\u89e3\u5931\u8d25
+E               assert 1 == 0
+E                +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode
+
+..\..\verifier\test_outputs.py:302: AssertionError
+_________________________ test_already_solved_puzzle __________________________
+
+    def test_already_solved_puzzle():
+        """\u6d4b\u8bd519: \u6d4b\u8bd5\u5df2\u89e3\u51b3\u7684\u6570\u72ec\uff08\u6240\u6709\u683c\u5b50\u5df2\u586b\u5145\uff09"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/partial_filled.txt'):
+            return
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            if os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/partial_filled.txt', puzzle_path)
+    
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+                    f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+    
+                result = subprocess.run(['python3', solver_script],
+                                      capture_output=True, timeout=5)
+    
+>               assert result.returncode == 0, "\u5df2\u586b\u5145\u6570\u72ec\u5904\u7406\u5931\u8d25"
+E               AssertionError: \u5df2\u586b\u5145\u6570\u72ec\u5904\u7406\u5931\u8d25
+E               assert 1 == 0
+E                +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode
+
+..\..\verifier\test_outputs.py:341: AssertionError
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\baseline-vllm\python-sudoku-solver-backtracking__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\verifier\test_outputs.py::test_easy_puzzle_can_be_solved - Unico...
+FAILED ..\..\verifier\test_outputs.py::test_hard_puzzle_can_be_solved - Asser...
+FAILED ..\..\verifier\test_outputs.py::test_already_solved_puzzle - Assertion...
+3 failed, 19 passed in 1.29s

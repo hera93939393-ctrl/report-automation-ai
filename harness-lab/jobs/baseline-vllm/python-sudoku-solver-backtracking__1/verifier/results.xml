@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="22" time="1.134" timestamp="2026-09-09T01:00:25.268348+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_solution_file_exists" time="0.001" /><testcase classname="test_outputs" name="test_solution_file_not_empty" time="0.002" /><testcase classname="test_outputs" name="test_solution_file_format" time="0.001" /><testcase classname="test_outputs" name="test_solution_all_digits_valid" time="0.001" /><testcase classname="test_outputs" name="test_solution_rows_valid" time="0.001" /><testcase classname="test_outputs" name="test_solution_columns_valid" time="0.001" /><testcase classname="test_outputs" name="test_solution_boxes_valid" time="0.001" /><testcase classname="test_outputs" name="test_solution_complete_validation" time="0.001" /><testcase classname="test_outputs" name="test_solution_matches_original_puzzle" time="0.004" /><testcase classname="test_outputs" name="test_solution_fills_all_empty_cells" time="0.001" /><testcase classname="test_outputs" name="test_solution_no_zeros" time="0.001" /><testcase classname="test_outputs" name="test_solution_each_row_sum_45" time="0.001" /><testcase classname="test_outputs" name="test_solution_each_column_sum_45" time="0.001" /><testcase classname="test_outputs" name="test_solution_each_box_sum_45" time="0.001" /><testcase classname="test_outputs" name="test_solution_corners_valid" time="0.001" /><testcase classname="test_outputs" name="test_solution_center_valid" time="0.001" /><testcase classname="test_outputs" name="test_easy_puzzle_can_be_solved" time="0.015"><failure message="UnicodeEncodeError: 'cp949' codec can't encode character '\u5f84' in position 126: illegal multibyte sequence">def test_easy_puzzle_can_be_solved():
+        """测试17: 测试简单难度数独可以被求解"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/easy_puzzle.txt'):
+            return  # 跳过如果文件不存在
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 复制求解器
+            if os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/easy_puzzle.txt', puzzle_path)
+    
+                # 创建临时求解脚本
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+&gt;                   f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    # 覆盖路径
+    sudoku_solver.main.__globals__['input_file'] = '{puzzle_path}'
+    sudoku_solver.main.__globals__['output_file'] = '{solution_path}'
+    
+    # 读取题目
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    # 求解
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+E                   UnicodeEncodeError: 'cp949' codec can't encode character '\u5f84' in position 126: illegal multibyte sequence
+
+..\..\verifier\test_outputs.py:240: UnicodeEncodeError</failure></testcase><testcase classname="test_outputs" name="test_hard_puzzle_can_be_solved" time="0.224"><failure message="AssertionError: 困难数独求解失败&#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode">def test_hard_puzzle_can_be_solved():
+        """测试18: 测试困难难度数独可以被求解"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/hard_puzzle.txt'):
+            return  # 跳过如果文件不存在
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            if os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/hard_puzzle.txt', puzzle_path)
+    
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+                    f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+    
+                result = subprocess.run(['python3', solver_script],
+                                      capture_output=True, timeout=30)
+    
+&gt;               assert result.returncode == 0, "困难数独求解失败"
+E               AssertionError: 困难数独求解失败
+E               assert 1 == 0
+E                +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode
+
+..\..\verifier\test_outputs.py:302: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_already_solved_puzzle" time="0.259"><failure message="AssertionError: 已填充数独处理失败&#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode">def test_already_solved_puzzle():
+        """测试19: 测试已解决的数独（所有格子已填充）"""
+        if not os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/partial_filled.txt'):
+            return
+    
+        with tempfile.TemporaryDirectory() as tmpdir:
+            if os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py'):
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/app/sudoku_solver.py', tmpdir)
+                puzzle_path = os.path.join(tmpdir, 'puzzle.txt')
+                solution_path = os.path.join(tmpdir, 'solution.txt')
+    
+                shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/python-sudoku-solver-backtracking__1/workspace/protected/test_data/partial_filled.txt', puzzle_path)
+    
+                solver_script = os.path.join(tmpdir, 'solve.py')
+                with open(solver_script, 'w') as f:
+                    f.write(f"""
+    import sys
+    sys.path.insert(0, '{tmpdir}')
+    
+    import sudoku_solver
+    
+    board = sudoku_solver.read_puzzle('{puzzle_path}')
+    if sudoku_solver.solve_sudoku(board):
+        sudoku_solver.write_solution(board, '{solution_path}')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+    """)
+    
+                result = subprocess.run(['python3', solver_script],
+                                      capture_output=True, timeout=5)
+    
+&gt;               assert result.returncode == 0, "已填充数独处理失败"
+E               AssertionError: 已填充数独处理失败
+E               assert 1 == 0
+E                +  where 1 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...xError: (unicode error) \'unicodeescape\' codec can\'t decode bytes in position 2-3: truncated \\UXXXXXXXX escape\r\n').returncode
+
+..\..\verifier\test_outputs.py:341: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_solution_generated_within_reasonable_time" time="0.001" /><testcase classname="test_outputs" name="test_puzzle_file_exists" time="0.001" /><testcase classname="test_outputs" name="test_puzzle_file_format_valid" time="0.001" /></testsuite></testsuites>

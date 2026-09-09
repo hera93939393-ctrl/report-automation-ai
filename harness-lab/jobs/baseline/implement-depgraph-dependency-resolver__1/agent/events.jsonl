@@ -1,0 +1,32 @@
+{"event": "model_start", "elapsed_seconds": 0.0066, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 63.7716, "name": "list_files", "call_id": "call_bfqebfsu"}
+{"event": "tool_end", "elapsed_seconds": 63.8015, "name": "list_files", "call_id": "call_bfqebfsu", "ok": true}
+{"event": "model_start", "elapsed_seconds": 63.8034, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 87.3506, "name": "read_file", "call_id": "call_1ztia4fx"}
+{"event": "tool_end", "elapsed_seconds": 87.3708, "name": "read_file", "call_id": "call_1ztia4fx", "ok": true}
+{"event": "tool_start", "elapsed_seconds": 87.3726, "name": "read_file", "call_id": "call_bbzz13rz"}
+{"event": "tool_end", "elapsed_seconds": 87.3941, "name": "read_file", "call_id": "call_bbzz13rz", "ok": true}
+{"event": "tool_start", "elapsed_seconds": 87.3954, "name": "read_file", "call_id": "call_1ckzr0sb"}
+{"event": "tool_end", "elapsed_seconds": 87.4151, "name": "read_file", "call_id": "call_1ckzr0sb", "ok": true}
+{"event": "tool_start", "elapsed_seconds": 87.4163, "name": "list_files", "call_id": "call_3uv1ymjh"}
+{"event": "tool_end", "elapsed_seconds": 87.4429, "name": "list_files", "call_id": "call_3uv1ymjh", "ok": true}
+{"event": "model_start", "elapsed_seconds": 87.4445, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 140.7695, "name": "run_python", "call_id": "call_53afx12j"}
+{"event": "tool_end", "elapsed_seconds": 140.789, "name": "run_python", "call_id": "call_53afx12j", "ok": false}
+{"event": "model_start", "elapsed_seconds": 140.7904, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 183.3981, "name": "run_python", "call_id": "call_q5qr3719"}
+{"event": "tool_end", "elapsed_seconds": 183.4299, "name": "run_python", "call_id": "call_q5qr3719", "ok": false}
+{"event": "model_start", "elapsed_seconds": 183.4324, "step": 5}
+{"event": "tool_start", "elapsed_seconds": 211.7849, "name": "run_python", "call_id": "call_hejjzg43"}
+{"event": "tool_end", "elapsed_seconds": 211.8105, "name": "run_python", "call_id": "call_hejjzg43", "ok": false}
+{"event": "model_start", "elapsed_seconds": 211.8138, "step": 6}
+{"event": "tool_start", "elapsed_seconds": 229.811, "name": "list_files", "call_id": "call_q6yyoqpc"}
+{"event": "tool_end", "elapsed_seconds": 229.8491, "name": "list_files", "call_id": "call_q6yyoqpc", "ok": true}
+{"event": "model_start", "elapsed_seconds": 229.8508, "step": 7}
+{"event": "tool_start", "elapsed_seconds": 263.3081, "name": "list_files", "call_id": "call_rre1wpdi"}
+{"event": "tool_end", "elapsed_seconds": 263.3395, "name": "list_files", "call_id": "call_rre1wpdi", "ok": true}
+{"event": "model_start", "elapsed_seconds": 263.3412, "step": 8}
+{"event": "tool_start", "elapsed_seconds": 288.225, "name": "run_python", "call_id": "call_fkfxj9ub"}
+{"event": "tool_end", "elapsed_seconds": 288.2641, "name": "run_python", "call_id": "call_fkfxj9ub", "ok": false}
+{"event": "model_start", "elapsed_seconds": 288.2672, "step": 9}
+{"event": "run_end", "elapsed_seconds": 300.0311, "status": "timeout", "metrics": {"model_calls": 9, "tool_calls": 11, "tool_errors": 4, "input_tokens": 21508, "output_tokens": 1074, "elapsed_seconds": 300.03108400001656, "usage_known": false}}

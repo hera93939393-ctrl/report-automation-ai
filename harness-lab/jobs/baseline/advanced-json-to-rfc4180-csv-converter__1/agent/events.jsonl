@@ -1,0 +1,3 @@
+{"event": "model_start", "elapsed_seconds": 0.0154, "step": 1}
+{"event": "run_error", "elapsed_seconds": 120.2956, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 120.3215, "status": "failed", "metrics": {"model_calls": 1, "tool_calls": 0, "tool_errors": 0, "input_tokens": 0, "output_tokens": 0, "elapsed_seconds": 120.32143439992797, "usage_known": false}}

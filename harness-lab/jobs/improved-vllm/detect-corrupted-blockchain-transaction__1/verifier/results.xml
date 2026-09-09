@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="8" failures="1" skipped="0" tests="10" time="6.183" timestamp="2026-09-09T11:54:16.085257+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_01_file_exists" time="0.008"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_01_file_exists():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E       AssertionError: assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:19: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_02_format_is_csv" time="0.004"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_03_transaction_id_format" time="0.017"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_04_field_name_validity" time="0.013"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_05_incorrect_value_is_hash" time="0.005"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_06_ledger_integrity_check_logic" time="0.043" /><testcase classname="test_outputs" name="test_07_result_matches_ledger_data" time="0.014"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_08_verify_identified_error_is_actual_error" time="0.005"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_09_no_false_positives_before_target" time="0.018"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase><testcase classname="test_outputs" name="test_10_solution_accuracy" time="0.007"><error message="failed on setup with &quot;AssertionError: Result file missing&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path&quot;">@pytest.fixture
+    def result_content():
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/improved-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</error></testcase></testsuite></testsuites>

@@ -1,0 +1,12 @@
+{"event": "model_start", "elapsed_seconds": 0.0086, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 65.0648, "name": "list_files", "call_id": "call_dwqlqcyg"}
+{"event": "tool_end", "elapsed_seconds": 65.0932, "name": "list_files", "call_id": "call_dwqlqcyg", "ok": true}
+{"event": "model_start", "elapsed_seconds": 65.0945, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 89.8465, "name": "read_file", "call_id": "call_cpqxi6es"}
+{"event": "tool_end", "elapsed_seconds": 89.8631, "name": "read_file", "call_id": "call_cpqxi6es", "ok": true}
+{"event": "model_start", "elapsed_seconds": 89.8643, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 167.9087, "name": "run_python", "call_id": "call_rnfydhxh"}
+{"event": "tool_end", "elapsed_seconds": 167.9332, "name": "run_python", "call_id": "call_rnfydhxh", "ok": false}
+{"event": "model_start", "elapsed_seconds": 167.9346, "step": 4}
+{"event": "run_error", "elapsed_seconds": 287.9449, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 287.9619, "status": "failed", "metrics": {"model_calls": 4, "tool_calls": 3, "tool_errors": 1, "input_tokens": 4516, "output_tokens": 788, "elapsed_seconds": 287.9618594000349, "usage_known": false}}

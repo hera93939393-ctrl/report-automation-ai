@@ -1,0 +1,20 @@
+Title: Quantum Computing Algorithms for Optimization Problems
+
+Authors: Thomas Anderson, Lisa Park
+
+Year: 2024
+
+Abstract: Quantum computing promises exponential speedups for certain optimization problems. This paper reviews quantum algorithms including QAOA, VQE, and quantum annealing approaches. We present benchmarks on graph optimization, portfolio optimization, and scheduling problems, comparing quantum performance against classical heuristics.
+
+Introduction: Classical computers struggle with NP-hard optimization problems that are ubiquitous in logistics, finance, and drug discovery. Quantum computers exploit superposition and entanglement to explore solution spaces more efficiently.
+
+Methodology: We implemented quantum algorithms on IBM Quantum and D-Wave systems. Test problems included MaxCut on graphs up to 20 nodes, portfolio optimization with 50 assets, and job scheduling with 30 tasks. Each problem was solved using both quantum and classical methods for comparison.
+
+Results: QAOA achieved 95% approximation ratio on MaxCut problems with 15 nodes. VQE found ground states for molecular Hamiltonians 5x faster than classical methods. However, current quantum hardware limitations (noise, limited qubits) restrict practical applications to small problem sizes.
+
+Conclusion: Quantum optimization algorithms show theoretical promise but practical utility awaits larger, more stable quantum computers. Near-term applications should focus on hybrid quantum-classical approaches.
+
+Citations:
+[1] Farhi, E., et al. "A Quantum Approximate Optimization Algorithm." arXiv 2014.
+[2] Peruzzo, A., et al. "A variational eigenvalue solver on a quantum processor." Nature Communications 2014.
+[3] Preskill, J. "Quantum Computing in the NISQ era." Quantum 2018.

@@ -1,0 +1,17 @@
+{"event": "model_start", "elapsed_seconds": 0.0143, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 93.7448, "name": "read_file", "call_id": "call_a86j02x2"}
+{"event": "tool_end", "elapsed_seconds": 93.7673, "name": "read_file", "call_id": "call_a86j02x2", "ok": false}
+{"event": "model_start", "elapsed_seconds": 93.769, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 126.3278, "name": "list_files", "call_id": "call_5xk3o6jl"}
+{"event": "tool_end", "elapsed_seconds": 126.3542, "name": "list_files", "call_id": "call_5xk3o6jl", "ok": true}
+{"event": "model_start", "elapsed_seconds": 126.3561, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 138.5654, "name": "read_file", "call_id": "call_v5rbfa15"}
+{"event": "tool_end", "elapsed_seconds": 138.5819, "name": "read_file", "call_id": "call_v5rbfa15", "ok": false}
+{"event": "model_start", "elapsed_seconds": 138.5835, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 168.241, "name": "run_python", "call_id": "call_e6dtjb96"}
+{"event": "tool_end", "elapsed_seconds": 168.2644, "name": "run_python", "call_id": "call_e6dtjb96", "ok": false}
+{"event": "model_start", "elapsed_seconds": 168.2663, "step": 5}
+{"event": "tool_start", "elapsed_seconds": 208.6621, "name": "list_files", "call_id": "call_5lblrqqs"}
+{"event": "tool_end", "elapsed_seconds": 208.6853, "name": "list_files", "call_id": "call_5lblrqqs", "ok": true}
+{"event": "model_start", "elapsed_seconds": 208.6872, "step": 6}
+{"event": "run_end", "elapsed_seconds": 300.0503, "status": "timeout", "metrics": {"model_calls": 6, "tool_calls": 5, "tool_errors": 3, "input_tokens": 7970, "output_tokens": 906, "elapsed_seconds": 300.0501768999966, "usage_known": false}}

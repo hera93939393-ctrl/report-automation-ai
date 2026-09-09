@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="17" skipped="0" tests="22" time="1.048" timestamp="2026-09-08T19:58:15.452807+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_solution_file_exists" time="0.002"><failure message="AssertionError: 解答文件 C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt 不存在&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_solution_file_exists():
+        """测试1: 检查解答文件是否存在"""
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'), "解答文件 C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt 不存在"
+E       AssertionError: 解答文件 C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt 不存在
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:65: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_solution_file_not_empty" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_file_not_empty():
+        """测试2: 检查解答文件不为空"""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:69: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_file_format" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_file_format():
+        """测试3: 检查解答文件格式（9行，每行9个数字）"""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:75: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_all_digits_valid" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_all_digits_valid():
+        """测试4: 检查所有数字都在1-9范围内"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:90: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_rows_valid" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_rows_valid():
+        """测试5: 检查每行没有重复数字"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_columns_valid" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_columns_valid():
+        """测试6: 检查每列没有重复数字"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:107: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_boxes_valid" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_boxes_valid():
+        """测试7: 检查每个3x3宫格没有重复数字"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_complete_validation" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_complete_validation():
+        """测试8: 完整的数独解答验证"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_matches_original_puzzle" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_matches_original_puzzle():
+        """测试9: 检查解答是否与原始题目匹配"""
+        puzzle_grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/puzzle.txt')
+&gt;       solution_grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_fills_all_empty_cells" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_fills_all_empty_cells():
+        """测试10: 检查所有空白格子都被填充"""
+        puzzle_grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/puzzle.txt')
+&gt;       solution_grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_no_zeros" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_no_zeros():
+        """测试11: 检查解答中没有0（所有格子都填充）"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_each_row_sum_45" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_each_row_sum_45():
+        """测试12: 检查每行数字之和为45（1+2+...+9=45）"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_each_column_sum_45" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_each_column_sum_45():
+        """测试13: 检查每列数字之和为45"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_each_box_sum_45" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_each_box_sum_45():
+        """测试14: 检查每个3x3宫格数字之和为45"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_corners_valid" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_corners_valid():
+        """测试15: 检查四个角的数字有效性"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_center_valid" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'">def test_solution_center_valid():
+        """测试16: 检查中心位置的数字有效性"""
+&gt;       grid = read_sudoku_grid('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\verifier\test_outputs.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filepath = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+    def read_sudoku_grid(filepath):
+        """读取数独网格文件"""
+&gt;       with open(filepath, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:8: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_easy_puzzle_can_be_solved" time="0.006" /><testcase classname="test_outputs" name="test_hard_puzzle_can_be_solved" time="0.003" /><testcase classname="test_outputs" name="test_already_solved_puzzle" time="0.003" /><testcase classname="test_outputs" name="test_solution_generated_within_reasonable_time" time="0.002"><failure message="AssertionError: 解答文件不存在&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_solution_generated_within_reasonable_time():
+        """测试20: 检查解答是否在合理时间内生成"""
+        # 通过检查文件修改时间来间接验证
+        import time
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt'), "解答文件不存在"
+E       AssertionError: 解答文件不存在
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sudoku-solver-backtracking__1/workspace/app/solution.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:349: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_puzzle_file_exists" time="0.001" /><testcase classname="test_outputs" name="test_puzzle_file_format_valid" time="0.001" /></testsuite></testsuites>

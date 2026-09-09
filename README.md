@@ -1,138 +1,37 @@
-# 보고서자동화 도구 — AI 문장 생성 확장
+# AI Agent 파헤치기 — 나만의 에이전트 하네스 과제 제출
 
-공공기관 계획(안)·보고서 작성 업무에 AI를 적용하는 프로젝트. 서식·표를 자동으로 채워주는 기존 도구에, 자연어(텍스트·음성)를 공문서 개조식 문장으로 바꾸고, 법령·이미지를 자동으로 붙이고, 최종 오류를 체크하는 로컬 AI 파이프라인을 추가했다.
+모두의연구소 "AI Agent 파헤치기" 6강 프로젝트 제출용 브랜치입니다. 이 브랜치는 원래 있던 개인 업무자동화 프로젝트(report-automation-ai, F1~F13) 위에서 작업했고, 이 과제와 무관한 F1~F10 기능 파일은 제외했습니다.
 
-- 문제 정의서: [문제정의서.md](./문제정의서.md)
-- 상세 스펙(PRD, 시도·한계 기록 포함): [PRD.md](./PRD.md)
+## 이 과제의 신규 결과물
 
-## 진행 상태
+- [agent_loop.py](./agent_loop.py) — 모델 → 도구 요청 해석 → 검사·실행 → 결과 반환 → 다음 판단을 반복하는 실제 에이전트 루프 (R02)
+- [code_fix_tool.py](./code_fix_tool.py) + [coding_fixture/](./coding_fixture/) — 코딩 시나리오: 결함 제안 → 사용자 승인 → 적용 → 테스트 (R04/R05). 승인은 모델이 스스로 부르는 도구가 아니라 사용자 채팅 메시지를 직접 파싱해서만 결정합니다(`chat_assistant.py`의 `parse_approval_response`).
+- `chat_assistant.py`(특히 `_on_submit`, `_build_tool_dispatch`, `_handle_tool_result`) — 위 두 가지를 기존 프로그램의 채팅 화면에 실제로 연결한 부분(D02: 기존 프로그램 통합)
 
-| 기능 | 내용 | 파일 | 상태 |
-|---|---|---|---|
-| F1 | 자연어 → 공문서 개조식 문장 생성 | [ai_writer.py](./ai_writer.py) | ✅ |
-| F2 | 회의록 요약 (참석자/논의사항/결정사항) | [ai_writer.py](./ai_writer.py) | ✅ |
-| F3 | 음성 인식(STT) | [stt.py](./stt.py) | ✅ |
-| F4 | 매뉴얼 이미지 검색 (임베딩) | [image_search.py](./image_search.py) | ✅ |
-| F5 | 법령 검색 (국가법령정보센터 API) | [law_search.py](./law_search.py) | ✅ |
-| F6 | 엑셀 값 추출 → 문장화 | [excel_extractor.py](./excel_extractor.py) | ✅ |
-| F7 | 최종 검토(항목번호·계산·맞춤법) | [format_checker.py](./format_checker.py), [ai_writer.py](./ai_writer.py) | ✅ |
-| F8 | 홍보 포스터 이미지 생성 | [poster_generator.py](./poster_generator.py) | ✅ |
-| 통합 GUI | F1~F8을 버튼/입력창으로 실행하는 도우미 창 | [assistant_panel.py](./assistant_panel.py) | ✅ |
-| F9 | 한글 등 실제 문서에서 단축키로 바로 쓰기 (클립보드 방식, 모든 프로그램 공용) | [hotkey_assistant.py](./hotkey_assistant.py) | ✅ (F1/F5/F7 검증, F2 준검증 — [PRD 참고](./PRD.md)) |
-| F10 | 한글 안의 진짜 매크로/버튼으로 바로 쓰기 (클립보드 없이 문서에 직접 삽입) | [hwp_macro_ai.js](./hwp_macro_ai.js), [macro_bridge.py](./macro_bridge.py) | ✅ 실제 한글에서 F1 매크로 동작 확인(F7은 동작하나 LLM 정확도 한계 있음) — [PRD 참고](./PRD.md#f10) |
-| F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | [verify_numbers.py](./verify_numbers.py), [source_reader.py](./source_reader.py), [hwp_report.py](./hwp_report.py), [verify_tool.py](./verify_tool.py), [chat_assistant.py](./chat_assistant.py) | ✅ 구현 완료 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
+## D01 사용자 이야기(숫자 검증) 구현
+
+한글 문서의 수치를 엑셀 원본과 문맥 기반으로 대조해 색상으로 표시하는 기능입니다.
+
+- [verify_numbers.py](./verify_numbers.py) — 값 추출·문맥 연결·대조 로직
+- [hwp_report.py](./hwp_report.py) — 한글 문서 색상 표시
+- [source_reader.py](./source_reader.py) — 엑셀 등 원본 자료 읽기
+- [verify_tool.py](./verify_tool.py) — 위를 묶어 실행하는 진입점
+- [file_answer.py](./file_answer.py) + [_selftest_file_answer.py](./_selftest_file_answer.py) — 작은 텍스트 파일을 실제 모델로 읽고 근거 있게 답하는 도구(R03/A01)
+
+## 설계 문서와 벤치마크
+
+- [harness-design-kit/](./harness-design-kit/) — PRD·설계 결정(DECISIONS)·도구 계약(INTERFACES)·작업 기록(IMPLEMENTATION_PLAN)·완료 조건과 실제 증거(ACCEPTANCE) 전체
+- [harness-lab/](./harness-lab/) — 고정 10문항(Terminal-Bench Pro 로컬 이식판) 벤치마크 하네스와 실행 결과. [EXPERIMENT_REPORT.md](./harness-lab/EXPERIMENT_REPORT.md)에 기준(Ollama CPU)·개선(vLLM GPU) 비교와 결론을 정리했습니다.
+
+## 그 외 포함된 파일 (이 과제의 채점 대상은 아님)
+
+`chat_assistant.py`는 F1~F13이 이미 통합된 화면이라, 정상적으로 import되어 실행되려면 다음 지원 모듈이 함께 있어야 합니다: `attachment_preview.py`, `ignore_list.py`, `privacy_guard.py`, `window_layout.py`, `table_tool.py`, `numbering_tool.py`, `polish_tool.py`, `speed_tracker.py`, `weekly_report_tool.py`, `fit_to_page_tool.py`. 이 파일들은 과제 이전부터 있던 기존 프로그램 기능이며, 이번 과제의 신규 구현물이 아닙니다.
 
 ## 실행 방법
 
-### 0. 사전 준비
-1. [Ollama](https://ollama.com) 설치 (Windows: `winget install Ollama.Ollama`)
-2. 모델 다운로드: `ollama pull exaone3.5:7.8b`
-3. 파이썬 패키지 설치:
-   ```bash
-   pip install -r requirements.txt
-   pip install --index-url https://download.pytorch.org/whl/cpu torch  # CPU 전용 빌드
-   pip install pywin32  # 한글 서식 채우기 기능용
-   ```
-4. 한컴오피스(한글) 설치되어 있어야 함 (서식 채우기 기능용)
-5. 법령 검색(F5)을 쓰려면 [open.law.go.kr](https://open.law.go.kr) 가입 후 발급받은 OC 값을 환경변수로 설정:
-   ```powershell
-   $env:LAW_API_OC = "발급받은OC값"
-   ```
-
-### 1. 서식 자동 채우기 (기존 v1)
-`계획안_작성도구.bat` 더블클릭 → 입력창에 내용 입력 → [한글파일 만들기] 클릭. 자세한 사용법은 [사용법.txt](./사용법.txt) 참고.
-
-### 2. 통합 도우미 창 (F1~F8을 버튼/텍스트로)
 ```bash
-python assistant_panel.py
-```
-버튼을 눌러 각 기능을 실행하고, 결과를 복사해 문서에 붙여넣는 방식.
-
-### 3. 단축키로 한글 등 문서에서 바로 쓰기 (F9)
-`단축키도우미_시작.bat` 더블클릭 → 켜둔 채로 한글/워드/메모장 등에서 작업. 문장을 드래그로 선택한 뒤:
-
-| 단축키 | 기능 |
-|---|---|
-| `Ctrl+Shift+G` | F1 문장을 공문서 개조식으로 변환 (원문 아래 줄에 결과 추가) |
-| `Ctrl+Shift+M` | F2 선택한 녹취/텍스트를 회의록으로 요약 |
-| `Ctrl+Shift+L` | F5 선택한 키워드로 관련 법령 검색 |
-| `Ctrl+Shift+R` | F7 선택한(또는 전체) 문서를 검토 (알림창으로 표시, 문서는 안 바뀜) |
-
-F3(음성)·F4(이미지검색)·F6(엑셀)·F8(포스터)은 파일 선택이 필요해 이번엔 단축키 대신 통합 도우미 창(2번)에서 사용한다.
-
-### 4. 한글 안의 진짜 매크로로 쓰기 (F10, 실사용 검증됨)
-
-F9는 클립보드+전역 단축키라 "어디서나" 되지만 "한글 안에 붙어있는 느낌"은 아니다. F10은 한글 자체의 스크립트 매크로 기능을 써서 클립보드 없이 문서에 바로 삽입한다. 4개(AI문장변환/AI회의록/AI법령검색/AI검토) 모두 **아래 순서로 각각** 등록해야 한다 — 매크로 이름마다 스크립트 저장 공간이 독립적이라, 하나에만 붙여넣으면 나머지는 빈 채로 남아 실행해도 아무 반응이 없다.
-
-각 이름(`AI문장변환`, `AI회의록`, `AI법령검색`, `AI검토`)마다 반복:
-
-1. 한글에서 `Alt+Shift+H` ([도구]-[매크로]-[스크립트 매크로 정의]) → 빈 단축키 선택(Alt+Shift+1~4 등) → 이름 입력(예: `AI문장변환`) → [정의] → 바로 [중지] (빈 매크로 슬롯 생성)
-2. `Alt+Shift+L` ([도구]-[매크로]-[매크로 실행]) → 방금 만든 이름 선택 → [코드 편집]
-3. [hwp_macro_ai.js](./hwp_macro_ai.js) 내용 **전체**를 편집창에 붙여넣고 저장 (4개 이름 모두 이 파일 전체를 그대로 붙여넣으면 됨)
-
-4개 다 등록한 뒤, 문장을 드래그로 선택하고 `Alt+Shift+L`에서 해당 매크로를 실행하면 된다 (또는 1번에서 지정한 단축키로 바로 실행). 실행하면 15~30초 후 결과가 원문 아래 줄에 자동 삽입된다(AI검토는 문서를 바꾸지 않고 팝업으로만 표시). (선택) [도구]-[사용자 설정]에서 도구모음에 아이콘으로 추가하면 실제 버튼처럼 쓸 수 있다 — 이 부분 화면 구성은 한글 버전마다 달라 직접 확인 필요.
-
-기술 검증 내용과 알려진 한계(예: F7 맞춤법 검토가 오타를 놓치는 사례)는 [hwp_macro_ai.js](./hwp_macro_ai.js) 상단 주석과 [PRD.md의 F10 절](./PRD.md#f10) 참고.
-
-### 5. 각 기능 개별 테스트
-각 파일을 직접 실행하면 자체 테스트가 돌아간다 (`python ai_writer.py`, `python stt.py <음성파일>`, `python format_checker.py`, `python excel_extractor.py`, `python image_search.py`, `python law_search.py`, `python poster_generator.py`).
-
-### 6. 채팅 인터페이스 + 숫자검증 (F11)
-
-```bash
-ollama pull qwen3.5:2b   # 최초 1회
+pip install -r requirements.txt
 python chat_assistant.py
 ```
 
-"보고서 파일 선택" → "원본자료 선택(파일 또는 폴더)" → 채팅창에 "숫자 검증해줘"라고 입력. 원본에서 확인 안 되는 금액·날짜·시간·전화번호가 보고서 안에 빨간색으로 표시됩니다 (자동저장 안 됨, 확인 후 직접 저장).
-
-> "숫자 검증해줘" 요청 1건은 Ollama 도구호출 과정 때문에 몇 분 정도 걸릴 수 있습니다(테스트 중 도구호출만 약 1분 45초 측정됨) — 응답이 바로 안 와도 멈춘 게 아니니 기다려주세요. 실제로 쓰는 모델은 원래 계획했던 큰 모델이 아니라 `qwen3.5:2b`이며, 속도를 위해 정확도를 키워드 기반 보조 로직(safety net)으로 보완했습니다.
-
-## 예시
-
-```
-[F1] 입력: 이번에 간담회 하는 이유는 주민들이 요즘 시끄럽다고 민원을 많이 넣어서 그거 들어보려고
-     출력: 주민 민원 증가 및 소음 문제 청취를 위한 간담회 실시 예정
-
-[F3+F2] 회의 음성 → STT → "참석자: 김주무관(예산 담당), 이준무관(장소 담당) / 논의사항: ..."
-
-[F6] 엑셀(참가인원 342, 예산 1,850,000) → "참가인원 342명, 전월대비 증가율 12%, 예산 집행액 185만 원 확인됨"
-
-[F7] "3) 장소: 회의실" → 번호 순서 오류(기대: 2, 실제: 3) 자동 검출
-     "합계: 900,000" (실제 합 800,000) → 합계 불일치 자동 검출
-```
-
-## 시연 스크린샷
-
-**F8(홍보 포스터 생성)** 실제 결과물 — SD-Turbo로 로컬 생성, CPU로 2단계·53초 소요:
-
-![F8 포스터 생성 예시](./demo/f8_poster_example.png)
-
-더 많은 성공·실패 사례(정확한 입출력 비교)는 [PRD.md "10. 검증 결과"](./PRD.md#10-검증-결과-실제-테스트-사례--기존-방식과의-비교-포함) 참고.
-
-## 모델 선정 이유
-
-다루는 문서에 개인정보가 포함되어 외부 클라우드 AI(ChatGPT, Claude 등)를 사용할 수 없다. 이 제약으로 후보가 로컬 실행 가능한 오픈소스 모델로 좁혀졌다.
-
-| 기능 | 모델 | 이유 |
-|---|---|---|
-| 텍스트 생성(F1,F2) | `exaone3.5:7.8b` (Ollama) | 한국어 학습 비중 높음, Ollama 정식 등록으로 받기 쉬움. Qwen2.5·HyperCLOVA X SEED와 비교 검토했으나 시간상 EXAONE으로 확정([PRD](./PRD.md#8-1-llm-모델-선정-테스트-계획-phase-0-세부)) |
-| 음성인식(F3) | `faster-whisper` (small) | CPU 전용 노트북에 적합, 컴파일 불필요 |
-| 이미지 검색(F4) | `google/siglip2-base-patch16-224` | 사진+문장 동시 학습, 한국어 질의 지원, 노트북급 크기 |
-| 이미지 생성(F8) | `stabilityai/sd-turbo` | 1~2단계로 생성 가능해 CPU에서도 상대적으로 빠름 |
-
-## 재현성(Reproducibility)에 대한 메모
-
-이 프로젝트가 다루는 로컬 LLM·Diffusion 모델은 **다른 컴퓨터에서 실행해도 완전히 동일한 문장·이미지가 나오는 것을 보장하지 않는다** (같은 씨앗을 고정해도 하드웨어·라이브러리 버전에 따라 계산 결과가 달라질 수 있음 — 3강에서 다룬 내용과 같은 이유).
-
-대신 다음을 보장한다:
-- **같은 모델**: 코드에 모델 이름이 고정돼 있어 누가 실행해도 동일한 모델 가중치를 내려받는다.
-- **같은 라이브러리 버전**: [requirements.txt](./requirements.txt)로 버전을 고정했다.
-- **완전히 확정적인 부분은 100% 동일하게 재현됨**: 항목번호·계산 검증(F7), 엑셀 값 추출(F6), 법령 검색 결과(F5)는 AI가 아니라 규칙/API 기반이라 항상 같은 결과가 나온다.
-- **AI 생성 부분(F1,F2,F3,F4,F8)은 "같은 과정으로 비슷한 품질의 결과"까지만 재현됨** — 이는 결함이 아니라 이 종류의 모델이 갖는 본질적 특성이다.
-
-## 개인정보 처리 방침
-
-- 모든 AI 처리는 노트북에서 완전히 로컬로 실행되며, 문서 내용을 외부로 전송하지 않는다.
-- 유일한 외부 통신은 법령 검색(F5)의 검색 키워드 전송뿐이며, 문서 원본은 전송하지 않는다.
-- 실제 업무 문서(개인정보 포함 가능)는 이 저장소에 포함하지 않는다.
+Ollama(`qwen3.5:2b`)가 로컬에 떠 있어야 하며, 한글(HWP)이 설치되어 있어야 D01 시나리오를 실제로 확인할 수 있습니다. 벤치마크 재현 방법은 [harness-lab/README_lab.md](./harness-lab/README_lab.md) 참고.

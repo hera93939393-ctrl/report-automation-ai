@@ -1,0 +1,51 @@
+{
+  "id": "deb31353d3a1414ba5b5c8cda5aee61c",
+  "task_name": "advanced-json-to-rfc4180-csv-converter",
+  "trial_name": "advanced-json-to-rfc4180-csv-converter__1",
+  "started_at": "2026-09-09T01:05:53.643657+00:00",
+  "finished_at": "2026-09-09T01:05:59.122389+00:00",
+  "agent_result": {
+    "status": "failed",
+    "answer": "Execution failed (HTTPStatusError)",
+    "metrics": {
+      "model_calls": 1,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "elapsed_seconds": 0.17871780006680638,
+      "usage_known": false
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "home/user/sales.json": "3dddadc287695c7285e869b70384a0fe5554d8ffcb640b2a7d27a03fd5fdd877"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 90,
+    "checks_failed": 90,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "failed"
+  }
+}

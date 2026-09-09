@@ -1,0 +1,18 @@
+{"event": "model_start", "elapsed_seconds": 0.03, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 5.3089, "name": "read_file", "call_id": "chatcmpl-tool-99c57db7af0760ef"}
+{"event": "tool_end", "elapsed_seconds": 5.4639, "name": "read_file", "call_id": "chatcmpl-tool-99c57db7af0760ef", "ok": false}
+{"event": "model_start", "elapsed_seconds": 5.4764, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 12.8387, "name": "list_files", "call_id": "chatcmpl-tool-979f09c6a2023d1e"}
+{"event": "tool_end", "elapsed_seconds": 12.9561, "name": "list_files", "call_id": "chatcmpl-tool-979f09c6a2023d1e", "ok": true}
+{"event": "model_start", "elapsed_seconds": 12.967, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 17.2761, "name": "read_file", "call_id": "chatcmpl-tool-84ed27a4c4f4c8ec"}
+{"event": "tool_end", "elapsed_seconds": 17.3377, "name": "read_file", "call_id": "chatcmpl-tool-84ed27a4c4f4c8ec", "ok": false}
+{"event": "model_start", "elapsed_seconds": 17.3422, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 22.6932, "name": "list_files", "call_id": "chatcmpl-tool-b92b5fe23dd52b9e"}
+{"event": "tool_end", "elapsed_seconds": 22.7583, "name": "list_files", "call_id": "chatcmpl-tool-b92b5fe23dd52b9e", "ok": true}
+{"event": "model_start", "elapsed_seconds": 22.7609, "step": 5}
+{"event": "tool_start", "elapsed_seconds": 26.9628, "name": "read_file", "call_id": "chatcmpl-tool-9d391effa90b520b"}
+{"event": "tool_end", "elapsed_seconds": 26.994, "name": "read_file", "call_id": "chatcmpl-tool-9d391effa90b520b", "ok": true}
+{"event": "model_start", "elapsed_seconds": 26.9966, "step": 6}
+{"event": "run_error", "elapsed_seconds": 147.0114, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 147.039, "status": "failed", "metrics": {"model_calls": 6, "tool_calls": 5, "tool_errors": 2, "input_tokens": 6794, "output_tokens": 303, "elapsed_seconds": 147.03897469991352, "usage_known": false}}

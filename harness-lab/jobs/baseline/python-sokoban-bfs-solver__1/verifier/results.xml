@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="12" time="1.264" timestamp="2026-09-08T20:11:59.088164+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_solution_valid" time="0.002"><failure message="AssertionError: solution.txt not found&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_solution_valid():
+        """测试基本的解决方案有效性"""
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'), "solution.txt not found"
+E       AssertionError: solution.txt not found
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_completes_quickly" time="0.182"><failure message="AssertionError: Solver failed&#10;assert 2 == 0&#10; +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...\\baseline\\\\python-sokoban-bfs-solver__1\\\\workspace\\\\app\\\\solver.py': [Errno 2] No such file or directory\r\n&quot;).returncode">def test_completes_quickly():
+        """测试求解器在规定时间内完成"""
+        start = time.time()
+        result = subprocess.run(['python3', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'], capture_output=True, timeout=120)
+        elapsed = time.time() - start
+        assert elapsed &lt; 120, f"Solver took {elapsed:.1f}s, should be under 120s"
+&gt;       assert result.returncode == 0, "Solver failed"
+E       AssertionError: Solver failed
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...\\baseline\\\\python-sokoban-bfs-solver__1\\\\workspace\\\\app\\\\solver.py': [Errno 2] No such file or directory\r\n").returncode
+
+..\..\verifier\test_outputs.py:66: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_simple_level" time="0.012"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_simple_level():
+        """测试简单关卡"""
+        # 复制简单关卡
+        shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_simple.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test.txt')
+    
+        # 创建临时求解器
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver.py', 'w') as f:
+&gt;           f.write(open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_test.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:75: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_medium_level" time="0.012"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_medium_level():
+        """测试中等难度关卡"""
+        shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_medium.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test2.txt')
+    
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver2.py', 'w') as f:
+&gt;           f.write(open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test2.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_test2.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:95: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_already_solved_level" time="0.011"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_already_solved_level():
+        """测试已经解决的关卡（箱子已在目标上）"""
+        shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_already_solved.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_solved.txt')
+    
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_solved.py', 'w') as f:
+&gt;           f.write(open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_solved.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_solved.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:109: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_impossible_level" time="0.010"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_impossible_level():
+        """测试不可能完成的关卡（箱子数量不匹配）"""
+        shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_impossible.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_impossible.txt')
+    
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_impossible.py', 'w') as f:
+&gt;           f.write(open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_impossible.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_impossible.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:128: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solution_optimality" time="0.003"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'">def test_solution_optimality():
+        """测试解决方案的合理性（不应该太长）"""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:140: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_solver_handles_complex_format" time="0.013"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_solver_handles_complex_format():
+        """测试求解器处理复杂格式（含空格的关卡）"""
+        # level_complex.txt 包含不规则的空格
+        if os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_complex.txt'):
+            shutil.copy('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_complex.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_complex.txt')
+    
+            with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_complex.py', 'w') as f:
+&gt;               f.write(open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                    "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_complex.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_complex.txt')"
+                ))
+E               FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:154: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_moves_are_sequential" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'">def test_moves_are_sequential():
+        """测试移动序列是连续的（没有重复或无效序列）"""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:171: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_output_file_format" time="0.002"><failure message="AssertionError: solution.txt does not exist&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_output_file_format():
+        """测试输出文件格式正确"""
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'), "solution.txt does not exist"
+E       AssertionError: solution.txt does not exist
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:189: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_solver_file_exists" time="0.002"><failure message="AssertionError: solver.py does not exist&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_solver_file_exists():
+        """测试求解器文件存在且可执行"""
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'), "solver.py does not exist"
+E       AssertionError: solver.py does not exist
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:203: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_no_crash_on_edge_cases" time="0.005"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'">def test_no_crash_on_edge_cases():
+        """测试边缘情况不会导致崩溃"""
+        # 创建一个最小关卡
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_edge.txt', 'w') as f:
+            f.write('###\n#@#\n###\n')
+    
+        with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_edge.py', 'w') as f:
+&gt;           content = open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_edge.txt', 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_edge.txt')"
+            )
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:221: FileNotFoundError</failure></testcase></testsuite></testsuites>

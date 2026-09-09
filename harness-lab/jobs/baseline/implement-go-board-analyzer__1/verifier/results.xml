@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="16" skipped="0" tests="16" time="0.899" timestamp="2026-09-08T20:07:07.769864+09:00" hostname="KJGAHJ"><testcase classname="test_outputs.TestGoAnalyzer" name="test_capture_race_semeai" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_capture_race_semeai&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_donut_shape_capture" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_donut_shape_capture&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_donut_shape_survival" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_donut_shape_survival&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_group_capture_complex" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_group_capture_complex&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_group_capture_simple" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_group_capture_simple&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_init_default" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_init_default&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_invalid_coordinates" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_invalid_coordinates&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_linting_compliance" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_linting_compliance&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_load_malformed_json" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_load_malformed_json&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_load_valid_json" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_load_valid_json&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_performance_large_board" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_performance_large_board&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_shared_liberties_logic" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_shared_liberties_logic&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_single_stone_capture_center" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_single_stone_capture_center&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_single_stone_capture_corner" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_single_stone_capture_corner&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_single_stone_capture_edge" time="0.002"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_single_stone_capture_edge&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase><testcase classname="test_outputs.TestGoAnalyzer" name="test_static_analysis" time="0.001"><failure message="NameError: name 'GoBoardAnalyzer' is not defined">self = &lt;test_outputs.TestGoAnalyzer testMethod=test_static_analysis&gt;
+
+    def setUp(self):
+&gt;       self.analyzer = GoBoardAnalyzer()
+                        ^^^^^^^^^^^^^^^
+E       NameError: name 'GoBoardAnalyzer' is not defined
+
+..\..\verifier\test_outputs.py:18: NameError</failure></testcase></testsuite></testsuites>

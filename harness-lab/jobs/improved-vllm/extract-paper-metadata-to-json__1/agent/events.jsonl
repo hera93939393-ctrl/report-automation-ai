@@ -1,0 +1,13 @@
+{"event": "model_start", "elapsed_seconds": 0.0243, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 10.8317, "name": "list_files", "call_id": "chatcmpl-tool-bfe4e7d57adb0ee6"}
+{"event": "tool_end", "elapsed_seconds": 10.8992, "name": "list_files", "call_id": "chatcmpl-tool-bfe4e7d57adb0ee6", "ok": true}
+{"event": "model_start", "elapsed_seconds": 10.9017, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 20.0272, "name": "read_file", "call_id": "chatcmpl-tool-bd392a6a452494f9"}
+{"event": "tool_end", "elapsed_seconds": 20.0788, "name": "read_file", "call_id": "chatcmpl-tool-bd392a6a452494f9", "ok": true}
+{"event": "tool_start", "elapsed_seconds": 20.0828, "name": "read_file", "call_id": "chatcmpl-tool-992ecc5ae3f73840"}
+{"event": "tool_end", "elapsed_seconds": 20.1336, "name": "read_file", "call_id": "chatcmpl-tool-992ecc5ae3f73840", "ok": true}
+{"event": "tool_start", "elapsed_seconds": 20.1366, "name": "read_file", "call_id": "chatcmpl-tool-91a52e39ae22780f"}
+{"event": "tool_end", "elapsed_seconds": 20.2086, "name": "read_file", "call_id": "chatcmpl-tool-91a52e39ae22780f", "ok": true}
+{"event": "model_start", "elapsed_seconds": 20.2146, "step": 3}
+{"event": "run_error", "elapsed_seconds": 140.237, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 140.2764, "status": "failed", "metrics": {"model_calls": 3, "tool_calls": 4, "tool_errors": 0, "input_tokens": 3304, "output_tokens": 152, "elapsed_seconds": 140.27624329994433, "usage_known": false}}

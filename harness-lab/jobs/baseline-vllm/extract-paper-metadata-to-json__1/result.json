@@ -1,0 +1,53 @@
+{
+  "id": "9f7003c6d61748dc8dc2bc55202d5d45",
+  "task_name": "extract-paper-metadata-to-json",
+  "trial_name": "extract-paper-metadata-to-json__1",
+  "started_at": "2026-09-08T15:53:05.694703+00:00",
+  "finished_at": "2026-09-08T15:55:23.481164+00:00",
+  "agent_result": {
+    "status": "failed",
+    "answer": "Execution failed (ReadTimeout)",
+    "metrics": {
+      "model_calls": 3,
+      "tool_calls": 4,
+      "tool_errors": 0,
+      "input_tokens": 3304,
+      "output_tokens": 152,
+      "elapsed_seconds": 135.0508034999948,
+      "usage_known": false
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "protected/papers/paper1.txt": "7571ff5b61ba21f531f763e41ce0d8b2cf0749b10030038a864cf866a50f8944",
+    "protected/papers/paper2.txt": "d44e52ed3da8a7bf9ec9a0117fd14f4414b9974a653498b827af35c484c8e443",
+    "protected/papers/paper3.txt": "5365e877f59e146e62c3da8be310c7b79234d484d452d0fd9eada66eca882081"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 13,
+    "checks_failed": 13,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\extract-paper-metadata-to-json__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\extract-paper-metadata-to-json__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm\\extract-paper-metadata-to-json__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "failed"
+  }
+}

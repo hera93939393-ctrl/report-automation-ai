@@ -1,0 +1,14 @@
+{
+  "job": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline-vllm",
+  "options": {
+    "provider": "vllm",
+    "model": "cyankiwi/Qwen3.5-4B-AWQ-4bit",
+    "agent": "harness_lab.local_agent:solve_task",
+    "attempts": 1,
+    "max_steps": 40,
+    "max_seconds": 300,
+    "command_timeout": 10,
+    "self_check": false,
+    "base_url": "https://hydrated-causing-fifteen.ngrok-free.dev/v1"
+  }
+}

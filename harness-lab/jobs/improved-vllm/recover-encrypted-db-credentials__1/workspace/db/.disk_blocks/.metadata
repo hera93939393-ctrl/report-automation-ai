@@ -1,0 +1,7 @@
+# Block metadata (corrupted)
+# WARNING: Block sequence numbers may be incorrect
+# Original file: config.ini.bak
+# Encryption: AES-256-CBC with PBKDF2 key derivation
+# IV: Random per-block (first 16 bytes)
+# Salt: Derived from block sequence number
+# NOTE: The above encryption info is INCORRECT - this is legacy documentation

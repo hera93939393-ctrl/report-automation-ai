@@ -1,0 +1,181 @@
+FFFFFFFFFFFF                                                             [100%]
+================================== FAILURES ===================================
+_____________________________ test_solution_valid _____________________________
+
+    def test_solution_valid():
+        """\u6d4b\u8bd5\u57fa\u672c\u7684\u89e3\u51b3\u65b9\u6848\u6709\u6548\u6027"""
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'), "solution.txt not found"
+E       AssertionError: solution.txt not found
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+___________________________ test_completes_quickly ____________________________
+
+    def test_completes_quickly():
+        """\u6d4b\u8bd5\u6c42\u89e3\u5668\u5728\u89c4\u5b9a\u65f6\u95f4\u5185\u5b8c\u6210"""
+        start = time.time()
+        result = subprocess.run(['python3', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'], capture_output=True, timeout=120)
+        elapsed = time.time() - start
+        assert elapsed < 120, f"Solver took {elapsed:.1f}s, should be under 120s"
+>       assert result.returncode == 0, "Solver failed"
+E       AssertionError: Solver failed
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['C:\\Users\\lakka\\OneDrive\\���� ȭ��\\���̺��ڵ�(���͵�)\\harness-lab\\harness-lab\\.venv\\Scripts\\pytho...\\baseline\\\\python-sokoban-bfs-solver__1\\\\workspace\\\\app\\\\solver.py': [Errno 2] No such file or directory\r\n").returncode
+
+..\..\verifier\test_outputs.py:66: AssertionError
+______________________________ test_simple_level ______________________________
+
+    def test_simple_level():
+        """\u6d4b\u8bd5\u7b80\u5355\u5173\u5361"""
+        # \u590d\u5236\u7b80\u5355\u5173\u5361
+        shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_simple.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test.txt')
+    
+        # \u521b\u5efa\u4e34\u65f6\u6c42\u89e3\u5668
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver.py', 'w') as f:
+>           f.write(open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_test.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:75: FileNotFoundError
+______________________________ test_medium_level ______________________________
+
+    def test_medium_level():
+        """\u6d4b\u8bd5\u4e2d\u7b49\u96be\u5ea6\u5173\u5361"""
+        shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_medium.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test2.txt')
+    
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver2.py', 'w') as f:
+>           f.write(open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_test2.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_test2.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:95: FileNotFoundError
+__________________________ test_already_solved_level __________________________
+
+    def test_already_solved_level():
+        """\u6d4b\u8bd5\u5df2\u7ecf\u89e3\u51b3\u7684\u5173\u5361\uff08\u7bb1\u5b50\u5df2\u5728\u76ee\u6807\u4e0a\uff09"""
+        shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_already_solved.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_solved.txt')
+    
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_solved.py', 'w') as f:
+>           f.write(open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_solved.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_solved.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:109: FileNotFoundError
+____________________________ test_impossible_level ____________________________
+
+    def test_impossible_level():
+        """\u6d4b\u8bd5\u4e0d\u53ef\u80fd\u5b8c\u6210\u7684\u5173\u5361\uff08\u7bb1\u5b50\u6570\u91cf\u4e0d\u5339\u914d\uff09"""
+        shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_impossible.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_impossible.txt')
+    
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_impossible.py', 'w') as f:
+>           f.write(open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_impossible.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_impossible.txt')"
+            ))
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:128: FileNotFoundError
+__________________________ test_solution_optimality ___________________________
+
+    def test_solution_optimality():
+        """\u6d4b\u8bd5\u89e3\u51b3\u65b9\u6848\u7684\u5408\u7406\u6027\uff08\u4e0d\u5e94\u8be5\u592a\u957f\uff09"""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:140: FileNotFoundError
+_____________________ test_solver_handles_complex_format ______________________
+
+    def test_solver_handles_complex_format():
+        """\u6d4b\u8bd5\u6c42\u89e3\u5668\u5904\u7406\u590d\u6742\u683c\u5f0f\uff08\u542b\u7a7a\u683c\u7684\u5173\u5361\uff09"""
+        # level_complex.txt \u5305\u542b\u4e0d\u89c4\u5219\u7684\u7a7a\u683c
+        if os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_complex.txt'):
+            shutil.copy('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/protected/test_data/level_complex.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_complex.txt')
+    
+            with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_complex.py', 'w') as f:
+>               f.write(open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                    "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_complex.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_complex.txt')"
+                ))
+E               FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:154: FileNotFoundError
+__________________________ test_moves_are_sequential __________________________
+
+    def test_moves_are_sequential():
+        """\u6d4b\u8bd5\u79fb\u52a8\u5e8f\u5217\u662f\u8fde\u7eed\u7684\uff08\u6ca1\u6709\u91cd\u590d\u6216\u65e0\u6548\u5e8f\u5217\uff09"""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt', 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'
+
+..\..\verifier\test_outputs.py:171: FileNotFoundError
+___________________________ test_output_file_format ___________________________
+
+    def test_output_file_format():
+        """\u6d4b\u8bd5\u8f93\u51fa\u6587\u4ef6\u683c\u5f0f\u6b63\u786e"""
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt'), "solution.txt does not exist"
+E       AssertionError: solution.txt does not exist
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:189: AssertionError
+___________________________ test_solver_file_exists ___________________________
+
+    def test_solver_file_exists():
+        """\u6d4b\u8bd5\u6c42\u89e3\u5668\u6587\u4ef6\u5b58\u5728\u4e14\u53ef\u6267\u884c"""
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'), "solver.py does not exist"
+E       AssertionError: solver.py does not exist
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:203: AssertionError
+_________________________ test_no_crash_on_edge_cases _________________________
+
+    def test_no_crash_on_edge_cases():
+        """\u6d4b\u8bd5\u8fb9\u7f18\u60c5\u51b5\u4e0d\u4f1a\u5bfc\u81f4\u5d29\u6e83"""
+        # \u521b\u5efa\u4e00\u4e2a\u6700\u5c0f\u5173\u5361
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_edge.txt', 'w') as f:
+            f.write('###\n#@#\n###\n')
+    
+        with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/test_solver_edge.py', 'w') as f:
+>           content = open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py').read().replace(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level1.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution.txt')",
+                "solve_sokoban('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/level_edge.txt', 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solution_edge.txt')"
+            )
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline/python-sokoban-bfs-solver__1/workspace/app/solver.py'
+
+..\..\verifier\test_outputs.py:221: FileNotFoundError
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\baseline\python-sokoban-bfs-solver__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\verifier\test_outputs.py::test_solution_valid - AssertionError: ...
+FAILED ..\..\verifier\test_outputs.py::test_completes_quickly - AssertionErro...
+FAILED ..\..\verifier\test_outputs.py::test_simple_level - FileNotFoundError:...
+FAILED ..\..\verifier\test_outputs.py::test_medium_level - FileNotFoundError:...
+FAILED ..\..\verifier\test_outputs.py::test_already_solved_level - FileNotFou...
+FAILED ..\..\verifier\test_outputs.py::test_impossible_level - FileNotFoundEr...
+FAILED ..\..\verifier\test_outputs.py::test_solution_optimality - FileNotFoun...
+FAILED ..\..\verifier\test_outputs.py::test_solver_handles_complex_format - F...
+FAILED ..\..\verifier\test_outputs.py::test_moves_are_sequential - FileNotFou...
+FAILED ..\..\verifier\test_outputs.py::test_output_file_format - AssertionErr...
+FAILED ..\..\verifier\test_outputs.py::test_solver_file_exists - AssertionErr...
+FAILED ..\..\verifier\test_outputs.py::test_no_crash_on_edge_cases - FileNotF...
+12 failed in 1.53s

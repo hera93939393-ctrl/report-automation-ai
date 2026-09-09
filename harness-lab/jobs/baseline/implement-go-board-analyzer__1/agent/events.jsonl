@@ -1,0 +1,15 @@
+{"event": "model_start", "elapsed_seconds": 0.0053, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 48.5356, "name": "list_files", "call_id": "call_qvjnjpq0"}
+{"event": "tool_end", "elapsed_seconds": 48.5588, "name": "list_files", "call_id": "call_qvjnjpq0", "ok": true}
+{"event": "model_start", "elapsed_seconds": 48.5601, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 58.7775, "name": "list_files", "call_id": "call_lwvkp29z"}
+{"event": "tool_end", "elapsed_seconds": 58.8054, "name": "list_files", "call_id": "call_lwvkp29z", "ok": true}
+{"event": "model_start", "elapsed_seconds": 58.8084, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 72.9169, "name": "read_file", "call_id": "call_k13palt7"}
+{"event": "tool_end", "elapsed_seconds": 72.9376, "name": "read_file", "call_id": "call_k13palt7", "ok": true}
+{"event": "model_start", "elapsed_seconds": 72.9389, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 165.5994, "name": "list_files", "call_id": "call_7czyxaew"}
+{"event": "tool_end", "elapsed_seconds": 165.6234, "name": "list_files", "call_id": "call_7czyxaew", "ok": true}
+{"event": "model_start", "elapsed_seconds": 165.6246, "step": 5}
+{"event": "run_error", "elapsed_seconds": 225.9027, "error_type": "ValueError"}
+{"event": "run_end", "elapsed_seconds": 225.9201, "status": "failed", "metrics": {"model_calls": 5, "tool_calls": 4, "tool_errors": 0, "input_tokens": 7846, "output_tokens": 347, "elapsed_seconds": 225.9200651999563, "usage_known": false}}

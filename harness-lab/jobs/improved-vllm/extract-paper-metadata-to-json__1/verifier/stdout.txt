@@ -1,0 +1,145 @@
+FFFFFFFFFFFFF                                                            [100%]
+================================== FAILURES ===================================
+__________________________ test_output_file_created ___________________________
+
+    def test_output_file_created():
+        """Test that the output JSON file exists and is valid JSON."""
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'), "Output file should exist"
+E       AssertionError: Output file should exist
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:6: AssertionError
+__________________________ test_output_is_json_array __________________________
+
+    def test_output_is_json_array():
+        """Test that output is a valid JSON array structure."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:16: FileNotFoundError
+___________________________ test_metadata_structure ___________________________
+
+    def test_metadata_structure():
+        """Test that each paper has all required fields with correct types."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:23: FileNotFoundError
+____________________________ test_title_extraction ____________________________
+
+    def test_title_extraction():
+        """Test that titles are correctly extracted from papers."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:43: FileNotFoundError
+___________________________ test_authors_extraction ___________________________
+
+    def test_authors_extraction():
+        """Test that authors are correctly parsed as a list."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:55: FileNotFoundError
+____________________________ test_year_extraction _____________________________
+
+    def test_year_extraction():
+        """Test that years are correctly extracted as integers or null."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:67: FileNotFoundError
+__________________________ test_abstract_extraction ___________________________
+
+    def test_abstract_extraction():
+        """Test that abstracts are correctly extracted as strings."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError
+__________________________ test_citations_extraction __________________________
+
+    def test_citations_extraction():
+        """Test that citations are correctly extracted as a list."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:87: FileNotFoundError
+_________________________ test_specific_paper_content _________________________
+
+    def test_specific_paper_content():
+        """Test that specific expected content is correctly extracted."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:101: FileNotFoundError
+________________________ test_empty_or_missing_fields _________________________
+
+    def test_empty_or_missing_fields():
+        """Test handling of missing or empty fields (edge case)."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:119: FileNotFoundError
+_____________________________ test_json_validity ______________________________
+
+    def test_json_validity():
+        """Test that the JSON file is properly formatted and valid."""
+        # Test that file can be read and parsed
+        try:
+>           with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:138: FileNotFoundError
+___________________________ test_special_characters ___________________________
+
+    def test_special_characters():
+        """Test that special characters in text are properly handled."""
+>       with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:146: FileNotFoundError
+__________________________ test_all_papers_processed __________________________
+
+    def test_all_papers_processed():
+        """Test that all paper files in the directory are processed."""
+        papers_dir = 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/protected/papers'
+        if os.path.exists(papers_dir):
+            paper_files = [f for f in os.listdir(papers_dir) if f.endswith('.txt')]
+            expected_count = len(paper_files)
+    
+>           with open('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/improved-vllm/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:163: FileNotFoundError
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\improved-vllm\extract-paper-metadata-to-json__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\verifier\test_outputs.py::test_output_file_created - AssertionEr...
+FAILED ..\..\verifier\test_outputs.py::test_output_is_json_array - FileNotFou...
+FAILED ..\..\verifier\test_outputs.py::test_metadata_structure - FileNotFound...
+FAILED ..\..\verifier\test_outputs.py::test_title_extraction - FileNotFoundEr...
+FAILED ..\..\verifier\test_outputs.py::test_authors_extraction - FileNotFound...
+FAILED ..\..\verifier\test_outputs.py::test_year_extraction - FileNotFoundErr...
+FAILED ..\..\verifier\test_outputs.py::test_abstract_extraction - FileNotFoun...
+FAILED ..\..\verifier\test_outputs.py::test_citations_extraction - FileNotFou...
+FAILED ..\..\verifier\test_outputs.py::test_specific_paper_content - FileNotF...
+FAILED ..\..\verifier\test_outputs.py::test_empty_or_missing_fields - FileNot...
+FAILED ..\..\verifier\test_outputs.py::test_json_validity - FileNotFoundError...
+FAILED ..\..\verifier\test_outputs.py::test_special_characters - FileNotFound...
+FAILED ..\..\verifier\test_outputs.py::test_all_papers_processed - FileNotFou...
+13 failed in 6.54s

@@ -1,0 +1,27 @@
+{"event": "model_start", "elapsed_seconds": 0.0049, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 89.639, "name": "list_files", "call_id": "call_tof1j459"}
+{"event": "tool_end", "elapsed_seconds": 89.6701, "name": "list_files", "call_id": "call_tof1j459", "ok": true}
+{"event": "model_start", "elapsed_seconds": 89.6713, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 112.0264, "name": "read_file", "call_id": "call_aal2cmbg"}
+{"event": "tool_end", "elapsed_seconds": 112.0492, "name": "read_file", "call_id": "call_aal2cmbg", "ok": false}
+{"event": "tool_start", "elapsed_seconds": 112.0509, "name": "read_file", "call_id": "call_25mc5hyg"}
+{"event": "tool_end", "elapsed_seconds": 112.0733, "name": "read_file", "call_id": "call_25mc5hyg", "ok": false}
+{"event": "tool_start", "elapsed_seconds": 112.076, "name": "read_file", "call_id": "call_eoamx2es"}
+{"event": "tool_end", "elapsed_seconds": 112.0986, "name": "read_file", "call_id": "call_eoamx2es", "ok": false}
+{"event": "model_start", "elapsed_seconds": 112.1003, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 137.4292, "name": "list_files", "call_id": "call_c2kkc0vm"}
+{"event": "tool_end", "elapsed_seconds": 137.4531, "name": "list_files", "call_id": "call_c2kkc0vm", "ok": true}
+{"event": "model_start", "elapsed_seconds": 137.4549, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 158.1122, "name": "list_files", "call_id": "call_dhh9o8mg"}
+{"event": "tool_end", "elapsed_seconds": 158.1357, "name": "list_files", "call_id": "call_dhh9o8mg", "ok": true}
+{"event": "model_start", "elapsed_seconds": 158.1372, "step": 5}
+{"event": "tool_start", "elapsed_seconds": 170.5789, "name": "read_file", "call_id": "call_fvk2b691"}
+{"event": "tool_end", "elapsed_seconds": 170.6034, "name": "read_file", "call_id": "call_fvk2b691", "ok": false}
+{"event": "model_start", "elapsed_seconds": 170.6055, "step": 6}
+{"event": "tool_start", "elapsed_seconds": 209.8909, "name": "run_python", "call_id": "call_ls35z2ya"}
+{"event": "tool_end", "elapsed_seconds": 209.9099, "name": "run_python", "call_id": "call_ls35z2ya", "ok": false}
+{"event": "model_start", "elapsed_seconds": 209.9115, "step": 7}
+{"event": "tool_start", "elapsed_seconds": 254.7359, "name": "run_python", "call_id": "call_3cwdrf3e"}
+{"event": "tool_end", "elapsed_seconds": 254.7557, "name": "run_python", "call_id": "call_3cwdrf3e", "ok": false}
+{"event": "model_start", "elapsed_seconds": 254.757, "step": 8}
+{"event": "run_end", "elapsed_seconds": 300.0296, "status": "timeout", "metrics": {"model_calls": 8, "tool_calls": 9, "tool_errors": 6, "input_tokens": 14937, "output_tokens": 1079, "elapsed_seconds": 300.02956549997907, "usage_known": false}}

@@ -1,0 +1,15 @@
+{"event": "model_start", "elapsed_seconds": 0.0067, "step": 1}
+{"event": "tool_start", "elapsed_seconds": 86.2409, "name": "list_files", "call_id": "call_p3pctrbh"}
+{"event": "tool_end", "elapsed_seconds": 86.2746, "name": "list_files", "call_id": "call_p3pctrbh", "ok": true}
+{"event": "model_start", "elapsed_seconds": 86.2778, "step": 2}
+{"event": "tool_start", "elapsed_seconds": 96.621, "name": "list_files", "call_id": "call_pwzocs5o"}
+{"event": "tool_end", "elapsed_seconds": 96.6475, "name": "list_files", "call_id": "call_pwzocs5o", "ok": true}
+{"event": "model_start", "elapsed_seconds": 96.6489, "step": 3}
+{"event": "tool_start", "elapsed_seconds": 112.3844, "name": "read_file", "call_id": "call_35h9cgdz"}
+{"event": "tool_end", "elapsed_seconds": 112.4005, "name": "read_file", "call_id": "call_35h9cgdz", "ok": false}
+{"event": "model_start", "elapsed_seconds": 112.4032, "step": 4}
+{"event": "tool_start", "elapsed_seconds": 157.4562, "name": "list_files", "call_id": "call_olbu51b6"}
+{"event": "tool_end", "elapsed_seconds": 157.4896, "name": "list_files", "call_id": "call_olbu51b6", "ok": true}
+{"event": "model_start", "elapsed_seconds": 157.4909, "step": 5}
+{"event": "run_error", "elapsed_seconds": 277.5063, "error_type": "ReadTimeout"}
+{"event": "run_end", "elapsed_seconds": 277.5171, "status": "failed", "metrics": {"model_calls": 5, "tool_calls": 4, "tool_errors": 1, "input_tokens": 7077, "output_tokens": 564, "elapsed_seconds": 277.51705539994873, "usage_known": false}}

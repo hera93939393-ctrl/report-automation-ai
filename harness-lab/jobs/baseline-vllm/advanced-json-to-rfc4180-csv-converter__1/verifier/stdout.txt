@@ -1,0 +1,936 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF [ 80%]
+FFFFFFFFFFFFFFFFFF                                                       [100%]
+================================== FAILURES ===================================
+____________________________ test_csv_file_created ____________________________
+
+    def test_csv_file_created():
+        """Test that the CSV file was created at the correct location."""
+>       assert os.path.exists(CSV_FILE), f"CSV file not created at {CSV_FILE}"
+E       AssertionError: CSV file not created at C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\..\verifier\test_outputs.py:47: AssertionError
+___________________________ test_csv_file_not_empty ___________________________
+
+    def test_csv_file_not_empty():
+        """Test that the CSV file is not empty."""
+>       assert os.path.getsize(CSV_FILE) > 0, "CSV file is empty"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..\..\..\verifier\test_outputs.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+>   ???
+E   FileNotFoundError: [WinError 2] ������ ������ ã�� �� �����ϴ�: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+<frozen genericpath>:86: FileNotFoundError
+________________________________ test_utf8_bom ________________________________
+
+    def test_utf8_bom():
+        """Test that the CSV file starts with UTF-8 BOM."""
+>       with open(CSV_FILE, 'rb') as f:
+             ^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:57: FileNotFoundError
+___________________________ test_crlf_line_endings ____________________________
+
+    def test_crlf_line_endings():
+        """Test that line endings are CRLF as per RFC 4180."""
+>       with open(CSV_FILE, 'rb') as f:
+             ^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:64: FileNotFoundError
+___________________________ test_header_row_present ___________________________
+
+    def test_header_row_present():
+        """Test that header row is present and has correct fields."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:76: FileNotFoundError
+___________________________ test_header_field_count ___________________________
+
+    def test_header_field_count():
+        """Test that header has exactly 15 fields."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:85: FileNotFoundError
+_____________________________ test_data_row_count _____________________________
+
+    def test_data_row_count():
+        """Test that all records from JSON are present in CSV."""
+        with open(JSON_FILE, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+    
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:97: FileNotFoundError
+________________________ test_nested_object_flattening ________________________
+
+    def test_nested_object_flattening():
+        """Test that nested objects are correctly flattened using dot notation."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:107: FileNotFoundError
+__________________________ test_three_level_nesting ___________________________
+
+    def test_three_level_nesting():
+        """Test 3-level nested object flattening (customer.address.city)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:121: FileNotFoundError
+__________________________ test_missing_nested_level __________________________
+
+    def test_missing_nested_level():
+        """Test missing intermediate nested level (customer without address)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:133: FileNotFoundError
+____________________________ test_amount_us_format ____________________________
+
+    def test_amount_us_format():
+        """Test US-format amount parsing ($1,234.567 �� 1234.57)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:144: FileNotFoundError
+_________________________ test_amount_european_format _________________________
+
+    def test_amount_european_format():
+        """Test European-format amount parsing (��2.345,89 �� 2345.89)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:154: FileNotFoundError
+_________________________ test_amount_yen_no_decimal __________________________
+
+    def test_amount_yen_no_decimal():
+        """Test amount without decimal (\xa598765 \u2192 98765.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:164: FileNotFoundError
+_________________________ test_amount_european_large __________________________
+
+    def test_amount_european_large():
+        """Test large European amount (��10.000,001 �� 10000.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:174: FileNotFoundError
+____________________________ test_amount_rounding _____________________________
+
+    def test_amount_rounding():
+        """Test amount rounding (\xa3999.999 \u2192 1000.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:184: FileNotFoundError
+_______________________ test_amount_scientific_notation _______________________
+
+    def test_amount_scientific_notation():
+        """Test scientific notation amount parsing (1.5e3 �� 1500.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:194: FileNotFoundError
+______________________ test_discount_scientific_notation ______________________
+
+    def test_discount_scientific_notation():
+        """Test discount scientific notation parsing (2.5E-1 �� 0.25)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:204: FileNotFoundError
+__________________________ test_amount_indian_format __________________________
+
+    def test_amount_indian_format():
+        """Test Indian number format (\u20b91,23,456.78 \u2192 123456.78)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:214: FileNotFoundError
+__________________________ test_amount_swiss_format ___________________________
+
+    def test_amount_swiss_format():
+        """Test Swiss number format (CHF 1'234.56 �� 1234.56)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:224: FileNotFoundError
+________________________ test_amount_negative_leading _________________________
+
+    def test_amount_negative_leading():
+        """Test negative amount with leading minus (-$1,234.56 �� -1234.56)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:234: FileNotFoundError
+_______________________ test_amount_negative_accounting _______________________
+
+    def test_amount_negative_accounting():
+        """Test accounting format negative (($500.00) �� -500.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:244: FileNotFoundError
+__________________________ test_discount_accounting ___________________________
+
+    def test_discount_accounting():
+        """Test discount accounting format ((25.00) �� -25.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:254: FileNotFoundError
+_______________________ test_discount_trailing_negative _______________________
+
+    def test_discount_trailing_negative():
+        """Test trailing negative format (100.50- �� -100.50)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:264: FileNotFoundError
+__________________________ test_discount_percentage ___________________________
+
+    def test_discount_percentage():
+        """Test percentage discount (-10% �� -10.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:274: FileNotFoundError
+________________________ test_discount_european_format ________________________
+
+    def test_discount_european_format():
+        """Test European discount format (��50,00 �� 50.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:284: FileNotFoundError
+________________________ test_discount_text_extraction ________________________
+
+    def test_discount_text_extraction():
+        """Test text discount (\xa310 off \u2192 10.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:294: FileNotFoundError
+________________________ test_amount_fullwidth_digits _________________________
+
+    def test_amount_fullwidth_digits():
+        """Test fullwidth digit conversion (�ͣ������� �� 1234.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:304: FileNotFoundError
+_______________________ test_amount_zero_width_stripped _______________________
+
+    def test_amount_zero_width_stripped():
+        """Test zero-width characters stripped from amount."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:314: FileNotFoundError
+___________________________ test_currency_uppercase ___________________________
+
+    def test_currency_uppercase():
+        """Test that currency codes are uppercase."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:324: FileNotFoundError
+____________________________ test_date_iso_format _____________________________
+
+    def test_date_iso_format():
+        """Test ISO date format (YYYY-MM-DD) in output."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:335: FileNotFoundError
+__________________________ test_date_european_format __________________________
+
+    def test_date_european_format():
+        """Test European date parsing (DD/MM/YYYY �� YYYY-MM-DD)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:345: FileNotFoundError
+_____________________________ test_date_us_format _____________________________
+
+    def test_date_us_format():
+        """Test US date parsing (MM-DD-YYYY �� YYYY-MM-DD)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:355: FileNotFoundError
+___________________________ test_date_slash_format ____________________________
+
+    def test_date_slash_format():
+        """Test slash date parsing (YYYY/MM/DD �� YYYY-MM-DD)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:365: FileNotFoundError
+__________________________ test_date_unix_timestamp ___________________________
+
+    def test_date_unix_timestamp():
+        """Test Unix timestamp parsing (1705363200 �� 2024-01-16)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:375: FileNotFoundError
+_______________________ test_date_millisecond_timestamp _______________________
+
+    def test_date_millisecond_timestamp():
+        """Test millisecond timestamp parsing (1705708800000 �� 2024-01-20)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:385: FileNotFoundError
+________________________ test_date_iso_with_timezone_z ________________________
+
+    def test_date_iso_with_timezone_z():
+        """Test ISO date with Z timezone (2024-01-20T10:30:00Z �� 2024-01-20)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:395: FileNotFoundError
+__________________________ test_date_iso_with_offset __________________________
+
+    def test_date_iso_with_offset():
+        """Test ISO date with timezone offset (2024-01-21T15:45:30+01:00 �� 2024-01-21)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:405: FileNotFoundError
+_____________________ test_status_normalization_completed _____________________
+
+    def test_status_normalization_completed():
+        """Test status normalization to 'completed'."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:415: FileNotFoundError
+______________________ test_status_normalization_pending ______________________
+
+    def test_status_normalization_pending():
+        """Test status normalization to 'pending'."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:428: FileNotFoundError
+_____________________ test_status_normalization_cancelled _____________________
+
+    def test_status_normalization_cancelled():
+        """Test status normalization to 'cancelled'."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:442: FileNotFoundError
+_________________________ test_status_whitespace_trim _________________________
+
+    def test_status_whitespace_trim():
+        """Test status whitespace trimming."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:455: FileNotFoundError
+__________________________ test_array_pipe_delimiter __________________________
+
+    def test_array_pipe_delimiter():
+        """Test array serialization with pipe delimiter."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:466: FileNotFoundError
+______________________________ test_empty_array _______________________________
+
+    def test_empty_array():
+        """Test empty array becomes empty string."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:476: FileNotFoundError
+________________________ test_array_with_null_elements ________________________
+
+    def test_array_with_null_elements():
+        """Test array with null elements (nulls become empty between pipes)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:486: FileNotFoundError
+_______________________ test_array_null_and_empty_mixed _______________________
+
+    def test_array_null_and_empty_mixed():
+        """Test array with null and empty string elements."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:496: FileNotFoundError
+__________________________ test_items_sku_extraction __________________________
+
+    def test_items_sku_extraction():
+        """Test that items array extracts SKU values."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:506: FileNotFoundError
+_________________________ test_items_fallback_to_code _________________________
+
+    def test_items_fallback_to_code():
+        """Test items fallback to 'code' when 'sku' is missing."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:516: FileNotFoundError
+__________________________ test_items_mixed_fallback __________________________
+
+    def test_items_mixed_fallback():
+        """Test items with mixed sku/code/id fallback."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:526: FileNotFoundError
+_________________________ test_items_no_matching_key __________________________
+
+    def test_items_no_matching_key():
+        """Test items where middle item has no matching key."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:536: FileNotFoundError
+__________________________ test_null_to_empty_string __________________________
+
+    def test_null_to_empty_string():
+        """Test that null values become empty strings."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:546: FileNotFoundError
+_______________________ test_missing_field_empty_string _______________________
+
+    def test_missing_field_empty_string():
+        """Test that missing fields become empty strings."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:556: FileNotFoundError
+___________________________ test_boolean_lowercase ____________________________
+
+    def test_boolean_lowercase():
+        """Test that boolean values are lowercase 'true'/'false'."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:567: FileNotFoundError
+________________________ test_quoted_field_with_comma _________________________
+
+    def test_quoted_field_with_comma():
+        """Test fields with commas are properly quoted."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:580: FileNotFoundError
+_________________________ test_escaped_double_quotes __________________________
+
+    def test_escaped_double_quotes():
+        """Test that double quotes in fields are escaped correctly."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:590: FileNotFoundError
+____________________________ test_newline_in_field ____________________________
+
+    def test_newline_in_field():
+        """Test that newlines within fields are properly handled."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:600: FileNotFoundError
+____________________________ test_unicode_japanese ____________________________
+
+    def test_unicode_japanese():
+        """Test Japanese Unicode characters are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:610: FileNotFoundError
+_____________________________ test_unicode_emoji ______________________________
+
+    def test_unicode_emoji():
+        """Test emoji characters are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:621: FileNotFoundError
+_____________________________ test_unicode_hebrew _____________________________
+
+    def test_unicode_hebrew():
+        """Test Hebrew (RTL) characters are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:634: FileNotFoundError
+_____________________________ test_unicode_arabic _____________________________
+
+    def test_unicode_arabic():
+        """Test Arabic characters are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:644: FileNotFoundError
+____________________________ test_unicode_accented ____________________________
+
+    def test_unicode_accented():
+        """Test accented characters are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:655: FileNotFoundError
+___________________________ test_unicode_nfd_to_nfc ___________________________
+
+    def test_unicode_nfd_to_nfc():
+        """Test NFD characters are normalized to NFC."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:665: FileNotFoundError
+_____________________ test_zero_width_characters_stripped _____________________
+
+    def test_zero_width_characters_stripped():
+        """Test zero-width characters are stripped from name field."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:678: FileNotFoundError
+______________________ test_zero_width_in_customer_name _______________________
+
+    def test_zero_width_in_customer_name():
+        """Test zero-width stripped from customer.name."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:692: FileNotFoundError
+______________________________ test_pipe_in_data ______________________________
+
+    def test_pipe_in_data():
+        """Test that pipe characters in data are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:702: FileNotFoundError
+__________________________ test_whitespace_preserved __________________________
+
+    def test_whitespace_preserved():
+        """Test that whitespace-only values are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:712: FileNotFoundError
+___________________ test_customer_name_whitespace_preserved ___________________
+
+    def test_customer_name_whitespace_preserved():
+        """Test whitespace preserved in customer name."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:722: FileNotFoundError
+__________________________ test_empty_customer_name ___________________________
+
+    def test_empty_customer_name():
+        """Test empty nested field."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:732: FileNotFoundError
+________________________ test_special_chars_preserved _________________________
+
+    def test_special_chars_preserved():
+        """Test special characters <>&\"' are preserved."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:742: FileNotFoundError
+___________________________ test_no_trailing_comma ____________________________
+
+    def test_no_trailing_comma():
+        """Test that lines don't have EXTRA trailing commas."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:752: FileNotFoundError
+______________________ test_row_field_count_consistency _______________________
+
+    def test_row_field_count_consistency():
+        """Test all rows have the same number of fields as header."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:763: FileNotFoundError
+__________________________ test_multiline_name_field __________________________
+
+    def test_multiline_name_field():
+        """Test name field with embedded newlines."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:774: FileNotFoundError
+__________________________ test_id_values_preserved ___________________________
+
+    def test_id_values_preserved():
+        """Test that ID values are preserved exactly."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:784: FileNotFoundError
+_______________________ test_csv_readable_by_python_csv _______________________
+
+    def test_csv_readable_by_python_csv():
+        """Test that output is parseable by Python's csv module."""
+        try:
+>           with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:797: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+    def test_csv_readable_by_python_csv():
+        """Test that output is parseable by Python's csv module."""
+        try:
+            with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+            assert len(rows) > 0, "CSV not readable by csv module"
+        except Exception as e:
+>           assert False, f"CSV parsing failed: {e}"
+E           AssertionError: CSV parsing failed: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+E           assert False
+
+..\..\..\verifier\test_outputs.py:802: AssertionError
+__________________________ test_amount_plain_integer __________________________
+
+    def test_amount_plain_integer():
+        """Test plain integer amount (500 �� 500.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:807: FileNotFoundError
+____________________________ test_shekel_currency _____________________________
+
+    def test_shekel_currency():
+        """Test Shekel currency parsing (\u20aa1234.50 \u2192 1234.50)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:817: FileNotFoundError
+_____________________________ test_riyal_currency _____________________________
+
+    def test_riyal_currency():
+        """Test Saudi Riyal currency parsing (\ufdfc1,500.75 \u2192 1500.75)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:827: FileNotFoundError
+_____________________________ test_emoji_in_tags ______________________________
+
+    def test_emoji_in_tags():
+        """Test emoji in tags array."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:837: FileNotFoundError
+______________________________ test_emoji_in_sku ______________________________
+
+    def test_emoji_in_sku():
+        """Test emoji in SKU (items array)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:847: FileNotFoundError
+_________________________ test_metadata_source_values _________________________
+
+    def test_metadata_source_values():
+        """Test various metadata.source values."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:857: FileNotFoundError
+__________________________ test_quoted_text_in_notes __________________________
+
+    def test_quoted_text_in_notes():
+        """Test notes containing quoted text."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:870: FileNotFoundError
+_____________________________ test_german_umlaut ______________________________
+
+    def test_german_umlaut():
+        """Test German umlaut characters."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:880: FileNotFoundError
+______________________________ test_zero_amount _______________________________
+
+    def test_zero_amount():
+        """Test zero amount (0.00)."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:890: FileNotFoundError
+____________________________ test_japanese_in_tags ____________________________
+
+    def test_japanese_in_tags():
+        """Test Japanese characters in tags array."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:900: FileNotFoundError
+____________________________ test_arabic_in_notes _____________________________
+
+    def test_arabic_in_notes():
+        """Test Arabic characters in notes."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:910: FileNotFoundError
+______________________________ test_city_hebrew _______________________________
+
+    def test_city_hebrew():
+        """Test Hebrew city in 3-level nesting."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:920: FileNotFoundError
+______________________________ test_city_arabic _______________________________
+
+    def test_city_arabic():
+        """Test Arabic city in 3-level nesting."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:930: FileNotFoundError
+_____________________________ test_city_japanese ______________________________
+
+    def test_city_japanese():
+        """Test Japanese city in 3-level nesting."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:940: FileNotFoundError
+_________________________ test_discount_null_to_zero __________________________
+
+    def test_discount_null_to_zero():
+        """Test null discount becomes 0.00."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:950: FileNotFoundError
+_________________________ test_empty_string_discount __________________________
+
+    def test_empty_string_discount():
+        """Test empty string discount becomes 0.00."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:960: FileNotFoundError
+____________________________ test_total_row_count _____________________________
+
+    def test_total_row_count():
+        """Test that we have exactly 20 data rows."""
+>       with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/advanced-json-to-rfc4180-csv-converter__1/workspace/home/user/sales.csv'
+
+..\..\..\verifier\test_outputs.py:970: FileNotFoundError
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\baseline-vllm\advanced-json-to-rfc4180-csv-converter__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\..\verifier\test_outputs.py::test_csv_file_created - AssertionEr...
+FAILED ..\..\..\verifier\test_outputs.py::test_csv_file_not_empty - FileNotFo...
+FAILED ..\..\..\verifier\test_outputs.py::test_utf8_bom - FileNotFoundError: ...
+FAILED ..\..\..\verifier\test_outputs.py::test_crlf_line_endings - FileNotFou...
+FAILED ..\..\..\verifier\test_outputs.py::test_header_row_present - FileNotFo...
+FAILED ..\..\..\verifier\test_outputs.py::test_header_field_count - FileNotFo...
+FAILED ..\..\..\verifier\test_outputs.py::test_data_row_count - FileNotFoundE...
+FAILED ..\..\..\verifier\test_outputs.py::test_nested_object_flattening - Fil...
+FAILED ..\..\..\verifier\test_outputs.py::test_three_level_nesting - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_missing_nested_level - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_us_format - FileNotFoun...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_european_format - FileN...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_yen_no_decimal - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_european_large - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_rounding - FileNotFound...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_scientific_notation - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_scientific_notation
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_indian_format - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_swiss_format - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_negative_leading - File...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_negative_accounting - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_accounting - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_trailing_negative - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_percentage - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_european_format - Fil...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_text_extraction - Fil...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_fullwidth_digits - File...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_zero_width_stripped - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_currency_uppercase - FileNotFo...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_iso_format - FileNotFound...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_european_format - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_us_format - FileNotFoundE...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_slash_format - FileNotFou...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_unix_timestamp - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_millisecond_timestamp - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_iso_with_timezone_z - Fil...
+FAILED ..\..\..\verifier\test_outputs.py::test_date_iso_with_offset - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_status_normalization_completed
+FAILED ..\..\..\verifier\test_outputs.py::test_status_normalization_pending
+FAILED ..\..\..\verifier\test_outputs.py::test_status_normalization_cancelled
+FAILED ..\..\..\verifier\test_outputs.py::test_status_whitespace_trim - FileN...
+FAILED ..\..\..\verifier\test_outputs.py::test_array_pipe_delimiter - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_empty_array - FileNotFoundErro...
+FAILED ..\..\..\verifier\test_outputs.py::test_array_with_null_elements - Fil...
+FAILED ..\..\..\verifier\test_outputs.py::test_array_null_and_empty_mixed - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_items_sku_extraction - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_items_fallback_to_code - FileN...
+FAILED ..\..\..\verifier\test_outputs.py::test_items_mixed_fallback - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_items_no_matching_key - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_null_to_empty_string - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_missing_field_empty_string - F...
+FAILED ..\..\..\verifier\test_outputs.py::test_boolean_lowercase - FileNotFou...
+FAILED ..\..\..\verifier\test_outputs.py::test_quoted_field_with_comma - File...
+FAILED ..\..\..\verifier\test_outputs.py::test_escaped_double_quotes - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_newline_in_field - FileNotFoun...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_japanese - FileNotFoun...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_emoji - FileNotFoundEr...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_hebrew - FileNotFoundE...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_arabic - FileNotFoundE...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_accented - FileNotFoun...
+FAILED ..\..\..\verifier\test_outputs.py::test_unicode_nfd_to_nfc - FileNotFo...
+FAILED ..\..\..\verifier\test_outputs.py::test_zero_width_characters_stripped
+FAILED ..\..\..\verifier\test_outputs.py::test_zero_width_in_customer_name - ...
+FAILED ..\..\..\verifier\test_outputs.py::test_pipe_in_data - FileNotFoundErr...
+FAILED ..\..\..\verifier\test_outputs.py::test_whitespace_preserved - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_customer_name_whitespace_preserved
+FAILED ..\..\..\verifier\test_outputs.py::test_empty_customer_name - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_special_chars_preserved - File...
+FAILED ..\..\..\verifier\test_outputs.py::test_no_trailing_comma - FileNotFou...
+FAILED ..\..\..\verifier\test_outputs.py::test_row_field_count_consistency - ...
+FAILED ..\..\..\verifier\test_outputs.py::test_multiline_name_field - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_id_values_preserved - FileNotF...
+FAILED ..\..\..\verifier\test_outputs.py::test_csv_readable_by_python_csv - A...
+FAILED ..\..\..\verifier\test_outputs.py::test_amount_plain_integer - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_shekel_currency - FileNotFound...
+FAILED ..\..\..\verifier\test_outputs.py::test_riyal_currency - FileNotFoundE...
+FAILED ..\..\..\verifier\test_outputs.py::test_emoji_in_tags - FileNotFoundEr...
+FAILED ..\..\..\verifier\test_outputs.py::test_emoji_in_sku - FileNotFoundErr...
+FAILED ..\..\..\verifier\test_outputs.py::test_metadata_source_values - FileN...
+FAILED ..\..\..\verifier\test_outputs.py::test_quoted_text_in_notes - FileNot...
+FAILED ..\..\..\verifier\test_outputs.py::test_german_umlaut - FileNotFoundEr...
+FAILED ..\..\..\verifier\test_outputs.py::test_zero_amount - FileNotFoundErro...
+FAILED ..\..\..\verifier\test_outputs.py::test_japanese_in_tags - FileNotFoun...
+FAILED ..\..\..\verifier\test_outputs.py::test_arabic_in_notes - FileNotFound...
+FAILED ..\..\..\verifier\test_outputs.py::test_city_hebrew - FileNotFoundErro...
+FAILED ..\..\..\verifier\test_outputs.py::test_city_arabic - FileNotFoundErro...
+FAILED ..\..\..\verifier\test_outputs.py::test_city_japanese - FileNotFoundEr...
+FAILED ..\..\..\verifier\test_outputs.py::test_discount_null_to_zero - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_empty_string_discount - FileNo...
+FAILED ..\..\..\verifier\test_outputs.py::test_total_row_count - FileNotFound...
+90 failed in 3.54s

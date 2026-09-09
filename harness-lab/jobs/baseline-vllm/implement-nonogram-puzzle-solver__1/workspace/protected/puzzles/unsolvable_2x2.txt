@@ -1,0 +1,8 @@
+ROWS: 2
+COLS: 2
+ROW_CLUES:
+2
+2
+COL_CLUES:
+1
+1

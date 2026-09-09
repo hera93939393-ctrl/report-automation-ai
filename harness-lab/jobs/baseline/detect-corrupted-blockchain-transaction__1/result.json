@@ -1,0 +1,51 @@
+{
+  "id": "1dbd7c12d73f4e9e81b8208849db5a1b",
+  "task_name": "detect-corrupted-blockchain-transaction",
+  "trial_name": "detect-corrupted-blockchain-transaction__1",
+  "started_at": "2026-09-08T10:58:16.850964+00:00",
+  "finished_at": "2026-09-08T11:03:19.895653+00:00",
+  "agent_result": {
+    "status": "timeout",
+    "answer": "Stopped at the total time limit; inspect actual tool state",
+    "metrics": {
+      "model_calls": 6,
+      "tool_calls": 5,
+      "tool_errors": 3,
+      "input_tokens": 7970,
+      "output_tokens": 906,
+      "elapsed_seconds": 300.0501768999966,
+      "usage_known": false
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "app/blockchain_ledger.json": "9462ad2a46cc778474f7c29af6d6729d4ada731ee2125ccc3c403c6d88cbc86e"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "reward": 0,
+    "checks_passed": 1,
+    "checks_total": 10,
+    "checks_failed": 1,
+    "checks_errors": 8,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\detect-corrupted-blockchain-transaction__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\detect-corrupted-blockchain-transaction__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\jobs\\baseline\\detect-corrupted-blockchain-transaction__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "timeout"
+  }
+}

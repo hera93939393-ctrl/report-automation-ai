@@ -1,0 +1,10 @@
+ROWS: 3
+COLS: 3
+ROW_CLUES:
+0
+0
+0
+COL_CLUES:
+0
+0
+0

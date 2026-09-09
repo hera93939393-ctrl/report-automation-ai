@@ -1,0 +1,39 @@
+{
+  "variant": "baseline",
+  "kind": "agent_evaluation",
+  "suite_id": "terminal-bench-pro-local-port-v1",
+  "revision": "874af409da6aafebccbf3bc5bb41a2fa4d78784d",
+  "provider": "ollama",
+  "execution_mode": "local-port",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.13.7",
+  "hostlimits": "unrestricted",
+  "model": "qwen3.5:2b",
+  "attempts": 1,
+  "expected_tasks": [
+    "extract-paper-metadata-to-json",
+    "python-sudoku-solver-backtracking",
+    "detect-corrupted-blockchain-transaction",
+    "implement-go-board-analyzer",
+    "python-sokoban-bfs-solver",
+    "recover-encrypted-db-credentials",
+    "advanced-json-to-rfc4180-csv-converter",
+    "implement-depgraph-dependency-resolver",
+    "implement-lz77-file-compressor",
+    "implement-nonogram-puzzle-solver"
+  ],
+  "manifest_sha256": "9313a9bc65812d9d77b433d409f42d75ac76688a762921e5bca6530419e2964f",
+  "agent_source_path": "C:\\Users\\lakka\\OneDrive\\바탕 화면\\바이브코딩(스터디)\\harness-lab\\harness-lab\\harness_lab\\local_agent.py",
+  "source_sha256": "0edfbe64c0c87726fe1436227979e7b413b9ddc3e33933e84de90f1cdaf76159",
+  "code_sha256": "0edfbe64c0c87726fe1436227979e7b413b9ddc3e33933e84de90f1cdaf76159",
+  "agent_import_path": "harness_lab.local_agent:solve_task",
+  "limits": {
+    "max_steps": 40,
+    "max_seconds": 300,
+    "command_timeout": 10
+  },
+  "started_at": "2026-09-08T10:48:21.516788+00:00",
+  "status": "finished",
+  "finished_at": "2026-09-08T11:33:22.521950+00:00",
+  "exit_code": 0
+}

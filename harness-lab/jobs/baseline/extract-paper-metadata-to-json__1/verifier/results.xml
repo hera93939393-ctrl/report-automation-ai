@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="13" skipped="0" tests="13" time="0.902" timestamp="2026-09-08T19:53:34.481925+09:00" hostname="KJGAHJ"><testcase classname="test_outputs" name="test_output_file_created" time="0.002"><failure message="AssertionError: Output file should exist&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">def test_output_file_created():
+        """Test that the output JSON file exists and is valid JSON."""
+&gt;       assert os.path.exists('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'), "Output file should exist"
+E       AssertionError: Output file should exist
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:6: AssertionError</failure></testcase><testcase classname="test_outputs" name="test_output_is_json_array" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_output_is_json_array():
+        """Test that output is a valid JSON array structure."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:16: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_metadata_structure" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_metadata_structure():
+        """Test that each paper has all required fields with correct types."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:23: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_title_extraction" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_title_extraction():
+        """Test that titles are correctly extracted from papers."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:43: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_authors_extraction" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_authors_extraction():
+        """Test that authors are correctly parsed as a list."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:55: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_year_extraction" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_year_extraction():
+        """Test that years are correctly extracted as integers or null."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:67: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_abstract_extraction" time="0.020"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_abstract_extraction():
+        """Test that abstracts are correctly extracted as strings."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:78: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_citations_extraction" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_citations_extraction():
+        """Test that citations are correctly extracted as a list."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:87: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_specific_paper_content" time="0.003"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_specific_paper_content():
+        """Test that specific expected content is correctly extracted."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:101: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_empty_or_missing_fields" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_empty_or_missing_fields():
+        """Test handling of missing or empty fields (edge case)."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:119: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_json_validity" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_json_validity():
+        """Test that the JSON file is properly formatted and valid."""
+        # Test that file can be read and parsed
+        try:
+&gt;           with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:138: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_special_characters" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_special_characters():
+        """Test that special characters in text are properly handled."""
+&gt;       with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:146: FileNotFoundError</failure></testcase><testcase classname="test_outputs" name="test_all_papers_processed" time="0.002"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'">def test_all_papers_processed():
+        """Test that all paper files in the directory are processed."""
+        papers_dir = 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/protected/papers'
+        if os.path.exists(papers_dir):
+            paper_files = [f for f in os.listdir(papers_dir) if f.endswith('.txt')]
+            expected_count = len(paper_files)
+    
+&gt;           with open('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json', 'r', encoding='utf-8') as f:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline/extract-paper-metadata-to-json__1/workspace/app/harvested_metadata.json'
+
+..\..\verifier\test_outputs.py:163: FileNotFoundError</failure></testcase></testsuite></testsuites>

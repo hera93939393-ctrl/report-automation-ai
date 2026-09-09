@@ -1,0 +1,121 @@
+FEEEE.EEEE                                                               [100%]
+=================================== ERRORS ====================================
+___________________ ERROR at setup of test_02_format_is_csv ___________________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+_______________ ERROR at setup of test_03_transaction_id_format _______________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+________________ ERROR at setup of test_04_field_name_validity ________________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+______________ ERROR at setup of test_05_incorrect_value_is_hash ______________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+____________ ERROR at setup of test_07_result_matches_ledger_data _____________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+______ ERROR at setup of test_08_verify_identified_error_is_actual_error ______
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+_________ ERROR at setup of test_09_no_false_positives_before_target __________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+_________________ ERROR at setup of test_10_solution_accuracy _________________
+
+    @pytest.fixture
+    def result_content():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt'), "Result file missing"
+E       AssertionError: Result file missing
+E       assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:8: AssertionError
+================================== FAILURES ===================================
+_____________________________ test_01_file_exists _____________________________
+
+    def test_01_file_exists():
+>       assert os.path.exists('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E       AssertionError: assert False
+E        +  where False = <built-in function _path_exists>('C:/Users/lakka/OneDrive/���� ȭ��/���̺��ڵ�(���͵�)/harness-lab/harness-lab/jobs/baseline-vllm/detect-corrupted-blockchain-transaction__1/workspace/app/result.txt')
+E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+E        +      where <module 'ntpath' (frozen)> = os.path
+
+..\..\verifier\test_outputs.py:19: AssertionError
+- generated xml file: C:\Users\lakka\OneDrive\���� ȭ��\���̺��ڵ�(���͵�)\harness-lab\harness-lab\jobs\baseline-vllm\detect-corrupted-blockchain-transaction__1\verifier\results.xml -
+=========================== short test summary info ===========================
+FAILED ..\..\verifier\test_outputs.py::test_01_file_exists - AssertionError: ...
+ERROR ..\..\verifier\test_outputs.py::test_02_format_is_csv - AssertionError:...
+ERROR ..\..\verifier\test_outputs.py::test_03_transaction_id_format - Asserti...
+ERROR ..\..\verifier\test_outputs.py::test_04_field_name_validity - Assertion...
+ERROR ..\..\verifier\test_outputs.py::test_05_incorrect_value_is_hash - Asser...
+ERROR ..\..\verifier\test_outputs.py::test_07_result_matches_ledger_data - As...
+ERROR ..\..\verifier\test_outputs.py::test_08_verify_identified_error_is_actual_error
+ERROR ..\..\verifier\test_outputs.py::test_09_no_false_positives_before_target
+ERROR ..\..\verifier\test_outputs.py::test_10_solution_accuracy - AssertionEr...
+1 failed, 1 passed, 8 errors in 1.42s

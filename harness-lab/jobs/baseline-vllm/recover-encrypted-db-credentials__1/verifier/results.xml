@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="28" skipped="2" tests="30" time="1.092" timestamp="2026-09-09T10:05:52.221980+09:00" hostname="KJGAHJ"><testcase classname="test_outputs.TestRecoveredKeysFileExists" name="test_file_exists" time="0.002"><failure message="AssertionError: recovered_keys.txt not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestRecoveredKeysFileExists object at 0x000001FE3AD4D1D0&gt;
+
+    def test_file_exists(self):
+        """Verify recovered_keys.txt exists in C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db directory."""
+&gt;       assert os.path.exists(RECOVERED_FILE), \
+            f"recovered_keys.txt not found at {RECOVERED_FILE}"
+E       AssertionError: recovered_keys.txt not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:33: AssertionError</failure></testcase><testcase classname="test_outputs.TestRecoveredKeysFileExists" name="test_file_not_empty" time="0.001"><failure message="AssertionError: File does not exist&#10;assert False&#10; +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt')&#10; +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists&#10; +      where &lt;module 'ntpath' (frozen)&gt; = os.path">self = &lt;test_outputs.TestRecoveredKeysFileExists object at 0x000001FE3AD4ED50&gt;
+
+    def test_file_not_empty(self):
+        """Verify the file is not empty."""
+&gt;       assert os.path.exists(RECOVERED_FILE), "File does not exist"
+E       AssertionError: File does not exist
+E       assert False
+E        +  where False = &lt;built-in function _path_exists&gt;('C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt')
+E        +    where &lt;built-in function _path_exists&gt; = &lt;module 'ntpath' (frozen)&gt;.exists
+E        +      where &lt;module 'ntpath' (frozen)&gt; = os.path
+
+..\..\verifier\test_outputs.py:38: AssertionError</failure></testcase><testcase classname="test_outputs.TestRecoveredKeysFileExists" name="test_file_has_correct_line_count" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestRecoveredKeysFileExists object at 0x000001FE394C29E0&gt;
+
+    def test_file_has_correct_line_count(self):
+        """Verify the file has exactly 3 keys."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:45: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_all_keys_exactly_32_chars" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE3AD4EC10&gt;
+
+    def test_all_keys_exactly_32_chars(self):
+        """Each key must be exactly 32 characters."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:56: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_all_keys_start_with_aes256" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE3AD4EE90&gt;
+
+    def test_all_keys_start_with_aes256(self):
+        """Each key must start with 'AES256'."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:65: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_all_keys_end_with_hash" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE394C3820&gt;
+
+    def test_all_keys_end_with_hash(self):
+        """Each key must end with 'HASH'."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:74: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_all_keys_uppercase_and_digits_only" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE394C3950&gt;
+
+    def test_all_keys_uppercase_and_digits_only(self):
+        """Each key must contain only uppercase letters and digits."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:83: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_chars_after_prefix_contain_digit" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE3AD6DEB0&gt;
+
+    def test_chars_after_prefix_contain_digit(self):
+        """4 characters after 'AES256' must contain at least one digit."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:93: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyFormat" name="test_chars_before_suffix_contain_letter" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyFormat object at 0x000001FE394BE7A0&gt;
+
+    def test_chars_before_suffix_contain_letter(self):
+        """4 characters before 'HASH' must contain at least one letter."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:104: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyCorrectness" name="test_exact_keys_match" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyCorrectness object at 0x000001FE3AD4EFD0&gt;
+
+    def test_exact_keys_match(self):
+        """Verify the recovered keys match exactly the expected keys."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:119: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyCorrectness" name="test_no_decoy_keys_included" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyCorrectness object at 0x000001FE3AD4F110&gt;
+
+    def test_no_decoy_keys_included(self):
+        """Verify no decoy keys are included in the output."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:129: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyCorrectness" name="test_first_key_correct" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyCorrectness object at 0x000001FE394C3A80&gt;
+
+    def test_first_key_correct(self):
+        """Verify the first key (alphabetically) is correct."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:138: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyCorrectness" name="test_second_key_correct" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyCorrectness object at 0x000001FE394C3BB0&gt;
+
+    def test_second_key_correct(self):
+        """Verify the second key (alphabetically) is correct."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:147: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestKeyCorrectness" name="test_third_key_correct" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestKeyCorrectness object at 0x000001FE3AD6ED50&gt;
+
+    def test_third_key_correct(self):
+        """Verify the third key (alphabetically) is correct."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:156: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestOutputFormat" name="test_keys_are_sorted_alphabetically" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestOutputFormat object at 0x000001FE3AD4F250&gt;
+
+    def test_keys_are_sorted_alphabetically(self):
+        """Verify keys are sorted in ascending alphabetical order."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:169: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestOutputFormat" name="test_no_trailing_whitespace" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestOutputFormat object at 0x000001FE3AD4F390&gt;
+
+    def test_no_trailing_whitespace(self):
+        """Verify no lines have trailing whitespace."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:178: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestOutputFormat" name="test_no_empty_lines" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestOutputFormat object at 0x000001FE394C3CE0&gt;
+
+    def test_no_empty_lines(self):
+        """Verify there are no empty lines in the file."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:194: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestOutputFormat" name="test_no_duplicate_keys" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestOutputFormat object at 0x000001FE394C3E10&gt;
+
+    def test_no_duplicate_keys(self):
+        """Verify there are no duplicate keys."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:210: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_key_not_31_chars" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE3AD4F4D0&gt;
+
+    def test_key_not_31_chars(self):
+        """Ensure no 31-character keys are included (off-by-one error)."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:223: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_key_not_33_chars" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE3AD4F610&gt;
+
+    def test_key_not_33_chars(self):
+        """Ensure no 33-character keys are included (off-by-one error)."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:232: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_decoy_with_no_digit_excluded" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE3ADA4050&gt;
+
+    def test_decoy_with_no_digit_excluded(self):
+        """Verify the decoy with no digit after AES256 is excluded."""
+        decoy = 'AES256ABCDEFGHIJ1KLMNOPQR5STUHASH'
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:242: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_decoy_with_no_letter_excluded" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE3ADA4180&gt;
+
+    def test_decoy_with_no_letter_excluded(self):
+        """Verify the decoy with no letter before HASH is excluded."""
+        decoy = 'AES2561234567890123456789012HASH'
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:251: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_short_decoy_excluded" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE3AD9C3B0&gt;
+
+    def test_short_decoy_excluded(self):
+        """Verify the short (31 char) decoy is excluded."""
+        decoy = 'AES2561A2BCDEF3GHIJ4KLM5NOAHASH'
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:260: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_no_lowercase_keys" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE394BE8B0&gt;
+
+    def test_no_lowercase_keys(self):
+        """Verify no keys contain lowercase letters."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:268: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestEdgeCases" name="test_no_special_characters" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestEdgeCases object at 0x000001FE394BE9C0&gt;
+
+    def test_no_special_characters(self):
+        """Verify no keys contain special characters."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:277: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestValidationLogic" name="test_prefix_validation" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestValidationLogic object at 0x000001FE3AD4F750&gt;
+
+    def test_prefix_validation(self):
+        """Test that only keys with AES256 prefix are accepted."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:290: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestValidationLogic" name="test_suffix_validation" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestValidationLogic object at 0x000001FE3AD4F890&gt;
+
+    def test_suffix_validation(self):
+        """Test that only keys with HASH suffix are accepted."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:300: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestValidationLogic" name="test_middle_section_validation" time="0.001"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'">self = &lt;test_outputs.TestValidationLogic object at 0x000001FE3ADA42B0&gt;
+
+    def test_middle_section_validation(self):
+        """Test the middle section of each key."""
+&gt;       with open(RECOVERED_FILE, 'r') as f:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/db/recovered_keys.txt'
+
+..\..\verifier\test_outputs.py:310: FileNotFoundError</failure></testcase><testcase classname="test_outputs.TestComparisonWithExpectedFile" name="test_matches_expected_file" time="0.001"><skipped type="pytest.skip" message="Expected keys file not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/protected/test_data/expected_keys.txt">C:\Users\lakka\OneDrive\바탕 화면\바이브코딩(스터디)\harness-lab\harness-lab\jobs\baseline-vllm\recover-encrypted-db-credentials__1\verifier\test_outputs.py:328: Expected keys file not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/protected/test_data/expected_keys.txt</skipped></testcase><testcase classname="test_outputs.TestComparisonWithExpectedFile" name="test_key_count_matches_expected" time="0.001"><skipped type="pytest.skip" message="Expected keys file not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/protected/test_data/expected_keys.txt">C:\Users\lakka\OneDrive\바탕 화면\바이브코딩(스터디)\harness-lab\harness-lab\jobs\baseline-vllm\recover-encrypted-db-credentials__1\verifier\test_outputs.py:342: Expected keys file not found at C:/Users/lakka/OneDrive/바탕 화면/바이브코딩(스터디)/harness-lab/harness-lab/jobs/baseline-vllm/recover-encrypted-db-credentials__1/workspace/protected/test_data/expected_keys.txt</skipped></testcase></testsuite></testsuites>

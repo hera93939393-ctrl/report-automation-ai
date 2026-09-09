@@ -1,0 +1,14 @@
+ROWS: 5
+COLS: 5
+ROW_CLUES:
+5
+1 1
+1 1
+1 1
+5
+COL_CLUES:
+5
+1 1
+1 1
+1 1
+5
