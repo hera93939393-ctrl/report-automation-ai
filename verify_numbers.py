@@ -1,6 +1,7 @@
 """verify_numbers.py — 원본데이터 대비 보고서 숫자검증 핵심 로직 (순수 함수, 외부 의존성 없음)"""
 import datetime
 import re
+import unicodedata
 from decimal import Decimal
 
 
@@ -618,6 +619,416 @@ def _selftest_extract_values_year_word_excluded_from_amounts():
     print("_selftest_extract_values_year_word_excluded_from_amounts 통과:", result)
 
 
+# ---------------------------------------------------------------------------
+# (F14) 표 안에 있는 값의 "맥락"(행 머리말 / 열 머리말)을 이용한 대조 제한
+#
+# 왜 필요한가 — 실사용에서 확인된 문제: 공공기관 보고서는 KPI/실적 데이터를
+# 보통 "표"로 넣는다. 그런데 한글의 GetTextFile("TEXT","")는 표를 읽을 때
+# 셀을 그냥 한 줄에 하나씩 위→아래·왼→오른쪽 순서로 늘어놓을 뿐, 어느 셀이
+# 몇 행 몇 열인지에 대한 표시를 전혀 남기지 않는다(직접 확인함:
+#   "구분\r\n2024년\r\n2025년\r\n정기점검 실적\r\n1,694\r\n1,827\r\n...").
+# 그래서 표 안의 숫자는 "이 값이 어느 항목의 몇 년도 값인지"를 알 수 없고,
+# 값만 같으면 정답 풀 아무 값하고나 일치를 인정해 버린다. 실제로 이게
+# 만드는 최악의 오탐은 이런 것이다:
+#   보고서 표: [정기점검 실적] 열 "2024년" 칸에 1,827이 적혀 있음
+#   원본 자료: 정기점검 실적의 2024년 값은 1,694, 2025년 값이 1,827
+# → 1,827이 정답 풀 어딘가에 있다는 이유만으로 "정상(파랑)"으로 표시된다.
+#   2024년 칸에 2025년 값을 잘못 옮겨적은 진짜 오류가 파란색으로 가려진다.
+#
+# 그래서 표 안의 값에 한해, 그 칸의 행 머리말/열 머리말과 "출처가 실제로
+# 맞는" 원본 값하고만 대조하도록 후보를 걸러낸다.
+#
+# (2026-09-11 중요한 단서) 이 좁히기가 옳으려면 표기를 먼저 흡수해야 한다.
+# 같은 열인데 표기만 달라서(예: 보고서는 "'24년", 원본은 "2024") 후보가 전부
+# 걸러지면, 진짜 오류가 조용히 사라진다
+# (split_column_identity / _find_year 참고).
+# ---------------------------------------------------------------------------
+
+# 4자리 연도만 잡는다. 앞뒤로 숫자가 더 붙어있으면(예: "12024", "20245")
+# 연도가 아니라 그냥 긴 숫자의 일부이므로 잡으면 안 된다.
+_YEAR_PATTERN = re.compile(r'(?<!\d)(\d{4})(?!\d)')
+
+# 연도 뒤에 붙는 꼬리표. 반드시 긴 것부터 확인해야 한다 — "년"을 먼저 떼면
+# "2024년도 목표"에서 "년"만 떨어져 "도 목표"라는 엉뚱한 수식어가 남는다.
+_YEAR_SUFFIXES = ("년도", "년")
+
+# ---------------------------------------------------------------------------
+# (2026-09-11, 두 차례 독립 검토에서 같은 결론으로 발견된 회귀를 고침)
+#
+# 무엇이 잘못됐었나 — split_column_identity()가 위 _YEAR_PATTERN(4자리 아스키
+# 숫자)만 연도로 인정해서, 정작 이 파일이 이미 읽을 줄 아는 다른 연도 표기를
+# "열 머리말"에서는 못 읽었다:
+#   "'24년", "('24)"  -> 연도 None    (이 파일 맨 위 _YEAR_ABBREVIATION_PATTERN
+#                                      주석이 인용한, 사용자가 실제 문서에
+#                                      쓰는 바로 그 표기다)
+#   "２０２４년"        -> 연도 "２０２４" (전각 숫자라 엑셀 머리말의 "2024"와
+#                                      글자가 달라 같은 연도로 안 보인다)
+#
+# 그래서 생긴 실제 피해(진짜 .hwp+.xlsx로 재현 확인) — 보고서 표의 열 머리말이
+# "'24년"이고 원본 엑셀 머리말이 "2024"이면, column_identity_agrees()가 모든
+# 후보에 대해 불일치를 내서 후보가 전부 걸러지고, 그 칸의 값이 통째로
+# 대조 실패로 떨어졌다. 원본 2024년 값이 1,694인데 보고서에 1,900이라고
+# 잘못 적힌 진짜 오류가 빨강으로 잡히던 것이, 이 기능 도입 후 조용히
+# 사라졌다(mismatch_items에서도 빠져 F13의 "N번째로 가줘" 대상에서도 없어진다).
+#
+# 고치는 방향: 새 규칙을 만들지 않는다. 이 파일이 이미 쓰는 것을 그대로
+# 재사용한다 — 연도 약칭은 _YEAR_ABBREVIATION_PATTERN, 두 자리→네 자리
+# 확장은 extract_dates()/check_weekday_consistency()가 쓰는 2000 + int(yy).
+# ---------------------------------------------------------------------------
+
+# 머리말 양 끝에서 떼어내도 의미가 변하지 않는 장식 문자(괄호·따옴표·구분점).
+# "('24)"에서 연도를 떼면 "()"만 남는데, 이걸 그대로 수식어로 두면 평범한
+# "2024" 머리말의 수식어("")와 달라져 또 엉뚱하게 불일치가 난다. 하이픈·물결·
+# 빗금은 일부러 넣지 않았다 — "2024/25"처럼 실제로 의미가 있는 표기를
+# 조용히 지워버릴 수 있어서다.
+_COLUMN_WRAPPER_CHARS = " \t　()[]{}<>（）［］｛｝〈〉《》【】〔〕「」『』,.·ㆍ、:;'’‘\"“”"
+
+
+def _normalize_digit_forms(text: str) -> str:
+    """전각 숫자("２０２４")·전각 괄호·전각 따옴표 같은 호환 문자를 아스키로
+    접는다. NFKC가 정확히 이 일을 한다 — 전각 영숫자/괄호를 대응하는 아스키로
+    바꿔주므로 "２０２４년"과 "2024년"을 같은 글자로 볼 수 있게 된다.
+    한글 음절(가-힣)은 NFKC에 영향을 받지 않아 라벨 텍스트가 망가지지 않는다.
+    """
+    return unicodedata.normalize("NFKC", text or "")
+
+
+def _find_year(text: str):
+    """정규화가 끝난 텍스트에서 연도를 찾아 (네자리연도, 시작위치, 끝위치)를
+    돌려준다. 못 찾으면 None.
+
+    4자리 표기를 먼저 본다. 이유가 두 가지다 — (가) "'2024년"처럼 따옴표와
+    4자리가 같이 있는 표기에서는 4자리 쪽이 정답이고, (나) 이미 4자리로 잘
+    읽히던 머리말의 동작이 한 글자도 바뀌지 않는다. 4자리가 없을 때만 연도
+    약칭("'24")을 본다.
+    """
+    m = _YEAR_PATTERN.search(text)
+    if m:
+        return m.group(1), m.start(), m.end()
+    m = _YEAR_ABBREVIATION_PATTERN.search(text)
+    if m:
+        # 맨 앞 따옴표를 뗀 두 자리를 네 자리로 편다. extract_dates()와
+        # check_weekday_consistency()가 쓰는 것과 같은 2000 + int(yy) 규칙.
+        return f"{2000 + int(m.group(0)[1:]):04d}", m.start(), m.end()
+    return None
+
+
+def _normalize_ws(text: str) -> str:
+    """공백 차이만 있는 표기를 같게 보기 위해 공백을 전부 없앤다
+    ("2024년 목표" == "2024년목표")."""
+    return re.sub(r'\s+', '', text or '')
+
+
+def _loose_text_match(a: str, b: str) -> bool:
+    """공백을 무시한 양방향 부분문자열 비교. 이 저장소가 라벨 표기 차이에
+    이미 관용적인 수준("집행률" vs "예산 집행률")을 그대로 따른다.
+    한쪽이 빈 문자열이면 항상 True — "구분할 정보가 없다"는 뜻이므로
+    걸러내지 않는다(모르는 것은 막지 않는다는 이 모듈의 기본 원칙)."""
+    a, b = _normalize_ws(a), _normalize_ws(b)
+    if not a or not b:
+        return True
+    return a in b or b in a
+
+
+def split_column_identity(header: str) -> tuple:
+    """열 머리말을 (연도, 수식어)로 쪼갠다.
+      "2024년"      -> ("2024", "")
+      "2024년도"    -> ("2024", "")     # 년/년도 표기 차이는 같은 것으로 본다
+      "2024년 목표" -> ("2024", "목표")
+      "'24년"       -> ("2024", "")     # 연도 약칭도 같은 연도로 본다
+      "('24)"       -> ("2024", "")
+      "２０２４년"    -> ("2024", "")     # 전각 숫자도 같은 연도로 본다
+      "목표"        -> (None, "목표")   # 연도 정보 없음
+      ""            -> (None, "")
+    연도가 없으면 첫 값이 None이다 — "연도를 모른다"와 "연도가 다르다"를
+    반드시 구분해야 해서 빈 문자열이 아니라 None을 쓴다.
+
+    표기가 달라도 같은 연도면 같은 ("2024", ...)가 나오게 하는 것이 핵심이다.
+    원본 엑셀 머리말은 보통 평범한 "2024"인데 보고서 표 머리말은 "'24년"처럼
+    줄여 쓰는 일이 흔해서, 여기서 표기를 흡수하지 않으면 같은 열인데도
+    "다른 열"로 판정돼 그 칸의 검증이 통째로 무력해진다(위 회귀 주석 참고).
+    """
+    text = _normalize_digit_forms((header or "").strip())
+    found = _find_year(text)
+    if not found:
+        return None, _normalize_ws(text)
+    year, start, end = found
+    # 연도를 떼고 남은 부분에서 괄호/따옴표 같은 장식을 먼저 걷어낸다 —
+    # 그래야 "('24년)" 같은 표기에서도 그다음의 "년" 꼬리표 제거가 먹는다.
+    rest = text[:start] + text[end:]
+    rest = rest.strip(_COLUMN_WRAPPER_CHARS)
+    for suffix in _YEAR_SUFFIXES:  # 긴 것부터 — 위 _YEAR_SUFFIXES 주석 참고
+        if rest.startswith(suffix):
+            rest = rest[len(suffix):]
+            break
+    return year, _normalize_ws(rest).strip(_COLUMN_WRAPPER_CHARS)
+
+
+def column_identity_agrees(a: str, b: str) -> bool:
+    """두 열 머리말이 "같은 출처"를 가리키는지 판정한다. 표 안의 값을 원본
+    후보와 대조해도 되는지 거르는 핵심 필터.
+
+    규칙(이 순서가 중요하다):
+    1) 양쪽 다 연도가 있으면 → 연도는 반드시 정확히 같아야 한다. 다르면 무조건
+       불일치. ("2024년" 칸을 "2025년" 원본값과 대조하면 안 된다 — 이걸 부분
+       문자열 비교로 대충 했다가, 2024년 칸에 적힌 2025년 값이 "정상"으로
+       표시되는 오탐이 실제로 났다.)
+    2) 연도가 같으면 → 수식어("목표"/"계획"/"실적" 등)도 정확히 같아야 한다.
+       여기서 부분문자열 비교를 쓰면 안 된다 — "목표"와 "상반기 목표"는
+       한쪽이 다른 쪽을 포함한다는 이유로 같은 것으로 취급돼 버리는데,
+       실제로는 범위가 다른 별개의 값이다.
+
+       (2026-09-11, 알려진 한계 — 일부러 안 고쳤다) 이 규칙은 "한쪽에만
+       수식어가 있는" 경우도 불일치로 본다. 그래서 보고서 머리말이
+       "2024년 실적"이고 원본 엑셀 머리말이 그냥 "2024"이면, 사람 눈에는
+       같은 열인데 여기서 갈라져 그 칸이 회색(확인 필요)이 된다 — 원래는
+       빨강으로 잡히던 오류를 놓치는 실제 사례다(진짜 .hwp/.xlsx로 재현 확인).
+       그런데 이걸 "한쪽 수식어가 비었으면 통과"로 풀면 더 나쁜 일이 난다:
+       보고서에 "2024년 목표"와 "2024년 실적" 두 열이 있고 원본에는 실적
+       열("2024") 하나뿐일 때, 목표 열의 값까지 그 실적 열과 대조돼 멀쩡한
+       숫자가 전부 빨강(오류)으로 찍힌다. 놓치는 회색보다 거짓 빨강이 훨씬
+       해로워서, 표기가 애매할 때는 회색으로 두는 지금 규칙을 유지한다.
+       (연도 "표기" 차이는 이와 다른 문제이고, split_column_identity()가
+       전부 흡수하므로 여기까지 오지 않는다.)
+    3) 한쪽에만 연도가 있으면 → 같은 열이라고 볼 근거가 없으므로 어긋난 것으로
+       본다. 애초에 "열을 모르는" 원본(머리행 없는 세로형 엑셀 등)은 아래 첫
+       줄에서 이미 걸러져 여기까지 오지 않는다 — 이 분기는 "원본에 머리행이
+       있는데 거기에 연도가 없다"는 드문 경우만 다룬다.
+
+       (2026-09-11 정정) 이 좁힘이 안전한 건 연도를 정말로 알 수 없을
+       때뿐이다 — 원본 머리말에 연도가 실제로 안 적혀 있어서 몇 년도 값인지
+       판단할 근거가 없는 경우. 그때는 "비교할 같은 출처가 없었다"는 뜻이
+       사실과 맞는다. 반대로, 연도가 분명히 적혀 있는데 우리가 그 표기를 못
+       읽어서 여기로 떨어지는 것은 안전하지 않다 — 진짜 오류가 조용히
+       사라진다(실제로 "'24년"·전각 연도 표기에서 그 회귀가 났다). 그래서
+       split_column_identity()가 아는 표기(4자리·연도 약칭·전각)는 전부
+       흡수해서 같은 연도로 만든다. 여기 남는 건 "표기를 다 흡수하고도
+       한쪽에 연도가 없는" 경우뿐이다.
+    4) 양쪽 다 연도가 없으면 → 기존처럼 공백무시 양방향 부분문자열 비교로
+       관대하게 본다("집행률" vs "예산 집행률"). 여기서 정확일치를 요구하면
+       정당한 표기 차이가 깨진다.
+    """
+    if not (a or "").strip() or not (b or "").strip():
+        return True  # 한쪽이라도 열 정보를 모르면 거르지 않는다
+    year_a, mod_a = split_column_identity(a)
+    year_b, mod_b = split_column_identity(b)
+    if year_a != year_b:
+        return False  # 연도가 다르거나, 한쪽에만 연도가 있다
+    if year_a is not None:
+        return mod_a == mod_b  # 연도가 같으면 수식어도 정확히 같아야 한다
+    return _loose_text_match(mod_a, mod_b)
+
+
+def candidate_allowed_by_context(table_context: dict, candidate: dict) -> bool:
+    """표 안 값의 맥락(table_context)과 원본 후보(candidate)의 출처가 서로
+    맞는지. 맥락이 없거나(표 밖의 일반 문장) 후보에 출처 정보가 없으면 항상
+    True — 즉 기존 동작을 그대로 둔다. 모르는 것은 막지 않는다.
+    """
+    if not table_context:
+        return True
+    if not column_identity_agrees(table_context.get("column_header", ""),
+                                  candidate.get("column_header", "")):
+        return False
+    return _loose_text_match(table_context.get("row_header", ""),
+                             candidate.get("row_label", ""))
+
+
+def _has_column_identity(entry: dict) -> bool:
+    """이 원본 후보가 "몇 년도 열에서 왔는지"를 알고 있는가."""
+    return bool(str((entry or {}).get("column_header", "") or "").strip())
+
+
+def filter_candidates_by_context(table_context: dict, candidates: list) -> list:
+    """표 안 값의 맥락에 맞는 원본 후보만 골라낸다.
+
+    (2026-09-11 추가) 출처 정보가 섞인 후보 풀 처리 — read_source_files()는
+    폴더를 통째로 받아 엑셀·한글·PDF 원본을 한 풀에 합친다. 그런데 열 출처
+    정보를 붙이는 건 가로형 엑셀뿐이고, read_hwp_source()/read_pdf_source()가
+    만든 후보에는 열 정보가 아예 없다. candidate_allowed_by_context()는
+    "모르는 것은 막지 않는다"는 원칙에 따라 열 정보가 없는 후보를 무조건
+    통과시키는데, 그러면 열 정보 없는 후보가 풀에 단 하나만 섞여 있어도
+    그게 아무 값이나 받아줘서, 열을 아는 엑셀 후보들이 "그 연도 열의 값은
+    이게 아니다"라고 말하고 있어도 열 구분 기능이 그 값에 대해 통째로
+    무력해진다.
+
+    그래서 이 칸이 열을 알고 있고 후보 중에 열을 아는 것이 하나라도 있으면,
+    열을 아는 후보끼리만 대조한다. "같은 열인지 비교할 수 있는 원본이 실제로
+    있는" 상황이라, 굳이 열을 모르는 후보로 후퇴할 이유가 없다. 열을 아는
+    후보가 하나도 없으면 예전처럼 전체 후보로 관대하게 간다(= 기존 동작).
+    """
+    if not table_context or not str(table_context.get("column_header", "") or "").strip():
+        return [c for c in candidates if candidate_allowed_by_context(table_context, c)]
+    column_aware = [c for c in candidates if _has_column_identity(c)]
+    pool = column_aware if column_aware else candidates
+    return [c for c in pool if candidate_allowed_by_context(table_context, c)]
+
+
+def _matching_context_text(rv: dict) -> str:
+    """categorize_values()의 "라벨이 문맥에 들어있는가" 검사가 쓸 문맥 문자열.
+
+    평문 값은 _preceding_context()가 채워둔 rv["context"](값 직전 문장/절
+    텍스트) 그대로다 — 지금까지의 동작이 한 글자도 바뀌지 않는다.
+
+    표 안의 값은 여기에 그 칸의 행 머리말을 덧붙인다. 표를 평문으로 펼치면
+    셀마다 줄이 나뉘어서 rv["context"]가 거의 항상 빈 문자열이 되는데(값
+    바로 앞이 줄바꿈이라 문맥이 잘린다), 정작 사람이 보기에 그 값의 항목명은
+    같은 행의 머리말이다. 세로형("항목/값") 원본의 라벨과 연결되려면 이
+    행 머리말이 문맥에 들어 있어야 한다. 열 머리말은 일부러 넣지 않았다 —
+    열 쪽 판정은 column_identity_agrees()가 연도까지 정확히 비교하는 전용
+    규칙으로 이미 처리하므로, 부분일치 문자열 비교에 섞으면 그 엄격함만
+    흐려진다.
+    """
+    parts = [rv.get("context") or ""]
+    table_context = rv.get("table_context")
+    if table_context:
+        parts.append(str(table_context.get("row_header") or ""))
+    return " ".join(p for p in parts if p)
+
+
+def _selftest_split_column_identity():
+    assert split_column_identity("2024년") == ("2024", ""), split_column_identity("2024년")
+    assert split_column_identity("2024년도") == ("2024", ""), split_column_identity("2024년도")
+    # "년도"를 "년"보다 먼저 떼지 않으면 여기서 "도목표"가 나온다(회귀 방지)
+    assert split_column_identity("2024년도 목표") == ("2024", "목표"), split_column_identity("2024년도 목표")
+    assert split_column_identity("2024년 목표") == ("2024", "목표")
+    assert split_column_identity("목표") == (None, "목표")
+    assert split_column_identity("") == (None, "")
+    # 긴 숫자 안에 우연히 들어있는 4자리는 연도가 아니다
+    assert split_column_identity("120245") == (None, "120245"), split_column_identity("120245")
+    print("_selftest_split_column_identity 통과")
+
+
+def _selftest_split_column_identity_year_notations():
+    """(2026-09-11, 두 차례 독립 검토에서 같은 결론으로 발견된 회귀의 재현
+    테스트) 이 파일이 다른 곳에서는 이미 연도로 알아보는 표기를, 열 머리말
+    에서도 똑같이 연도로 읽어야 한다. 못 읽으면 같은 연도인데 "다른 열"로
+    판정돼 그 칸의 검증이 통째로 무력화된다."""
+    # 연도 약칭 — 이 파일 맨 위 _YEAR_ABBREVIATION_PATTERN 주석이 인용한,
+    # 사용자의 실제 문서에 나오는 표기 그대로다.
+    assert split_column_identity("'24년") == ("2024", ""), split_column_identity("'24년")
+    assert split_column_identity("'24") == ("2024", ""), split_column_identity("'24")
+    assert split_column_identity("('24)") == ("2024", ""), split_column_identity("('24)")
+    assert split_column_identity("('24년)") == ("2024", ""), split_column_identity("('24년)")
+    assert split_column_identity("'25년") == ("2025", ""), split_column_identity("'25년")
+    # 스마트 따옴표(한글이 자동 변환해 넣는 경우)도 같은 연도여야 한다
+    assert split_column_identity("’24년") == ("2024", ""), split_column_identity("’24년")
+    # 약칭 + 수식어
+    assert split_column_identity("'24년 목표") == ("2024", "목표"), split_column_identity("'24년 목표")
+
+    # 전각 숫자 — NFKC로 접어서 평범한 "2024"와 같은 연도가 되어야 한다
+    assert split_column_identity("２０２４년") == ("2024", ""), split_column_identity("２０２４년")
+    assert split_column_identity("２０２４") == ("2024", ""), split_column_identity("２０２４")
+    assert split_column_identity("２０２４년 목표") == ("2024", "목표"), \
+        split_column_identity("２０２４년 목표")
+
+    # 4자리가 있으면 그쪽이 우선 — 기존 동작이 바뀌지 않는지 확인
+    assert split_column_identity("'2024년") == ("2024", ""), split_column_identity("'2024년")
+    # 연도 약칭이 아닌 따옴표+숫자(세 자리 이상)는 연도가 아니다
+    assert split_column_identity("'243") == (None, "'243"), split_column_identity("'243")
+    print("_selftest_split_column_identity_year_notations 통과")
+
+
+def _selftest_column_identity_agrees_truth_table():
+    """열 머리말 판정 진리표 — 이 표가 이 기능의 핵심이라 통째로 못박아 둔다."""
+    # 같은 연도 + 같은 수식어 -> 연결
+    assert column_identity_agrees("2024년", "2024년") is True
+    assert column_identity_agrees("2024년", "2024년도") is True  # 년/년도 표기차이
+    assert column_identity_agrees("2024년 목표", "2024년 목표") is True
+    # 같은 연도 + 다른 수식어 -> 연결 안 됨
+    assert column_identity_agrees("2024년 목표", "2024년 실적") is False
+    # 같은 연도 + 한쪽만 수식어 -> 연결 안 됨(부분문자열로 통과시키면 안 됨)
+    assert column_identity_agrees("2024년 목표", "2024년") is False
+    # (실제로 났던 회귀) 같은 연도에서 "목표"와 "상반기 목표"는 범위가 다른
+    # 별개 값인데, 부분문자열 비교를 쓰면 같은 것으로 취급돼 버렸다.
+    assert column_identity_agrees("2024년 목표", "2024년 상반기 목표") is False
+    # 다른 연도 -> 수식어가 같아도 절대 연결 안 됨
+    assert column_identity_agrees("2024년", "2025년") is False
+    assert column_identity_agrees("2024년 목표", "2025년 목표") is False
+    # 양쪽 다 연도 없음 -> 기존의 관대한 부분문자열 비교 유지
+    assert column_identity_agrees("집행률", "예산 집행률") is True
+    assert column_identity_agrees("목표", "실적") is False
+    # 한쪽만 연도 있음 -> 같은 열로 볼 근거가 없다
+    assert column_identity_agrees("2025년", "값") is False
+    assert column_identity_agrees("2024년 목표", "목표") is False
+    assert column_identity_agrees("목표", "2024년 목표") is False
+    # 한쪽이라도 열 정보를 모르면 거르지 않는다
+    assert column_identity_agrees("", "2024년") is True
+    assert column_identity_agrees("2024년", "") is True
+    assert column_identity_agrees("   ", "2024년") is True
+    print("_selftest_column_identity_agrees_truth_table 통과")
+
+
+def _selftest_column_identity_agrees_across_year_notations():
+    """(회귀 방지 — 이게 A 브랜치 3차 검토의 핵심 수정이었다) 보고서 표는
+    "'24년"·전각으로 쓰고 원본 엑셀 머리말은 평범한 "2024"인, 실사용에서
+    가장 흔한 조합에서 같은 열로 인정돼야 한다. 예전에는 전부 불일치가 나서
+    그 칸의 후보가 통째로 걸러졌고, 진짜 오류가 조용히 사라졌다."""
+    # 약칭 ↔ 평범한 연도
+    assert column_identity_agrees("'24년", "2024") is True
+    assert column_identity_agrees("'24년", "2024년") is True
+    assert column_identity_agrees("('24)", "2024") is True
+    assert column_identity_agrees("2024", "'24년") is True
+    # 전각 ↔ 평범한 연도
+    assert column_identity_agrees("２０２４년", "2024") is True
+    assert column_identity_agrees("２０２４년", "2024년") is True
+    # 표기만 다를 뿐 연도가 다르면 여전히 절대 연결되면 안 된다(이 기능의 본래 목적)
+    assert column_identity_agrees("'24년", "2025") is False
+    assert column_identity_agrees("'25년", "2024") is False
+    assert column_identity_agrees("２０２４년", "2025") is False
+    # 표기가 달라도 수식어 규칙은 그대로 적용된다
+    assert column_identity_agrees("'24년 목표", "2024년 목표") is True
+    assert column_identity_agrees("'24년 목표", "2024년 실적") is False
+    print("_selftest_column_identity_agrees_across_year_notations 통과")
+
+
+def _selftest_candidate_allowed_by_context_falls_back_when_unknown():
+    """맥락이 없거나 후보에 출처 정보가 없으면 무조건 허용(기존 동작 유지)."""
+    cand_plain = {"type": "amount", "normalized": "1827"}
+    assert candidate_allowed_by_context(None, cand_plain) is True
+    assert candidate_allowed_by_context({}, cand_plain) is True
+    # 맥락은 있지만 후보엔 출처 정보가 전혀 없음 -> 거르지 않는다
+    ctx = {"row_header": "정기점검 실적", "column_header": "2024년"}
+    assert candidate_allowed_by_context(ctx, cand_plain) is True
+    # 후보에 출처가 있고 연도가 다르면 -> 걸러진다
+    cand_2025 = {"type": "amount", "normalized": "1827",
+                 "row_label": "정기점검 실적", "column_header": "2025년"}
+    assert candidate_allowed_by_context(ctx, cand_2025) is False
+    # 행 라벨이 아예 다르면 -> 걸러진다
+    cand_other_row = {"type": "amount", "normalized": "1694",
+                      "row_label": "예산", "column_header": "2024년"}
+    assert candidate_allowed_by_context(ctx, cand_other_row) is False
+    print("_selftest_candidate_allowed_by_context_falls_back_when_unknown 통과")
+
+
+def _selftest_filter_candidates_by_context_mixed_pool():
+    """(2026-09-11) 폴더 하나에 가로형 엑셀과 한글/PDF 원본이 섞여 있을 때.
+    한글/PDF에서 온 후보에는 열 정보가 아예 없어서 "모르는 건 막지 않는다"
+    원칙으로 무조건 통과해 버리는데, 그 후보 하나 때문에 열 구분이 통째로
+    무력해지면 안 된다 — 열을 아는 후보가 있으면 그쪽끼리만 대조한다."""
+    ctx = {"row_header": "정기점검 실적", "column_header": "2024년"}
+    excel_2024 = {"type": "amount", "normalized": "1694",
+                  "row_label": "정기점검 실적", "column_header": "2024"}
+    excel_2025 = {"type": "amount", "normalized": "1827",
+                  "row_label": "정기점검 실적", "column_header": "2025"}
+    hwp_blind = {"type": "amount", "normalized": "1827"}  # 열 정보 없음(한글 원본)
+
+    # 열을 아는 후보가 있으면 열 모르는 후보는 빠진다 → 2024년 후보만 남는다
+    allowed = filter_candidates_by_context(ctx, [excel_2024, excel_2025, hwp_blind])
+    assert allowed == [excel_2024], allowed
+    # → 2025년 값(1827)을 2024년 칸에 적은 오류가 hwp_blind 덕에 살아나지 않는다
+    assert not any(a["normalized"] == "1827" for a in allowed), allowed
+
+    # 열을 아는 후보가 하나도 없으면 예전처럼 전부 통과(기존 동작 유지)
+    only_blind = [hwp_blind, {"type": "amount", "normalized": "1694"}]
+    assert filter_candidates_by_context(ctx, only_blind) == only_blind
+
+    # 이 칸이 열을 모르면(표 밖 값·머리말 없는 표) 좁히지 않는다
+    ctx_no_col = {"row_header": "", "column_header": ""}
+    assert filter_candidates_by_context(ctx_no_col, [excel_2024, excel_2025, hwp_blind]) == \
+        [excel_2024, excel_2025, hwp_blind]
+    print("_selftest_filter_candidates_by_context_mixed_pool 통과")
+
+
 def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
     """report_values 각각을 answer_pool과 대조해 네 갈래로 나눈다:
     - matches: 원본과 정확히 일치(정상) → 문서에 파란색으로 표시할 대상
@@ -662,6 +1073,33 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
     한계는 있지만("이번 사업의 참여 인원은 ... 총 21명"처럼 라벨이 멀리
     떨어지면 못 잡음), 적어도 완전히 무관한 항목을 같은 항목으로 오인하는
     사고는 막는다.
+
+    (2026-09-11, 표 맥락 기능과의 통합) 값이 보고서의 "표 칸"에서 나온
+    경우에는 rv["table_context"]에 그 칸의 행/열 머리말이 dict로 붙어 있다
+    (verify_tool.py가 attach_table_context()로 채운다). 그때는 위의 라벨
+    부분일치보다 훨씬 확실한 단서가 있으므로, 먼저 그 출처(연도 열 + 행
+    머리말)가 실제로 맞는 원본 후보로 범위를 좁힌다. 순서가 중요하다:
+
+      1) 표 칸이면 filter_candidates_by_context()로 후보를 좁힌다. 좁힌
+         결과가 비면 → ambiguous(회색 "확인 필요").
+      2) 그다음은 표 칸이든 평문이든 똑같은 규칙을 적용한다 — 남은 후보의
+         서로 다른 값이 하나뿐이면 바로 비교하고, 여럿이면 문맥·라벨로
+         연결되는 후보하고만 비교한다.
+
+    (1)에서 후보가 안 남을 때 회색인 이유 — 표 맥락 기능을 처음 만들 때는
+    이 자리를 초록(unverifiable)으로 뒀었다. 그때는 회색이라는 갈래 자체가
+    없었기 때문이다. 지금은 두 색의 뜻이 분명히 다르다: 초록은 "원본에 이
+    종류의 데이터가 아예 없어서 대조 자체가 불가능"이고, 회색은 "후보는
+    있는데 어느 것과 비교해야 할지 못 좁혔다"이다. 표 칸의 열이 안 맞아
+    후보가 사라지는 상황은 정확히 후자다(보통 같은 행의 다른 연도 열
+    후보들이 멀쩡히 존재한다). 그래서 회색이 사실에 맞는 표시다.
+
+    (2)를 표 칸에도 그대로 적용하는 이유 — 표 맥락은 "좁히는" 장치일 뿐이라,
+    좁힐 근거가 없을 때(원본에 열/행 출처 정보가 아예 없는 세로형 시트 등)
+    전부 통과시킨다. 그 상태에서 곧장 값만 비교하면, 표 안의 값만 평문보다
+    관대하게 판정되는 모순이 생긴다 — 같은 원본·같은 숫자인데 문장에 쓰면
+    회색, 표에 쓰면 파랑/빨강이 된다. 표 맥락으로 좁히지 못한 값은 평문과
+    똑같은 라벨 연결 규칙을 거치게 해서 그 구멍을 막는다.
     """
     matches, mismatches, unverifiable, ambiguous = [], [], [], []
     for rv in report_values:
@@ -669,6 +1107,20 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
         if not candidates:
             unverifiable.append(rv)  # 원본에 이 타입 자체가 없음 → 대조 불가
             continue
+        table_context = rv.get("table_context")
+        if table_context:
+            # (F14) 이 값이 표 안에 있고 행/열 머리말을 알아낸 경우에만, 출처가
+            # 실제로 맞는 원본 값으로 후보를 좁힌다. table_context가 없는 값
+            # (= 표 밖의 일반 문장)은 이 블록을 그냥 통과하므로 평문 동작이
+            # 한 글자도 바뀌지 않는다.
+            allowed = filter_candidates_by_context(table_context, candidates)
+            if not allowed:
+                # 타입이 같은 원본 값은 있지만, 그중 이 칸과 출처가 맞는 건
+                # 하나도 없다 → "후보는 있는데 못 좁혔다"이므로 회색이다
+                # (위 docstring의 색 구분 설명 참고).
+                ambiguous.append(rv)
+                continue
+            candidates = allowed
         distinct_values = {c["normalized"] for c in candidates}
         if len(distinct_values) == 1:
             # (2026-09-08 정정) 후보 "개수"가 아니라 후보들의 "서로 다른 값
@@ -683,7 +1135,7 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
             # 안전하다.
             (matches if rv["normalized"] in distinct_values else mismatches).append(rv)
             continue
-        context = rv.get("context") or ""
+        context = _matching_context_text(rv)
         labeled_candidates = [c for c in candidates if c.get("label") and c["label"] in context]
         if not labeled_candidates:
             ambiguous.append(rv)  # 후보가 여럿인데 문맥으로 특정 못 함 → 확인 필요(회색)
@@ -868,13 +1320,409 @@ def _selftest_categorize_values_three_buckets():
     print("_selftest_categorize_values_three_buckets 통과:", result)
 
 
-def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[dict]:
+# ---------------------------------------------------------------------------
+# (F14) 평문 텍스트 ↔ 표 격자 맞추기
+#
+# 한글의 GetTextFile("TEXT","")는 표를 "셀 하나당 한 줄"로, 왼→오른쪽·위→아래
+# 순서로 늘어놓는다(직접 확인). 그래서 표 격자(table_to_df로 따로 읽은 것)를
+# 이 줄 목록에 순서대로 맞춰보면, 어느 줄이 어느 행·열 칸인지 복원할 수 있다.
+#
+# 병합 셀 주의사항(직접 실험으로 확인): table_to_df는 병합된 칸의 값을 그
+# 범위의 모든 칸에 그대로 복사해 넣는다. 그런데 평문 텍스트에는 그 내용이
+# 딱 한 번만 나온다. 게다가 원래 글자가 있던 두 칸을 병합하면 병합된 셀의
+# 내용 자체가 여러 문단이 된다 — 실제로 "점검"과 "예산"이 든 두 칸을
+# 병합했더니 table_to_df는 두 행 모두에 '점검\r\n예산'을 넣었고, 평문에는
+# "점검", "예산" 두 줄이 나왔다. 이걸 처리하지 않으면 줄 정렬이 한 줄씩
+# 밀려서 표 전체의 맥락이 어긋난다.
+#
+# 그래서 각 칸마다 "그 자리에서 줄을 직접 소비하는" 시도를 먼저 하고,
+# 실패했을 때만 "앞서 같은 값이 소비한 줄을 다시 가리키는"(병합 흔적)
+# 처리로 넘어간다. 이 순서가 중요하다 — 순서를 뒤집으면, 서로 다른 두
+# 행에 우연히 같은 값이 적혀 있는 정상적인 경우를 병합으로 오해한다.
+# ---------------------------------------------------------------------------
+
+_LINE_SPLIT_PATTERN = re.compile(r'\r\n|\r|\n')
+
+
+def _flatten_cell(value) -> str:
+    """표 한 칸의 값을 한 줄짜리 문자열로 만든다. 병합으로 여러 문단이 된
+    칸은 공백으로 이어 붙인다. pandas가 빈 칸에 넣는 NaN도 빈 문자열로 본다."""
+    if value is None:
+        return ""
+    text = str(value)
+    if text.lower() == "nan":
+        return ""
+    return " ".join(x.strip() for x in _LINE_SPLIT_PATTERN.split(text) if x.strip())
+
+
+def _split_lines_with_offsets(text: str) -> list:
+    """텍스트를 줄 단위로 나누되 각 줄의 (내용, 시작위치, 끝위치)를 같이 준다.
+    끝위치는 줄바꿈 문자를 뺀 위치다."""
+    lines = []
+    pos = 0
+    for m in _LINE_SPLIT_PATTERN.finditer(text):
+        lines.append((text[pos:m.start()], pos, m.start()))
+        pos = m.end()
+    lines.append((text[pos:], pos, len(text)))
+    return lines
+
+
+def _match_table_at(line_texts: list, start: int, grid: list):
+    """grid(행×열 격자)를 line_texts의 start번째 줄부터 맞춰본다.
+    성공하면 ({줄번호: (행, 열)}, 다음_탐색_시작줄)을, 실패하면 None."""
+    pos = start
+    line_to_cell = {}
+    consumed_by_value = {}  # 이미 소비한 칸 내용 -> 그 칸이 차지했던 줄 번호들
+    for r, row in enumerate(grid):
+        for c, raw_value in enumerate(row):
+            value = "" if raw_value is None else str(raw_value)
+            if value.lower() == "nan":
+                value = ""
+            cell_lines = [x.strip() for x in _LINE_SPLIT_PATTERN.split(value)]
+            end = pos + len(cell_lines)
+            if end <= len(line_texts) and line_texts[pos:end] == cell_lines:
+                # 직접 소비 — 항상 이쪽을 먼저 시도한다(위 주석 참고)
+                for i in range(pos, end):
+                    line_to_cell[i] = (r, c)
+                consumed_by_value[value] = list(range(pos, end))
+                pos = end
+            elif value in consumed_by_value:
+                pass  # 병합된 칸의 복사본 — 새 줄을 소비하지 않는다
+            else:
+                return None
+    return line_to_cell, pos
+
+
+def build_table_contexts(text: str, tables: list) -> list:
+    """평문 텍스트와 표 격자 목록을 맞춰, 표 안 글자 구간마다 행/열 머리말을
+    알려주는 목록을 만든다.
+
+    tables는 [격자, 격자, ...]이고 각 격자는 [[머리말행...], [데이터행...], ...]
+    형태(0행 = 열 머리말, 0열 = 행 머리말)로, 문서에 나오는 순서여야 한다.
+
+    반환: [{"start", "end", "row_header", "column_header"}, ...]
+
+    맥락은 데이터 칸(1행 1열 이후)에만 붙인다 — 머리말 칸에 들어있는 숫자는
+    데이터가 아니라 라벨(예: "2024년"의 2024)이라 대조 대상이 아니고, 그런
+    칸까지 건드리면 기존 동작이 예상 밖으로 바뀐다. 표를 평문에 맞추지
+    못하면 그 표는 조용히 건너뛴다(맥락 없이 = 기존 동작)."""
+    lines = _split_lines_with_offsets(text)
+    line_texts = [t.strip() for t, _s, _e in lines]
+    contexts = []
+    search_from = 0
+    for grid in tables:
+        if not grid or len(grid) < 2 or not grid[0]:
+            continue
+        matched = None
+        for start in range(search_from, len(line_texts)):
+            result = _match_table_at(line_texts, start, grid)
+            if result is not None:
+                matched = result
+                break
+        if matched is None:
+            continue  # 이 표는 평문과 맞출 수 없었다 → 맥락 없이 진행
+        line_to_cell, next_start = matched
+        for line_index, (r, c) in line_to_cell.items():
+            if r == 0 or c == 0:
+                continue  # 머리말 행/열 자체는 대조 대상이 아니다
+            row_header = _flatten_cell(grid[r][0]) if grid[r] else ""
+            column_header = _flatten_cell(grid[0][c]) if c < len(grid[0]) else ""
+            _t, s, e = lines[line_index]
+            contexts.append({"start": s, "end": e,
+                             "row_header": row_header,
+                             "column_header": column_header})
+        search_from = next_start
+    return contexts
+
+
+def attach_table_context(values: list, contexts: list) -> list:
+    """extract_values()가 뽑은 값들에 표 맥락을 달아준다. 값의 글자 구간이
+    어떤 표 칸(줄) 안에 완전히 들어있으면 그 칸의 행/열 머리말을 붙인다.
+    표 밖의 값은 아무것도 붙지 않아 기존 동작 그대로 간다.
+
+    (2026-09-11) 표 맥락은 반드시 "table_context"라는 별도 키에 담는다.
+    "context"는 _preceding_context()가 채우는 평문 문자열이라 타입도 뜻도
+    다르다 — 같은 키를 쓰면 한쪽이 다른 쪽을 조용히 덮어써서, 문자열을
+    기대하는 라벨 연결 코드에 dict가 들어가는 사고가 난다. 표 안의 값은
+    두 정보를 모두 가진다(평문 문맥 + 표 머리말)."""
+    for v in values:
+        s, e = v["span"]
+        for ctx in contexts:
+            if ctx["start"] <= s and e <= ctx["end"]:
+                v["table_context"] = {"row_header": ctx["row_header"],
+                                      "column_header": ctx["column_header"]}
+                break
+    return values
+
+
+# 아래 self-test들이 쓰는 평문 텍스트는 실제 한글이 표를 내보낸 모양 그대로다
+# (직접 만든 .hwp에서 GetTextFile("TEXT","")로 받아 확인한 문자열).
+_SAMPLE_TABLE_TEXT = (
+    "2025년 주요 실적\r\n\r\n구분\r\n2024년\r\n2025년\r\n"
+    "정기점검 실적\r\n1,694\r\n1,827\r\n예산\r\n500,000\r\n600,000\r\n\r\n이상입니다"
+)
+_SAMPLE_TABLE_GRID = [
+    ["구분", "2024년", "2025년"],
+    ["정기점검 실적", "1,694", "1,827"],
+    ["예산", "500,000", "600,000"],
+]
+
+
+def _selftest_build_table_contexts_basic():
+    contexts = build_table_contexts(_SAMPLE_TABLE_TEXT, [_SAMPLE_TABLE_GRID])
+    got = {(_SAMPLE_TABLE_TEXT[c["start"]:c["end"]], c["row_header"], c["column_header"])
+           for c in contexts}
+    assert got == {
+        ("1,694", "정기점검 실적", "2024년"),
+        ("1,827", "정기점검 실적", "2025년"),
+        ("500,000", "예산", "2024년"),
+        ("600,000", "예산", "2025년"),
+    }, got
+    print("_selftest_build_table_contexts_basic 통과:", got)
+
+
+def _selftest_build_table_contexts_merged_cell():
+    """(직접 실험으로 확인한 실제 동작 재현) 글자가 들어있던 두 칸을 세로로
+    병합하면, table_to_df는 두 행 모두에 '점검\\r\\n예산'을 넣고 평문에는
+    "점검","예산" 두 줄이 나온다. 이걸 처리하지 못하면 줄 정렬이 한 줄
+    밀려서 이 표의 맥락이 통째로 어긋난다."""
+    text = ("머지 실험\r\n\r\n구분\r\n2024년\r\n2025년\r\n"
+            "점검\r\n예산\r\n1,694\r\n1,827\r\n500,000\r\n600,000\r\n\r\n")
+    grid = [
+        ["구분", "2024년", "2025년"],
+        ["점검\r\n예산", "1,694", "1,827"],
+        ["점검\r\n예산", "500,000", "600,000"],
+    ]
+    contexts = build_table_contexts(text, [grid])
+    got = {(text[c["start"]:c["end"]], c["row_header"], c["column_header"])
+           for c in contexts}
+    assert got == {
+        ("1,694", "점검 예산", "2024년"),
+        ("1,827", "점검 예산", "2025년"),
+        ("500,000", "점검 예산", "2024년"),
+        ("600,000", "점검 예산", "2025년"),
+    }, got
+    print("_selftest_build_table_contexts_merged_cell 통과:", got)
+
+
+def _selftest_build_table_contexts_repeated_value_is_not_treated_as_merge():
+    """서로 다른 두 행에 우연히 같은 값이 적혀 있는 정상적인 표를, 병합
+    흔적으로 오해하면 안 된다("직접 소비 먼저" 순서가 지켜지는지 확인)."""
+    text = "구분\r\n2024년\r\n갑\r\n100\r\n을\r\n100\r\n"
+    grid = [["구분", "2024년"], ["갑", "100"], ["을", "100"]]
+    contexts = build_table_contexts(text, [grid])
+    got = sorted((text[c["start"]:c["end"]], c["row_header"]) for c in contexts)
+    assert got == [("100", "갑"), ("100", "을")], got
+    print("_selftest_build_table_contexts_repeated_value_is_not_treated_as_merge 통과:", got)
+
+
+def _selftest_build_table_contexts_unmatchable_table_is_skipped():
+    """평문과 맞출 수 없는 표(격자와 본문이 어긋남)는 크래시 없이 조용히
+    건너뛰고, 맥락 없이 기존 동작으로 가야 한다."""
+    contexts = build_table_contexts("전혀 다른 내용입니다", [_SAMPLE_TABLE_GRID])
+    assert contexts == [], contexts
+    print("_selftest_build_table_contexts_unmatchable_table_is_skipped 통과")
+
+
+def _selftest_attach_table_context_does_not_clobber_prose_context():
+    """(2026-09-11, 두 기능 통합의 핵심 계약) 표 맥락은 "table_context"에만
+    담기고, _preceding_context()가 채운 평문 "context" 문자열을 덮어쓰지
+    않아야 한다. 덮어쓰면 라벨 연결 코드에 dict가 들어가 터진다."""
+    values = extract_values(_SAMPLE_TABLE_TEXT, default_year=2026)
+    attach_table_context(values, build_table_contexts(_SAMPLE_TABLE_TEXT,
+                                                      [_SAMPLE_TABLE_GRID]))
+    in_table = [v for v in values if v.get("table_context")]
+    assert in_table, values
+    for v in values:
+        assert isinstance(v.get("context", ""), str), v  # 평문 문맥은 계속 문자열
+        if v.get("table_context"):
+            assert isinstance(v["table_context"], dict), v
+    cell = [v for v in in_table if v["raw"] == "1,694"][0]
+    assert cell["table_context"] == {"row_header": "정기점검 실적",
+                                     "column_header": "2024년"}, cell
+    print("_selftest_attach_table_context_does_not_clobber_prose_context 통과")
+
+
+def _selftest_attach_table_context_and_categorize_catches_wrong_year():
+    """이 기능이 존재하는 이유 그 자체 — 표의 "2024년" 칸에 2025년 값을
+    잘못 옮겨적은 오류를, 표 맥락 없이는 특정할 수 없다.
+
+    맥락을 붙이면 각 칸이 자기 열의 원본 값하고만 대조되므로 2024년 칸은
+    빨강(오류), 2025년 칸은 파랑(정상)으로 갈린다."""
+    text = ("구분\r\n2024년\r\n2025년\r\n정기점검 실적\r\n1,827\r\n1,827\r\n")
+    grid = [["구분", "2024년", "2025년"], ["정기점검 실적", "1,827", "1,827"]]
+    answer_pool = [
+        {"type": "amount", "normalized": "1694", "raw": "1694",
+         "row_label": "정기점검 실적", "column_header": "2024년"},
+        {"type": "amount", "normalized": "1827", "raw": "1827",
+         "row_label": "정기점검 실적", "column_header": "2025년"},
+    ]
+    values = extract_values(text, default_year=2026)
+    # 머리말 칸의 "2024년"/"2025년"에서도 숫자가 뽑히지만 이 변경과 무관한
+    # 기존 동작이라(머리말 칸에는 맥락을 붙이지 않는다) 데이터 값만 본다.
+    def _data_cells(result_bucket):
+        return [m["raw"] for m in result_bucket if m["raw"] == "1,827"]
+
+    # 맥락을 붙이기 전: 후보 값이 1694/1827 둘로 갈리는데 표 밖 문맥으로는
+    # 어느 항목인지 못 좁히므로, 두 칸 다 회색(확인 필요)에 머문다.
+    # (2026-09-11 정정: 표 맥락 기능을 처음 만들 때는 이 자리가 "둘 다
+    # 파랑"이었다. 그 뒤 master에 들어간 문맥 연결 수정이 "라벨로 연결
+    # 못 하면 단정하지 않는다"로 바꿔서, 가짜 파랑은 이미 사라졌다.
+    # 표 맥락이 하는 일은 그 회색을 확실한 빨강/파랑으로 끌어올리는 것이다.)
+    before = categorize_values([dict(v) for v in values], answer_pool)
+    assert _data_cells(before["matches"]) == [], before["matches"]
+    assert _data_cells(before["mismatches"]) == [], before["mismatches"]
+    assert _data_cells(before["ambiguous"]) == ["1,827", "1,827"], before["ambiguous"]
+
+    attach_table_context(values, build_table_contexts(text, [grid]))
+    after = categorize_values(values, answer_pool)
+    mismatched = _data_cells(after["mismatches"])
+    matched = _data_cells(after["matches"])
+    # 2024년 칸의 1,827은 오류로 잡히고, 2025년 칸의 1,827은 그대로 정상
+    assert mismatched == ["1,827"], mismatched
+    assert matched == ["1,827"], matched
+    wrong_cell = [m for m in after["mismatches"] if m["raw"] == "1,827"][0]
+    right_cell = [m for m in after["matches"] if m["raw"] == "1,827"][0]
+    assert wrong_cell["table_context"]["column_header"] == "2024년", wrong_cell
+    assert right_cell["table_context"]["column_header"] == "2025년", right_cell
+    print("_selftest_attach_table_context_and_categorize_catches_wrong_year 통과")
+
+
+def _selftest_categorize_mixed_pool_column_blind_does_not_defeat_filter():
+    """열 정보 없는 후보(한글/PDF 원본) 하나 때문에 "2024년 칸에 적힌
+    2025년 값"이 다시 파랑이 되면 안 된다."""
+    ctx = {"row_header": "정기점검 실적", "column_header": "2024년"}
+    answer_pool = [
+        {"type": "amount", "normalized": "1694",
+         "row_label": "정기점검 실적", "column_header": "2024"},
+        {"type": "amount", "normalized": "1827",
+         "row_label": "정기점검 실적", "column_header": "2025"},
+        {"type": "amount", "normalized": "1827"},  # 한글 원본에서 온 열 모르는 후보
+    ]
+    rv = {"type": "amount", "normalized": "1827", "raw": "1,827",
+          "span": (0, 5), "table_context": ctx}
+    result = categorize_values([rv], answer_pool)
+    assert [m["raw"] for m in result["mismatches"]] == ["1,827"], result
+    assert result["matches"] == [], result
+    print("_selftest_categorize_mixed_pool_column_blind_does_not_defeat_filter 통과")
+
+
+def _selftest_categorize_abbreviated_year_column_still_catches_error():
+    """(A 브랜치가 진짜 .hwp+.xlsx로 재현해 고친 회귀의 단위 재현) 보고서 표
+    머리말이 "'24년"이고 원본 엑셀 머리말이 "2024"일 때, 잘못된 값은
+    빨강(오류)으로, 맞는 값은 파랑(정상)으로 나와야 한다. 고치기 전에는
+    둘 다 대조 실패로 떨어져 진짜 오류가 통째로 사라졌다."""
+    answer_pool = [
+        {"type": "amount", "normalized": "1694",
+         "row_label": "정기점검 실적", "column_header": "2024"},
+        {"type": "amount", "normalized": "1827",
+         "row_label": "정기점검 실적", "column_header": "2025"},
+    ]
+    wrong = {"type": "amount", "normalized": "1900", "raw": "1,900", "span": (0, 5),
+             "table_context": {"row_header": "정기점검 실적", "column_header": "'24년"}}
+    right = {"type": "amount", "normalized": "1827", "raw": "1,827", "span": (6, 11),
+             "table_context": {"row_header": "정기점검 실적", "column_header": "'25년"}}
+    result = categorize_values([wrong, right], answer_pool)
+    assert [m["raw"] for m in result["mismatches"]] == ["1,900"], result
+    assert [m["raw"] for m in result["matches"]] == ["1,827"], result
+    assert result["unverifiable"] == [], result
+    assert result["ambiguous"] == [], result
+    print("_selftest_categorize_abbreviated_year_column_still_catches_error 통과")
+
+
+def _selftest_categorize_no_matching_column_falls_back_to_ambiguous():
+    """이 칸과 출처가 맞는 원본 값이 하나도 없으면 빨강(오류)이 아니어야
+    한다 — 원본에 그 연도 열이 없다는 이유만으로 멀쩡한 값을 오류로 찍으면
+    안 된다.
+
+    (2026-09-11 변경) 이 자리는 표 맥락 기능을 처음 만들 때 초록
+    (unverifiable)이었다. 그때는 회색이라는 갈래가 아예 없었기 때문이다.
+    지금은 초록이 "원본에 이 종류의 데이터 자체가 없음"이라는 더 좁은 뜻을
+    갖고, 회색이 "후보는 있는데 못 좁혔다"를 뜻한다. 여기 상황은 amount
+    후보가 멀쩡히 존재하는데 열이 안 맞아 못 좁힌 것이므로 회색이 맞다."""
+    text = "구분\r\n2030년\r\n예산\r\n777\r\n"
+    grid = [["구분", "2030년"], ["예산", "777"]]
+    answer_pool = [{"type": "amount", "normalized": "500", "raw": "500",
+                    "row_label": "예산", "column_header": "2024년"}]
+    values = extract_values(text, default_year=2026)
+    attach_table_context(values, build_table_contexts(text, [grid]))
+    result = categorize_values(values, answer_pool)
+    # 머리말 칸의 "2030년"은 type="year"로 뽑혀 원본에 year 후보가 없으니
+    # 초록(대조불가)으로 간다 — 이 변경과 무관한 기존 동작이라(머리말 칸에는
+    # 맥락을 안 붙인다) 데이터 칸 값만 골라서 확인한다.
+    assert [m["raw"] for m in result["ambiguous"]] == ["777"], result
+    assert [m["raw"] for m in result["unverifiable"] if m["raw"] == "777"] == [], result
+    assert [m["raw"] for m in result["mismatches"] if m["raw"] == "777"] == [], result
+    print("_selftest_categorize_no_matching_column_falls_back_to_ambiguous 통과")
+
+
+def _selftest_categorize_table_cell_uses_row_header_as_label_context():
+    """(2026-09-11, 두 기능을 합치면서 생긴 구멍을 메움) 세로형("항목/값")
+    원본은 값마다 label(항목명)을 갖고, 평문 값은 문장 문맥으로 그 라벨과
+    연결된다. 그런데 표 안의 값은 평문 문맥이 거의 항상 빈 문자열이다 —
+    표를 펼치면 값 바로 앞이 줄바꿈이라 문맥이 잘리기 때문이다. 그래서
+    같은 원본·같은 숫자인데 문장에 쓰면 연결되고 표에 쓰면 회색이 되는
+    모순이 생긴다. 표 칸에서는 그 행의 머리말을 문맥으로 함께 쓴다."""
+    answer_pool = [
+        {"type": "amount", "normalized": "21", "raw": "21", "label": "참여 인원"},
+        {"type": "amount", "normalized": "40", "raw": "40", "label": "지원 인원"},
+    ]
+    text = "구분\r\n인원\r\n참여 인원\r\n21\r\n지원 인원\r\n33\r\n"
+    grid = [["구분", "인원"], ["참여 인원", "21"], ["지원 인원", "33"]]
+    values = extract_values(text, default_year=2026)
+    attach_table_context(values, build_table_contexts(text, [grid]))
+    result = categorize_values(values, answer_pool)
+    assert [m["raw"] for m in result["matches"]] == ["21"], result["matches"]
+    assert [m["raw"] for m in result["mismatches"]] == ["33"], result["mismatches"]
+    print("_selftest_categorize_table_cell_uses_row_header_as_label_context 통과")
+
+
+def _selftest_categorize_table_cell_not_more_lenient_than_prose():
+    """(2026-09-11, 두 기능 통합에서 가장 중요한 계약) 표 맥락은 후보를
+    "좁히는" 장치일 뿐이므로, 좁힐 근거가 없을 때 표 안의 값이 평문보다
+    관대하게 판정되면 안 된다. 원본에 열/행 출처 정보가 전혀 없고 라벨도
+    비어 있으면, 같은 숫자는 문장에 있든 표에 있든 똑같이 회색이어야 한다.
+    (여기서 표만 파랑/빨강이 되면, master에 이미 들어간 "라벨로 연결 못
+    하면 단정하지 않는다" 보호가 표 안에서만 조용히 풀린다.)"""
+    answer_pool = [
+        {"type": "amount", "normalized": "1850000", "raw": "1850000", "label": ""},
+        {"type": "amount", "normalized": "342", "raw": "342", "label": ""},
+    ]
+    prose = extract_values("예산은 1,850,000원이고 기타는 7,777,777원입니다", default_year=2026)
+    prose_result = categorize_values(prose, answer_pool)
+    assert sorted(m["raw"] for m in prose_result["ambiguous"]) == \
+        ["1,850,000원", "7,777,777원"], prose_result
+
+    text = "구분\r\n금액\r\n예산\r\n1,850,000\r\n기타\r\n7,777,777\r\n"
+    grid = [["구분", "금액"], ["예산", "1,850,000"], ["기타", "7,777,777"]]
+    values = extract_values(text, default_year=2026)
+    attach_table_context(values, build_table_contexts(text, [grid]))
+    table_result = categorize_values(values, answer_pool)
+    assert sorted(m["raw"] for m in table_result["ambiguous"]) == \
+        ["1,850,000", "7,777,777"], table_result
+    assert table_result["matches"] == [], table_result
+    assert table_result["mismatches"] == [], table_result
+    print("_selftest_categorize_table_cell_not_more_lenient_than_prose 통과")
+
+
+def compute_column_sums(rows: list[dict], source_file: str, sheet: str,
+                        wide_columns: set = None) -> list[dict]:
     """엑셀에서 읽은 행(딕셔너리 리스트)에서, 숫자로만 이루어진 각 컬럼의 단순 합계를
     미리 계산해 정답 풀에 추가할 항목으로 반환한다 (PRD 12-2: 합계만, 증감률/평균은 제외).
     float을 직접 sum()하지 않고 Decimal로 변환해 더한다 — 소수를 포함하는 컬럼(단가 등)의
     합계에서 이진 부동소수점 오차가 생겨 Task 5의 정확일치 비교와 충돌하는 것을 방지한다.
     bool은 int의 서브클래스라 isinstance(v, (int, float))를 그냥 두면 True/False가
     섞인 컬럼(완료여부 등)에서 Decimal("True") 파싱 오류가 나므로 명시적으로 제외한다.
+
+    (F14) wide_columns가 주어지면(가로형 표에서 온 열 이름들), 그 열의 합계
+    항목에도 열 머리말과 행 라벨("합계")을 붙인다. 안 붙이면 구멍이 생긴다 —
+    출처 정보가 없는 후보는 "모르는 건 막지 않는다" 원칙에 따라 열 필터를
+    무조건 통과하므로, 데이터 행이 하나뿐이라 합계가 그 행의 값과 같아지는
+    흔한 경우에 "2024년 칸에 적힌 2025년 값"이 2025년 열의 합계와 일치해
+    다시 정상(파랑)으로 빠져나간다(실제로 이 테스트를 만들다 발견). 합계는
+    그 열에 속한 값이 맞으므로 열 머리말을 붙이는 게 사실에 맞고, 행 라벨을
+    "합계"로 두면 개별 항목 행과는 자연히 연결되지 않는다(보고서 표에 진짜
+    "합계" 행이 있으면 그때는 제대로 연결된다).
     """
     if not rows:
         return []
@@ -885,10 +1733,14 @@ def compute_column_sums(rows: list[dict], source_file: str, sheet: str) -> list[
         if len(values) == len(rows) and values:
             total = sum(Decimal(str(v)) for v in values)
             normalized = _decimal_to_normalized_str(total)
-            results.append({
+            entry = {
                 "type": "amount", "normalized": normalized, "raw": f"{col} 합계",
                 "source_file": source_file, "location": f"{sheet}!{col}(합계)",
-            })
+            }
+            if wide_columns and str(col).strip() in wide_columns:
+                entry["column_header"] = str(col).strip()
+                entry["row_label"] = "합계"
+            results.append(entry)
     return results
 
 
@@ -1048,3 +1900,21 @@ if __name__ == "__main__":
     _selftest_check_weekday_consistency_detects_mismatch()
     _selftest_check_weekday_consistency_matches_when_correct()
     _selftest_check_weekday_consistency_ignores_date_without_weekday()
+    # (F14) 표 맥락 + 열 출처 구분
+    _selftest_split_column_identity()
+    _selftest_split_column_identity_year_notations()
+    _selftest_column_identity_agrees_truth_table()
+    _selftest_column_identity_agrees_across_year_notations()
+    _selftest_candidate_allowed_by_context_falls_back_when_unknown()
+    _selftest_filter_candidates_by_context_mixed_pool()
+    _selftest_build_table_contexts_basic()
+    _selftest_build_table_contexts_merged_cell()
+    _selftest_build_table_contexts_repeated_value_is_not_treated_as_merge()
+    _selftest_build_table_contexts_unmatchable_table_is_skipped()
+    _selftest_attach_table_context_does_not_clobber_prose_context()
+    _selftest_attach_table_context_and_categorize_catches_wrong_year()
+    _selftest_categorize_mixed_pool_column_blind_does_not_defeat_filter()
+    _selftest_categorize_abbreviated_year_column_still_catches_error()
+    _selftest_categorize_no_matching_column_falls_back_to_ambiguous()
+    _selftest_categorize_table_cell_uses_row_header_as_label_context()
+    _selftest_categorize_table_cell_not_more_lenient_than_prose()
