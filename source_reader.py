@@ -8,7 +8,41 @@ import subprocess
 from decimal import Decimal
 
 import openpyxl
-from verify_numbers import extract_values, compute_column_sums, _decimal_to_normalized_str
+from verify_numbers import (extract_values, compute_column_sums,
+                            _decimal_to_normalized_str, _YEAR_PATTERN)
+
+
+def _header_cell_is_year(value) -> bool:
+    """헤더 칸이 "연도"를 나타내는가. 실적표 헤더는 "2023"이 문자열일 때도
+    숫자로 저장돼 있을 때도 있어서 둘 다 받는다."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int) and 1900 <= value <= 2100:
+        return True
+    return bool(_YEAR_PATTERN.search(str(value)))
+
+
+def _looks_like_wide_header(header: list) -> bool:
+    """이 헤더 행이 "연도를 열로 펼친 가로형 표"의 헤더인가.
+
+    (F14, 의도적으로 좁게 잡은 판정) 이 판정이 참일 때만 각 값에 열 머리말을
+    붙이고, 그 열 머리말이 verify_numbers의 열 출처 구분 필터를 실제로
+    작동시킨다. 그래서 여기를 넓게 잡으면 위험하다 — 예를 들어 흔한
+    "예산|인원" 2열 시트의 헤더를 열 머리말로 붙여버리면, 보고서 표의
+    "2024년" 칸이 "한쪽에만 연도가 있음"으로 판정돼 멀쩡한 값이 전부
+    회색(확인 필요)으로 떨어진다(실제로 그렇게 되는지 아래 self-test로
+    고정했다). 그래서 두 조건을 모두 요구한다:
+      (가) 채워진 칸 3개 이상 — 가로형 표는 정의상 "라벨 + 연도 여러 개"라
+           최소 3열이다. 이 저장소의 기존 2열 관례를 건드리지 않는다.
+      (나) 그중 하나 이상이 연도로 보인다 — 이 기능이 풀려는 문제가
+           "몇 년도 값인지"라서, 연도가 없는 헤더는 애초에 대상이 아니다.
+    조건을 못 넘으면 열 머리말을 아예 붙이지 않고, 그러면 필터가 전혀
+    작동하지 않아 기존 동작이 그대로 유지된다.
+    """
+    filled = [h for h in header if h is not None and str(h).strip()]
+    if len(filled) < 3:
+        return False
+    return any(_header_cell_is_year(h) for h in filled)
 
 
 def read_excel_source(path: str, default_year: int) -> list[dict]:
@@ -61,6 +95,15 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
             header = [c.value for c in all_rows[0]]
             header_row_idx = 0
 
+        # (F14) 가로형(연도를 열로 펼친) 표일 때만 "열 번호 -> 열 머리말"을
+        # 남겨둔다. 이 정보가 있어야 보고서 표의 "2024년" 칸을 원본의 2024년
+        # 값하고만 대조할 수 있다(verify_numbers.column_identity_agrees).
+        # 가로형이 아니면 빈 dict라 아래에서 열 정보가 아무것도 안 붙는다.
+        column_headers = {}
+        if header is not None and _looks_like_wide_header(header):
+            column_headers = {idx: str(h).strip() for idx, h in enumerate(header)
+                              if h is not None and str(h).strip()}
+
         for row in (all_rows[header_row_idx + 1:] if header_row_idx is not None else []):
             row_dict = {}
             # (2026-09-08 추가, D01/D05 문맥 연결 요건) 이 행의 문자열 셀 값을
@@ -70,42 +113,69 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
             # 같은 타입 후보가 여럿일 때 보고서 문맥과 이 라벨의 겹침으로
             # 항목을 연결하는 데 쓴다(라벨이 없으면 그 값은 문맥 연결에서
             # 항상 빠지고, 후보가 하나뿐일 때만 비교 대상이 됨 — 안전한 기본값).
+            #
+            # (2026-09-11, 두 기능 통합) 세로형("항목/값")과 가로형(연도 열)
+            # 두 갈래가 각자 이 행 라벨을 따로 계산하고 있었는데, 두 식이
+            # 글자 그대로 같았다(그 행의 문자열 셀 전부 이어붙이기). 그래서
+            # 계산은 여기 한 번만 하고, 붙이는 방식만 시트 모양에 따라
+            # 나눈다(_attach_identity 참고) — 한쪽 모양이 다른 쪽 꼬리표를
+            # 얻거나 라벨을 통째로 잃는 일이 없게 하기 위함이다.
             row_label = " ".join(
                 str(cell.value).strip() for cell in row
                 if isinstance(cell.value, str) and cell.value.strip()
             )
-            for col_name, cell in zip(header, row):
+
+            def _attach_identity(entry, col_idx):
+                """행/열 출처 꼬리표를 붙인다.
+
+                - label: 모든 시트에 붙인다(master의 문맥 연결이 쓰는 키).
+                  가로형 시트라고 해서 이걸 빼면, 그 원본을 가리키는 평문
+                  문장이 라벨로 연결될 길이 사라져 전부 회색이 된다.
+                - row_label / column_header: 가로형 시트에만 붙인다(표 맥락
+                  필터가 쓰는 키). 세로형 시트에 열 머리말을 붙이면 보고서
+                  표의 "2024년" 칸이 "한쪽에만 연도가 있음"으로 갈려 멀쩡한
+                  값이 전부 회색으로 떨어진다 — 그래서 좁게 잡는다.
+                """
+                entry["label"] = row_label
+                if column_headers:
+                    if row_label:
+                        entry["row_label"] = row_label
+                    column_header = column_headers.get(col_idx, "")
+                    if column_header:
+                        entry["column_header"] = column_header
+                return entry
+
+            for col_idx, (col_name, cell) in enumerate(zip(header, row)):
                 value = cell.value
                 if value is None:
                     continue
                 if isinstance(value, (datetime.date, datetime.datetime)):
                     # (2026-08-30 재검토 후 추가) 엑셀 날짜 타입 셀 — extract_dates와
                     # 같은 형식(YYYY-MM-DD)으로 정규화해야 정답 풀에서 날짜로 인식된다.
-                    results.append({
+                    results.append(_attach_identity({
                         "type": "date", "normalized": value.strftime("%Y-%m-%d"),
                         "raw": str(value), "source_file": path, "location": f"{ws.title}!{cell.coordinate}",
-                        "label": row_label,
-                    })
+                    }, col_idx))
                 elif isinstance(value, (int, float)) and not isinstance(value, bool):
                     # (2026-08-30 Task 5/6 검토에서 미리 반영) bool은 int의 서브클래스라
                     # 별도 제외 필요. 정규화도 float 대신 Decimal 기반 공용 헬퍼를 써서
                     # 부동소수점 오차·과학적 표기법 문제를 처음부터 피한다.
-                    results.append({
+                    results.append(_attach_identity({
                         "type": "amount", "normalized": _decimal_to_normalized_str(Decimal(str(value))),
                         "raw": str(value), "source_file": path, "location": f"{ws.title}!{cell.coordinate}",
-                        "label": row_label,
-                    })
+                    }, col_idx))
                     row_dict[col_name] = value
                 elif isinstance(value, str):
                     for v in extract_values(value, default_year):
                         v["source_file"] = path
                         v["location"] = f"{ws.title}!{cell.coordinate}"
-                        v["label"] = row_label
                         del v["span"]
-                        results.append(v)
+                        results.append(_attach_identity(v, col_idx))
             if row_dict:
                 rows_as_dicts.append(row_dict)
-        results.extend(compute_column_sums(rows_as_dicts, source_file=path, sheet=ws.title))
+        results.extend(compute_column_sums(
+            rows_as_dicts, source_file=path, sheet=ws.title,
+            wide_columns=set(column_headers.values()) if column_headers else None))
     return results
 
 
@@ -210,6 +280,99 @@ def _selftest_read_excel_source_title_row_before_real_header():
         print("read_excel_source_title_row_before_real_header 통과:", result)
     finally:
         os.remove(test_path)
+
+
+def _selftest_read_excel_source_wide_table_keeps_column_identity():
+    """(F14) 연도를 열로 펼친 가로형 실적표에서, 값마다 "어느 행 / 어느 열"에서
+    나왔는지가 남아야 한다. 이게 있어야 보고서 표의 "2024년" 칸을 원본의
+    2024년 값하고만 대조할 수 있다."""
+    test_path = "_test_가로형표.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "실적"
+    ws.append(["분류", "지표명", "2023", "2024", "2025"])
+    ws.append(["점검", "정기점검 실적", 1595, 1694, 1827])
+    wb.save(test_path)
+    try:
+        result = read_excel_source(test_path, default_year=2026)
+        # compute_column_sums가 만드는 파생 컬럼합계는 데이터가 한 행뿐이라
+        # 값이 셀 값과 같다 — 셀 주소(location)로 진짜 셀 항목만 골라낸다.
+        by_cell = {r["location"]: r for r in result if r["type"] == "amount"}
+        assert by_cell["실적!D2"]["column_header"] == "2024", by_cell["실적!D2"]
+        assert by_cell["실적!E2"]["column_header"] == "2025", by_cell["실적!E2"]
+        assert by_cell["실적!D2"]["row_label"] == "점검 정기점검 실적", by_cell["실적!D2"]
+        # (2026-09-11, 두 기능 통합) 가로형이라고 해서 master의 label을 잃으면
+        # 안 된다 — 이 원본을 가리키는 평문 문장이 라벨로 연결될 길이 사라져
+        # 전부 회색이 되어버린다.
+        assert by_cell["실적!D2"]["label"] == "점검 정기점검 실적", by_cell["실적!D2"]
+        print("_selftest_read_excel_source_wide_table_keeps_column_identity 통과:",
+              by_cell["실적!D2"])
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_excel_source_narrow_table_has_no_column_identity():
+    """(F14 회귀 방지 — 이게 깨지면 실사용에서 크게 아프다) 가로형이 아닌
+    보통 시트에는 열 머리말을 절대 붙이면 안 된다. 붙이는 순간 보고서 표의
+    "2024년" 칸이 "한쪽에만 연도가 있음"으로 판정돼, 멀쩡히 일치하던 값이
+    전부 회색(확인 필요)으로 떨어진다. 이 저장소에서 가장 흔한 2열 시트와,
+    3열이지만 연도가 없는 시트 둘 다 확인한다.
+
+    (2026-09-11, 두 기능 통합) 동시에 master의 label은 그대로 붙어 있어야
+    한다 — 세로형 시트의 문맥 연결이 통째로 사라지면 안 된다."""
+    for name, header, data in [
+        ("_test_2열.xlsx", ["항목", "값"], ["참여 인원", 21]),
+        ("_test_연도없음.xlsx", ["분류", "지표명", "비고"], ["점검", "정기점검", 1595]),
+    ]:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Sheet1"
+        ws.append(header)
+        ws.append(data)
+        wb.save(name)
+        try:
+            result = read_excel_source(name, default_year=2026)
+            assert result, name
+            cells = [r for r in result if "location" in r and "(합계)" not in r["location"]]
+            assert cells, name
+            for r in cells:
+                assert "column_header" not in r, (name, r)
+                assert "row_label" not in r, (name, r)
+                assert "label" in r, (name, r)  # master의 세로형 문맥 연결은 유지
+        finally:
+            os.remove(name)
+    print("_selftest_read_excel_source_narrow_table_has_no_column_identity 통과")
+
+
+def _selftest_read_excel_source_two_shapes_do_not_cross_contaminate():
+    """(2026-09-11, 두 기능 통합을 정면으로 겨냥한 테스트) 세로형("항목/값")
+    시트와 가로형(연도 열) 시트가 각자 자기 대접만 받아야 한다:
+      - 세로형: label만 (열/행 출처 꼬리표가 붙으면 표 대조가 과하게 좁혀짐)
+      - 가로형: label + row_label + column_header
+    어느 쪽도 라벨을 통째로 잃거나, 두 모양의 꼬리표를 동시에 달면 안 된다."""
+    tall_path, wide_path = "_test_세로형.xlsx", "_test_가로형.xlsx"
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["항목", "값"]); ws.append(["참여 인원", 21]); ws.append(["지원 인원", 40])
+    wb.save(tall_path)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["지표명", "2024", "2025"]); ws.append(["정기점검 실적", 1694, 1827])
+    wb.save(wide_path)
+    try:
+        tall = [r for r in read_excel_source(tall_path, default_year=2026)
+                if r["type"] == "amount" and "(합계)" not in r["location"]]
+        wide = [r for r in read_excel_source(wide_path, default_year=2026)
+                if r["type"] == "amount" and "(합계)" not in r["location"]]
+        assert {r["label"] for r in tall} == {"참여 인원", "지원 인원"}, tall
+        for r in tall:  # 세로형에 가로형 꼬리표가 새어 들어오면 안 된다
+            assert "column_header" not in r and "row_label" not in r, r
+        assert {r["column_header"] for r in wide} == {"2024", "2025"}, wide
+        for r in wide:  # 가로형도 label을 그대로 갖는다
+            assert r["label"] == "정기점검 실적", r
+            assert r["row_label"] == "정기점검 실적", r
+        print("_selftest_read_excel_source_two_shapes_do_not_cross_contaminate 통과")
+    finally:
+        os.remove(tall_path)
+        os.remove(wide_path)
 
 
 def read_hwp_source(path: str, default_year: int) -> list[dict]:
@@ -799,6 +962,9 @@ if __name__ == "__main__":
     _selftest_read_excel_source_date_cell()
     _selftest_read_excel_source_corrupted_file_no_crash()
     _selftest_read_excel_source_title_row_before_real_header()
+    _selftest_read_excel_source_wide_table_keeps_column_identity()
+    _selftest_read_excel_source_narrow_table_has_no_column_identity()
+    _selftest_read_excel_source_two_shapes_do_not_cross_contaminate()
     _selftest_read_hwp_source()
     _selftest_read_hwp_source_no_match()
     _selftest_read_hwp_source_missing_file_no_crash()
