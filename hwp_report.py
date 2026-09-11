@@ -6,6 +6,31 @@ import time
 from pyhwpx import Hwp
 
 
+def _read_table_grids(hwp) -> list:
+    """열려 있는 한글 인스턴스(hwp)에서 표 격자 목록을 읽는다.
+    HwpReport.get_table_grids()의 실제 본체 — 한글 객체만 받는 모듈 수준
+    함수로 떼어놓아, 컨트롤 순회가 실패하는 상황을 가짜 객체로 테스트할 수
+    있게 했다(아래 _selftest_read_table_grids_* 참고).
+    표 하나를 읽지 못하면 그 표만 건너뛴다 — 표 하나가 이상하다고 나머지
+    표의 맥락까지 버릴 이유가 없다."""
+    table_count = 0
+    ctrl = hwp.HeadCtrl
+    while ctrl:
+        if ctrl.CtrlID == "tbl":
+            table_count += 1
+        ctrl = ctrl.Next
+
+    grids = []
+    for n in range(table_count):
+        try:
+            df = hwp.table_to_df(n, cols=0)
+        except Exception:
+            continue
+        grids.append([[str(c) for c in df.columns]]
+                     + [[str(v) for v in row] for row in df.to_numpy().tolist()])
+    return grids
+
+
 def _find_whole_number(hwp, target_text: str, direction: str) -> bool:
     """target_text(순수 숫자로만 된 문자열, 예: "7")와 정확히 같은 독립된
     숫자만 찾는다 - 더 큰 숫자 안에 파묻힌 부분 문자열(예: "1,827" 안의
@@ -107,6 +132,42 @@ class HwpReport:
         # 가정하므로, None을 여기서 빈 문자열로 정규화한다.
         text = self.hwp.GetTextFile("TEXT", "")
         return text if text is not None else ""
+
+    def get_table_grids(self) -> list:
+        """문서 안의 표를 각각 "머리말 행까지 포함한 2차원 문자열 격자"로
+        읽어 문서 순서대로 돌려준다. 읽지 못하면 빈 리스트.
+
+        왜 필요한가: get_text()가 쓰는 GetTextFile("TEXT","")는 표를 셀 하나당
+        한 줄씩 평평하게 흘려보낼 뿐, 행/열이 어디인지 아무 표시도 남기지
+        않는다(직접 확인: 3행 3열 표 → 그냥 9줄). 그래서 표 안의 숫자는
+        "어느 항목의 몇 년도 값인지"를 알 수 없다. 여기서 읽는 격자를
+        verify_numbers.build_table_contexts()가 그 평문 텍스트에 다시 맞춰서
+        칸마다 행/열 머리말을 복원한다.
+
+        격자는 pyhwpx의 table_to_df(n, cols=0)로 얻는다 — 이 메서드는 표를
+        GetTextFile("HWPML2X", option="saveblock")로 XML로 내보내 셀 구조를
+        그대로 해석하므로, 평평한 "TEXT" 추출과 달리 행×열이 보존된다.
+        cols=0은 "0번 행을 컬럼명으로 쓴다"는 뜻이라 머리말 행이 df.columns로
+        빠지므로, 여기서 다시 맨 앞에 붙여 원래 표 모양을 복원한다.
+
+        표 개수는 컨트롤 목록(HeadCtrl → Next)에서 CtrlID == "tbl"인 것을
+        세어 구한다. CtrlID는 한글로 현지화되지 않는 식별자라 안정적이다
+        (table_to_df 쪽은 UserDesc == "표"로 찾으므로 둘이 어긋날 수 있는데,
+        그러면 table_to_df가 IndexError를 던지고 그 표만 건너뛴다).
+
+        (이 클래스의 "try/except로 감싸지 않는다" 원칙에 대한 의도적인 예외)
+        클래스 docstring이 밝힌 대로 이 클래스는 오류를 삼키지 않는 게
+        원칙이지만, 이 메서드만은 예외로 둔다. 표 맥락은 "있으면 더 정확해지는"
+        부가 정보일 뿐이고, 못 읽어도 숫자검증은 이 기능이 생기기 전과 똑같이
+        (표 안 값에 맥락이 없는 채로) 정상 동작한다. 여기서 예외를 그대로
+        올려보내면 부가 기능의 실패가 검증 전체를 못 하게 만드는, 훨씬 나쁜
+        결과가 된다. 특히 컨트롤 순회(HeadCtrl → Next) 자체가 실패할 수
+        있어서 표 하나 단위 보호만으로는 부족하다 — 그래서 두 겹으로 감싼다.
+        """
+        try:
+            return _read_table_grids(self.hwp)
+        except Exception:
+            return []
 
     def mark_color(self, target_text: str, r: int, g: int, b: int) -> bool:
         """문서 안에서 target_text의 모든 occurrence를 찾아 글자색을 (r,g,b)로
@@ -609,7 +670,71 @@ def _selftest_reject_all_changes_no_op_without_tracking():
         os.remove(test_path)
 
 
+class _FakeHeadCtrlRaises:
+    """컨트롤 목록의 시작(HeadCtrl)을 읽는 순간 터지는 가짜 한글 객체."""
+    @property
+    def HeadCtrl(self):
+        raise RuntimeError("컨트롤 목록을 읽을 수 없습니다")
+
+
+class _FakeNextRaises:
+    """순회 도중(ctrl.Next)에 터지는 가짜 한글 객체 — 구조가 특이한 컨트롤이
+    섞여 있을 때의 모양이다."""
+    class _Ctrl:
+        CtrlID = "tbl"
+
+        @property
+        def Next(self):
+            raise RuntimeError("다음 컨트롤을 읽을 수 없습니다")
+
+    HeadCtrl = _Ctrl()
+
+
+class _FakeTableToDfRaises:
+    """표는 두 개 있지만 첫 번째 표를 읽을 때만 터지는 가짜 한글 객체.
+    표 하나의 실패가 나머지 표까지 버리게 만들면 안 된다는 것을 확인한다."""
+    class _Ctrl:
+        CtrlID = "tbl"
+
+        def __init__(self, nxt=None):
+            self.Next = nxt
+
+    def __init__(self):
+        self.HeadCtrl = self._Ctrl(self._Ctrl(None))
+
+    def table_to_df(self, n, cols=0):
+        if n == 0:
+            raise IndexError("해당 인덱스의 표가 존재하지 않습니다")
+        import pandas as pd
+        return pd.DataFrame([["예산", "100"]], columns=["구분", "2024년"])
+
+
+def _selftest_read_table_grids_control_walk_failure_degrades_to_empty():
+    """(표 맥락은 부가 기능) 컨트롤 순회가 실패하면 예외를 올려보내지 말고
+    빈 목록으로 물러나야 한다 — 여기서 예외가 올라가면 표 구조를 못 읽는
+    문서에서 숫자검증 자체가 통째로 실패한다. 표 하나 단위 보호(table_to_df
+    try/except)만으로는 순회 자체의 실패를 막지 못하므로 두 겹이 필요하다."""
+    class _Probe(HwpReport):
+        def __init__(self, fake):  # 실제 한글을 띄우지 않고 메서드만 시험한다
+            self.hwp = fake
+
+    assert _Probe(_FakeHeadCtrlRaises()).get_table_grids() == []
+    assert _Probe(_FakeNextRaises()).get_table_grids() == []
+    print("_selftest_read_table_grids_control_walk_failure_degrades_to_empty 통과")
+
+
+def _selftest_read_table_grids_one_bad_table_does_not_lose_the_others():
+    """표 하나를 읽지 못해도 나머지 표의 격자는 정상적으로 나와야 한다."""
+    grids = _read_table_grids(_FakeTableToDfRaises())
+    assert grids == [[["구분", "2024년"], ["예산", "100"]]], grids
+    print("_selftest_read_table_grids_one_bad_table_does_not_lose_the_others 통과:", grids)
+
+
 if __name__ == "__main__":
+    # 한글 없이 돌아가는 것부터 먼저 확인한다(가짜 객체로 실패 경로 시험).
+    _selftest_read_table_grids_control_walk_failure_degrades_to_empty()
+    _selftest_read_table_grids_one_bad_table_does_not_lose_the_others()
+
     # (2026-09-06, 실측 확인) 한글 COM 인스턴스를 연달아 너무 빠르게 만들면
     # "서버 실행이 실패했습니다"(pywintypes.com_error)가 간헐적으로 재현됨
     # — 각 self-test 사이에 짧은 대기를 둬서 이전 인스턴스가 완전히 정리될
