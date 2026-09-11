@@ -10,7 +10,8 @@ import os
 import tempfile
 import openpyxl
 
-from verify_numbers import extract_values, categorize_values, check_weekday_consistency
+from verify_numbers import (extract_values, categorize_values, check_weekday_consistency,
+                            build_table_contexts, attach_table_context)
 from source_reader import read_source_files
 from hwp_report import HwpReport
 from ignore_list import load_ignored_values, DEFAULT_IGNORE_PATH
@@ -95,6 +96,18 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
 
     report_text = report.get_text()
     report_values = extract_values(report_text, default_year)
+
+    # (F14) 표 안에서 뽑힌 값에는 그 칸의 행/열 머리말을 붙여준다. 평문
+    # 텍스트(GetTextFile("TEXT",""))는 표를 셀 하나당 한 줄로 평평하게
+    # 흘려보내 행/열 정보를 통째로 잃어버리므로, 표 격자를 따로 읽어
+    # (get_table_grids) 그 평문에 다시 맞춘다. 맥락이 붙은 값만
+    # categorize_values에서 "출처가 맞는 원본 값"으로 후보가 좁혀진다 —
+    # 표 밖의 값과 격자를 못 맞춘 표는 맥락이 안 붙어 기존 동작 그대로다.
+    # get_table_grids()는 실패해도 예외 대신 빈 목록을 돌려주므로, 표를
+    # 못 읽는 문서에서도 검증 자체는 예전처럼 끝까지 진행된다.
+    table_contexts = build_table_contexts(report_text, report.get_table_grids())
+    attach_table_context(report_values, table_contexts)
+
     categorized = categorize_values(report_values, answer_pool)
     mismatches = categorized["mismatches"]
     matches = categorized["matches"]
@@ -541,6 +554,284 @@ def _selftest_run_verification_mismatch_items_in_span_order():
         os.remove(report_path)
 
 
+def _build_hwp_table(hwp, rows: list, merge_first_column: bool = False) -> None:
+    """진짜 한글 표를 만들어 rows 내용을 채운다(테스트 픽스처용).
+    merge_first_column=True면 1열의 데이터 행 두 칸을 세로 병합한다 —
+    글자가 이미 들어있는 두 칸을 합치는 것이라, 한글이 두 문단을 한 칸에
+    몰아넣는 실제 병합 동작(table_to_df는 값 복제, 평문은 두 줄)이 그대로
+    재현된다."""
+    hwp.create_table(rows=len(rows), cols=len(rows[0]))
+    hwp.get_into_nth_table(0)
+    for r, row in enumerate(rows):
+        for c, val in enumerate(row):
+            if val:
+                hwp.insert_text(val)
+            if not (r == len(rows) - 1 and c == len(row) - 1):
+                hwp.TableRightCell()
+    if merge_first_column:
+        hwp.get_into_nth_table(0)
+        for _ in range(len(rows[0])):  # 머리말 행을 지나 1열 첫 데이터 칸으로
+            hwp.TableRightCell()
+        hwp.TableCellBlock()
+        hwp.TableCellBlockExtend()
+        hwp.TableLowerCell()
+        hwp.TableMergeCell()
+    hwp.MoveDocEnd()
+
+
+def _selftest_run_verification_table_cell_wrong_year_is_flagged():
+    """(F14, 이 기능이 존재하는 이유 — 진짜 .hwp와 진짜 .xlsx로 확인)
+    원본의 정기점검 실적은 2024년 1,694 / 2025년 1,827인데, 보고서 표의
+    "2024년" 칸에 2025년 값(1,827)을 잘못 옮겨적은 상황이다.
+
+    이 기능이 없으면 2024년 칸의 오류를 특정할 수 없다. 이제는 각 칸이
+    자기 열(2024년/2025년)의 원본 값하고만 대조되므로, 2024년 칸은
+    빨강(오류), 2025년 칸은 파랑(정상)이어야 한다. 같은 글자("1,827")가
+    문서에 두 번 나오므로 색을 문서 순서대로 읽어 [빨강, 파랑]인지 확인한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_표맥락")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["분류", "지표명", "2024", "2025"])
+    ws.append(["점검", "정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표맥락.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("2025년 주요 실적\n")
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["정기점검 실적", "1,827", "1,827"],  # 2024년 칸이 틀렸다(진짜 값은 1,694)
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        colors = report.get_char_colors("1,827")
+        assert colors == [(255, 0, 0), (0, 0, 255)], (
+            f"2024년 칸은 빨강, 2025년 칸은 파랑이어야 하는데 {colors}. "
+            f"둘 다 같은 색이면 표 맥락이 안 붙은 것(기능 이전 동작)이다."
+        )
+        print("run_verification(표 2024년 칸의 잘못된 연도 값 적발) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_with_merged_cell_keeps_alignment():
+    """(F14) 병합된 셀이 있는 진짜 한글 표에서도 줄 정렬이 밀리지 않아야 한다.
+    table_to_df는 병합 칸의 값을 걸친 행마다 복제해 넣지만 평문 텍스트에는
+    그 내용이 한 번만(여기서는 두 문단이라 두 줄로) 나오므로, 처리하지
+    않으면 그 뒤의 모든 칸이 한 줄씩 밀려 엉뚱한 열 머리말이 붙는다.
+
+    표 마지막 행의 "2024년" 칸에 2025년 값(600,000)을 적어두고, 그 값이
+    빨강으로 잡히는지 본다 — 정렬이 밀렸다면 이 칸의 열 머리말이
+    "2025년"으로 잘못 읽혀 파랑(정상)이 되어버린다. 즉 이 단언은 병합
+    처리가 실제로 동작했는지를 결과로 확인한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_병합표")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["구분", "2024", "2025"])
+    ws.append(["점검 예산", 500000, 600000])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_병합표.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("병합 표 확인\n")
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["점검", "500,000", "600,000"],   # 정상
+        ["예산", "600,000", "600,000"],   # 2024년 칸이 틀렸다(진짜 값은 500,000)
+    ], merge_first_column=True)
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        # 문서에 "600,000"은 세 번 나온다: 1행 2025년(정상, 파랑),
+        # 2행 2024년(오류, 빨강), 2행 2025년(정상, 파랑).
+        colors = report.get_char_colors("600,000")
+        assert colors == [(0, 0, 255), (255, 0, 0), (0, 0, 255)], (
+            f"병합 표에서 열 머리말 정렬이 어긋났다: {colors}"
+        )
+        # 정상 값은 그대로 파랑이어야 한다(병합이 앞쪽 행까지 망치지 않았는지).
+        assert report.get_char_colors("500,000") == [(0, 0, 255)], \
+            report.get_char_colors("500,000")
+        print("run_verification(병합 셀 있는 표의 정렬 유지) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_with_tall_source_keeps_old_behavior():
+    """(F14 회귀 방지 — 실사용에서 가장 중요한 보장) 보고서에 표가 있어도,
+    원본이 가로형(연도별 열)이 아닌 보통 세로형 엑셀이면 판정이 표 맥락
+    기능 이전과 똑같아야 한다.
+
+    이 경우 원본 값에는 열/행 출처 정보가 아예 없으므로, "모르는 것은 막지
+    않는다"는 원칙에 따라 후보가 하나도 걸러지지 않는다 — 즉 표 안 값도
+    예전처럼 값이 맞으면 파랑, 틀리면 빨강이어야 한다. 여기서 회색이나
+    초록이 나오면 멀쩡히 쓰던 검증이 조용히 무력화된 것이므로 반드시
+    잡아야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_세로형")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws.append(["항목", "값"])            # 가로형이 아님(2열, 연도 없음)
+    ws.append(["예산", 1850000])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_세로형원본.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산 현황\n")
+    _build_hwp_table(setup, [
+        ["구분", "금액"],
+        ["예산", "1,850,000"],   # 원본과 일치 -> 파랑이어야 한다
+        ["기타", "7,777,777"],   # 원본에 없음 -> 빨강이어야 한다
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,850,000") == [(0, 0, 255)], (
+            "가로형이 아닌 원본인데 표 안의 정상 값이 파랑이 아니다 — "
+            f"{report.get_char_colors('1,850,000')} (기존 동작이 깨졌다)"
+        )
+        assert report.get_char_colors("7,777,777") == [(255, 0, 0)], \
+            report.get_char_colors("7,777,777")
+        print("run_verification(가로형 아닌 원본 + 표 = 기존 동작 유지) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_is_not_more_lenient_than_prose():
+    """(2026-09-11, 두 기능 통합을 정면으로 겨냥한 테스트) 표 맥락은 후보를
+    "좁히는" 장치일 뿐이므로, 좁힐 근거가 없을 때 표 안의 값이 평문보다
+    관대하게 판정되면 안 된다.
+
+    원본이 라벨 없는(숫자만 있는 행) 2열 시트라, master의 문맥 연결 규칙은
+    "어느 항목인지 못 좁혔다"며 회색으로 남긴다. 같은 숫자를 표에 적었다고
+    해서 파랑/빨강으로 단정하면, master가 이미 없앤 가짜 파랑·가짜 빨강이
+    표 안에서만 되살아난다. 문장과 표 둘 다 회색이어야 한다.
+
+    (이 픽스처는 표 맥락 기능을 처음 만들 때 "기존 동작 유지" 테스트로
+    쓰였고 그때 기대값은 파랑/빨강이었다. 그 뒤 master에 문맥 연결 수정이
+    들어가면서, 표가 없는 평문에서도 이 원본에 대한 판정이 회색으로
+    바뀌었다 — 즉 기준선 자체가 옮겨갔다. 위의
+    _selftest_run_verification_table_with_tall_source_keeps_old_behavior가
+    라벨이 있는 원본으로 파랑/빨강 쪽을 따로 지킨다.)"""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_라벨없음")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws.append(["예산", "인원"])          # 항목명이 머리행에만 있고 데이터 행엔 없음
+    ws.append([1850000, 342])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_라벨없는원본.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 1,850,000원입니다\n")   # 평문 — 회색이 기준선
+    _build_hwp_table(setup, [
+        ["구분", "금액"],
+        ["예산", "1,850,000"],
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        colors = report.get_char_colors("1,850,000")
+        assert colors == [(128, 128, 128), (128, 128, 128)], (
+            f"평문과 표의 판정이 갈렸다: {colors} — 표 안의 값만 관대하게 "
+            f"판정되면 master의 문맥 연결 보호가 표 안에서 풀린 것이다."
+        )
+        print("run_verification(표가 평문보다 관대해지지 않음) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_routes_table_and_prose_in_one_document():
+    """(2026-09-11, 두 기능 통합을 정면으로 겨냥한 테스트) 한 문서 안에 표와
+    평문이 같이 있을 때, 각 값이 자기에게 맞는 판정 경로로 가야 한다.
+
+    - 평문 "정기점검 실적은 1,694건" → 표 맥락이 없으므로 master의 라벨
+      연결 경로. 문맥에 원본 라벨("정기점검 실적")이 걸려 1,694와 비교돼
+      파랑이어야 한다.
+    - 표의 "2024년" 칸 1,900 → 표 맥락 경로. 2024년 열의 원본 값(1,694)
+      하고만 비교돼 빨강이어야 한다.
+    - 표의 "2025년" 칸 1,827 → 같은 경로로 2025년 값과 일치해 파랑.
+
+    셋이 동시에 맞아야 통과한다 — 한쪽 경로가 다른 쪽을 덮어쓰면(예: 표
+    맥락 dict가 평문 문맥 문자열을 밀어내면) 반드시 깨진다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_표와평문")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["지표명", "2024", "2025"])
+    ws.append(["정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표와평문.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("점검 실적 보고\n")
+    setup.insert_text("정기점검 실적은 1,694건입니다\n")   # 평문 → 라벨 연결 경로
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["정기점검 실적", "1,900", "1,827"],   # 2024년 칸이 틀렸다
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,694") == [(0, 0, 255)], (
+            "평문 값이 라벨 연결로 파랑이 되지 않았다 — "
+            f"{report.get_char_colors('1,694')}"
+        )
+        assert report.get_char_colors("1,900") == [(255, 0, 0)], (
+            "표의 2024년 칸 오류가 빨강으로 잡히지 않았다 — "
+            f"{report.get_char_colors('1,900')}"
+        )
+        assert report.get_char_colors("1,827") == [(0, 0, 255)], (
+            f"표의 2025년 칸 정상 값이 파랑이 아니다 — "
+            f"{report.get_char_colors('1,827')}"
+        )
+        print("run_verification(한 문서 안 표/평문 경로 분기) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_skips_ignored_mismatch()
@@ -550,3 +841,9 @@ if __name__ == "__main__":
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
     _selftest_run_verification_flags_weekday_mismatch()
     _selftest_run_verification_mismatch_items_in_span_order()
+    # (F14) 표 맥락 + 통합 검증
+    _selftest_run_verification_table_cell_wrong_year_is_flagged()
+    _selftest_run_verification_table_with_merged_cell_keeps_alignment()
+    _selftest_run_verification_table_with_tall_source_keeps_old_behavior()
+    _selftest_run_verification_table_is_not_more_lenient_than_prose()
+    _selftest_run_verification_routes_table_and_prose_in_one_document()
