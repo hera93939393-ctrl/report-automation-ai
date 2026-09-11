@@ -19,10 +19,40 @@ _YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘]\d{2}(?!\d)")
 
 # (2026-09-07, 실사용 피드백으로 발견) "1." "2)"처럼 목차·개요·붙임 번호 등
 # 문서 어디서나 등장하는 번호매기기 표기 — numbering_tool.py가 실제로 쓰는
-# 표준 번호서식("1. "/"1) ") 관례와 정확히 일치한다. 이런 숫자는 순서를
+# 표준 번호서식("1. "/"1) "/"(1) ")과 정확히 일치한다. 이런 숫자는 순서를
 # 나타내는 라벨일 뿐 원본자료와 대조할 데이터가 아니다. 소수점 금액
 # ("97.1")은 마침표 뒤에 또 숫자가 오므로 (?!\d)로 걸러 오배제하지 않는다.
-_LIST_MARKER_PATTERN = re.compile(r'(\d+)(?:\.(?!\d)|\))')
+#
+# (2026-09-11, 실사용 문장으로 재현한 진짜 버그 수정 — 이 패턴은 원래
+# 아무 데도 고정돼 있지 않았다: r'(\d+)(?:\.(?!\d)|\))')
+# 그래서 "번호매기기"가 아니라 "괄호가 닫히거나 마침표로 끝나는 모든 숫자"를
+# 번호로 오인해, 아래 문장들의 진짜 데이터가 검증 대상에서 통째로 빠졌다
+# (빨강도 파랑도 아닌 "아예 안 봄" — 사용자가 알아챌 방법이 없는 조용한
+# 누락이라 가장 위험한 종류의 오류다):
+#   "계약 건수(1,827)는 전년 대비 증가"  -> ")" 앞의 "827"이 번호로 오인돼
+#                                          1,827 전체가 제외됨
+#   "총 예산 규모는 1850000."            -> 문장 끝 마침표 앞이라 제외됨
+#   "점검 실적 1,694) 기준"              -> ")" 앞이라 제외됨
+# 괄호 안에 수치를 적는 것은 공공기관 보고서에서 대단히 흔한 표기라 실사용
+# 영향이 크다. 기존 self-test가 이걸 못 잡은 이유는 하필 검증 문장의 숫자
+# 뒤에 단위("원")가 붙어 있어서 ")"/"."에 닿지 않았기 때문이다.
+#
+# 고치는 방향: "번호매기기가 실제로 나타나는 자리"에만 고정한다.
+#   (가) 줄머리 — 들여쓰기 공백은 건너뛴다. numbering_tool.py가 번호를
+#        각 줄 맨 앞에 붙이므로 이 도구가 만든 문서와 정확히 맞는다.
+#   (나) 탭 또는 두 칸 이상 띄어쓴 뒤 — "붙임  1. 계획서 1부." 처럼 줄 안에서
+#        구조적으로 벌려 쓴 번호를 놓치지 않기 위해서다. 한 칸 띄어쓰기는
+#        일부러 제외했다 — 위 "규모는 1850000." 같은 평범한 문장이 다시
+#        걸려들기 때문이다.
+# 여는 괄호 한 개는 선택적으로 허용한다("(1) " 이중괄호 서식). 번호 자릿수는
+# 1~2자리로 제한한다 — 실제 개요 번호는 두 자리를 넘지 않고, 넓게 잡을수록
+# 진짜 데이터를 번호로 오인할 위험만 커진다.
+_LIST_MARKER_PATTERN = re.compile(
+    r'(?:(?<![^\r\n])[ \t 　]*|(?<=\t)|(?<=  ))'  # 줄머리(들여쓰기 포함) 또는 탭/두 칸 이상 뒤
+    r'[(（]?'                                              # "(1)" 서식의 여는 괄호(선택)
+    r'(\d{1,2})'                                           # 번호 자체 — 이 구간만 제외 대상이다
+    r'(?:\.(?!\d)|[)）])'                                  # "1." 또는 "1)" 꼴의 번호 꼬리
+)
 
 # (2026-09-07) 연속된 1~12가 월(月) 표시로 흔히 쓰인다("1 2 3 ... 12" 월별
 # 헤더) — extract_values()가 후보 amounts 중에서 이 조건에 맞는 런을 찾아
@@ -523,6 +553,44 @@ def _selftest_extract_values_list_marker_does_not_exclude_decimal_amount():
     print("_selftest_extract_values_list_marker_does_not_exclude_decimal_amount 통과:", result)
 
 
+def _selftest_extract_values_list_marker_does_not_swallow_real_numbers():
+    """(2026-09-11, 실사용 문장으로 재현한 진짜 버그의 회귀테스트) 예전
+    _LIST_MARKER_PATTERN은 아무 데도 고정돼 있지 않아서, 괄호가 닫히거나
+    마침표로 끝나는 숫자를 전부 "번호매기기"로 오인해 검증 대상에서
+    조용히 빼버렸다. 셋 다 공공기관 보고서에 매우 흔한 표기다."""
+    cases = [
+        ("계약 건수(1,827)는 전년 대비 증가", ["1827"]),
+        ("총 예산 규모는 1850000.", ["1850000"]),
+        ("점검 실적 1,694) 기준", ["1694"]),
+    ]
+    for text, expected in cases:
+        result = extract_values(text, default_year=2026)
+        amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+        assert amounts == expected, (text, amounts, expected)
+    print("_selftest_extract_values_list_marker_does_not_swallow_real_numbers 통과")
+
+
+def _selftest_extract_values_excludes_list_marker_in_real_positions():
+    """고정을 걸고도 진짜 번호매기기는 여전히 전부 제외돼야 한다. 이 도구가
+    실제로 만들어내는 자리(numbering_tool.py가 각 줄 맨 앞에 붙이는 서식)와
+    공문서에서 흔한 "붙임  1." 배치를 모두 확인한다."""
+    # 줄머리 "1." / "2)" — 그 줄의 진짜 데이터는 그대로 살아 있어야 한다
+    result = extract_values("1. 등록심사 실적은 1,827건이다", default_year=2026)
+    assert sorted(r["normalized"] for r in result if r["type"] == "amount") == ["1827"], result
+    # 여러 줄 문서에서 줄머리(들여쓰기 포함)와 이중괄호 서식
+    text = ("가. 개요\r\n"
+            "1. 등록심사 1,827건\r\n"
+            "  2) 세부내용 1,694건\r\n"
+            "(3) 참고사항 500,000원\r\n"
+            "붙임  1. 세부계획 1부.\r\n")
+    amounts = sorted(r["normalized"] for r in extract_values(text, default_year=2026)
+                      if r["type"] == "amount")
+    # 번호(1/2/3/1)는 전부 빠지고, "1부."의 1만 단위 없는 숫자로 남는다
+    # (번호매기기가 아니라 수량 표기라 이 패턴의 대상이 아니다).
+    assert amounts == ["1", "1694", "1827", "500000"], amounts
+    print("_selftest_extract_values_excludes_list_marker_in_real_positions 통과:", amounts)
+
+
 def _selftest_extract_values_excludes_month_sequence():
     """(2026-09-07, 실사용 피드백으로 발견한 실제 버그 재현) "1 2 3 ... 12"처럼
     연속된 월 표시는 검증 대상에서 빠지고, 그 사이에 낀 진짜 데이터는
@@ -952,6 +1020,8 @@ if __name__ == "__main__":
     _selftest_extract_values_excludes_list_marker_dot()
     _selftest_extract_values_excludes_list_marker_paren()
     _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
+    _selftest_extract_values_list_marker_does_not_swallow_real_numbers()
+    _selftest_extract_values_excludes_list_marker_in_real_positions()
     _selftest_extract_values_excludes_month_sequence()
     _selftest_extract_years_full_and_abbreviated()
     _selftest_extract_values_year_word_excluded_from_amounts()
