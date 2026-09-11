@@ -624,6 +624,57 @@ def _selftest_run_verification_table_cell_wrong_year_is_flagged():
         os.remove(report_path)
 
 
+def _selftest_run_verification_abbreviated_year_column_still_catches_error():
+    """(F14, 3차 검토에서 발견된 회귀의 진짜 .hwp/.xlsx 재현) 보고서 표
+    머리말은 "'24년"처럼 연도를 줄여 쓰고 원본 엑셀 머리말은 평범한
+    "2024"인, 실사용에서 가장 흔한 조합이다.
+
+    열 머리말의 연도 약칭을 못 읽으면 모든 후보가 "연도가 다르다"로 걸러져
+    그 칸의 검증이 통째로 무력해지고, 원본 2024년 값(1,694)과 다른 1,900이
+    조용히 빨강에서 빠진다. 표기를 흡수하면 1,900은 빨강, 2025년 칸의
+    1,827은 파랑이어야 한다.
+
+    (A 브랜치는 이 회귀를 단위 테스트로 고정해 뒀는데, 두 기능을 합치면서
+    실제 한글 문서 경로까지 그대로인지 확인하려고 통합 수준으로도 고정한다.)"""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_연도약칭")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["지표명", "2024", "2025"])
+    ws.append(["정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_연도약칭.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("연도 약칭 표기 확인\n")
+    _build_hwp_table(setup, [
+        ["구분", "'24년", "'25년"],
+        ["정기점검 실적", "1,900", "1,827"],   # '24년 칸이 틀렸다(진짜 값은 1,694)
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,900") == [(255, 0, 0)], (
+            "'24년 칸의 오류가 빨강으로 잡히지 않았다 — 열 머리말의 연도 "
+            f"약칭을 못 읽어 후보가 전부 걸러진 것으로 보인다: "
+            f"{report.get_char_colors('1,900')}"
+        )
+        assert report.get_char_colors("1,827") == [(0, 0, 255)], (
+            f"'25년 칸의 정상 값이 파랑이 아니다 — {report.get_char_colors('1,827')}"
+        )
+        print("run_verification(열 머리말 연도 약칭 '24년에서도 오류 적발) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 def _selftest_run_verification_table_with_merged_cell_keeps_alignment():
     """(F14) 병합된 셀이 있는 진짜 한글 표에서도 줄 정렬이 밀리지 않아야 한다.
     table_to_df는 병합 칸의 값을 걸친 행마다 복제해 넣지만 평문 텍스트에는
@@ -843,6 +894,7 @@ if __name__ == "__main__":
     _selftest_run_verification_mismatch_items_in_span_order()
     # (F14) 표 맥락 + 통합 검증
     _selftest_run_verification_table_cell_wrong_year_is_flagged()
+    _selftest_run_verification_abbreviated_year_column_still_catches_error()
     _selftest_run_verification_table_with_merged_cell_keeps_alignment()
     _selftest_run_verification_table_with_tall_source_keeps_old_behavior()
     _selftest_run_verification_table_is_not_more_lenient_than_prose()
