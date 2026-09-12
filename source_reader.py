@@ -9,17 +9,29 @@ from decimal import Decimal
 
 import openpyxl
 from verify_numbers import (extract_values, compute_column_sums,
-                            _decimal_to_normalized_str, _YEAR_PATTERN)
+                            _decimal_to_normalized_str, _YEAR_PATTERN,
+                            _find_year, _normalize_digit_forms)
 
 
 def _header_cell_is_year(value) -> bool:
     """헤더 칸이 "연도"를 나타내는가. 실적표 헤더는 "2023"이 문자열일 때도
-    숫자로 저장돼 있을 때도 있어서 둘 다 받는다."""
+    숫자로 저장돼 있을 때도 있고, 연도 약칭("'23")으로만 적혀 있을 때도
+    있어서 셋 다 받는다.
+
+    (2026-09-12, 실사용 문서에서 재현) 원래는 4자리 연도만 알아봤다.
+    실제 실적표 헤더가 "단위 | '23 | '24 | '25 | '25 목표"처럼 연도를
+    약칭으로만 적어 두면(4자리가 전혀 없음) 이 칸들 중 어느 것도 연도로
+    안 보여서 _looks_like_wide_header가 통째로 False가 되고, 이 시트는
+    가로형으로 인식되지 못해 열 출처 구분(column_identity_agrees) 자체가
+    작동하지 않았다 - 보고서 표에 있는 값을 원본에서 못 찾는 것처럼
+    보였던 원인이 바로 이거다. verify_numbers._find_year는 report_tool
+    쪽에서 이미 4자리와 약칭("'24")을 같은 연도로 보게 만든 헬퍼라 그걸
+    그대로 재사용한다(전각 숫자도 _normalize_digit_forms로 함께 흡수)."""
     if isinstance(value, bool):
         return False
     if isinstance(value, int) and 1900 <= value <= 2100:
         return True
-    return bool(_YEAR_PATTERN.search(str(value)))
+    return _find_year(_normalize_digit_forms(str(value))) is not None
 
 
 def _looks_like_wide_header(header: list) -> bool:
@@ -306,6 +318,37 @@ def _selftest_read_excel_source_wide_table_keeps_column_identity():
         # 전부 회색이 되어버린다.
         assert by_cell["실적!D2"]["label"] == "점검 정기점검 실적", by_cell["실적!D2"]
         print("_selftest_read_excel_source_wide_table_keeps_column_identity 통과:",
+              by_cell["실적!D2"])
+    finally:
+        os.remove(test_path)
+
+
+def _selftest_read_excel_source_wide_table_detects_abbreviated_year_header():
+    """(2026-09-12, 실사용 문서에서 재현) 실적표 헤더가 4자리 연도가 아니라
+    연도 약칭("'23","'24","'25")으로만 적혀 있어도 가로형 표로 인식돼야
+    한다. 사용자의 실제 원본이 "단위 | '23 | '24 | '25 | '25 목표"
+    형태였는데, _header_cell_is_year가 4자리 연도만 알아봐서 이 헤더의 어느
+    칸도 연도로 안 보였다 - 그래서 표 전체가 가로형으로 인식되지 못했고,
+    보고서 표의 값을 원본과 대조하는 기능(column_identity_agrees) 자체가
+    작동하지 않아 "엑셀에 분명히 있는데 원본에서 못 찾음"으로 보였다."""
+    test_path = "_test_가로형표_연도약칭.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "실적"
+    ws.append(["지표명", "단위", "'23", "'24", "'25", "'25 목표"])
+    ws.append(["정기점검 실적", "개소", 1595, 1694, 1827, 1750])
+    wb.save(test_path)
+    try:
+        result = read_excel_source(test_path, default_year=2026)
+        by_cell = {r["location"]: r for r in result if r["type"] == "amount"}
+        # 열 머리말은 원본 표기("'24")를 그대로 남긴다 - 연도로 확장하는 건
+        # column_identity_agrees(verify_numbers.py) 쪽 책임이라, 여기서
+        # 미리 확장해버리면 그 함수가 기대하는 원본 표기와 어긋난다.
+        assert by_cell["실적!D2"]["column_header"] == "'24", by_cell["실적!D2"]
+        assert by_cell["실적!E2"]["column_header"] == "'25", by_cell["실적!E2"]
+        assert by_cell["실적!F2"]["column_header"] == "'25 목표", by_cell["실적!F2"]
+        assert by_cell["실적!D2"]["row_label"] == "정기점검 실적 개소", by_cell["실적!D2"]
+        print("_selftest_read_excel_source_wide_table_detects_abbreviated_year_header 통과:",
               by_cell["실적!D2"])
     finally:
         os.remove(test_path)
@@ -963,6 +1006,7 @@ if __name__ == "__main__":
     _selftest_read_excel_source_corrupted_file_no_crash()
     _selftest_read_excel_source_title_row_before_real_header()
     _selftest_read_excel_source_wide_table_keeps_column_identity()
+    _selftest_read_excel_source_wide_table_detects_abbreviated_year_header()
     _selftest_read_excel_source_narrow_table_has_no_column_identity()
     _selftest_read_excel_source_two_shapes_do_not_cross_contaminate()
     _selftest_read_hwp_source()

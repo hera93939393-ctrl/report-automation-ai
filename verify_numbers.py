@@ -61,6 +61,29 @@ _LIST_MARKER_PATTERN = re.compile(
 
 
 _CONTEXT_BOUNDARY_CHARS = ",.\n;、。，"
+_DIGIT_GROUPING_COMMA_CHARS = ",，"
+
+
+def _is_digit_grouping_comma(text: str, pos: int) -> bool:
+    """text[pos]가 절 구분자가 아니라 "1,595"처럼 숫자 세 자리마다 넣는
+    자릿수 구분 쉼표인지(양옆이 모두 숫자인지) 확인한다."""
+    return (0 < pos < len(text) - 1
+            and text[pos - 1].isdigit() and text[pos + 1].isdigit())
+
+
+def _last_clause_boundary(text: str, char: str, start: int) -> int:
+    """start 앞에서 char가 "절 구분자로" 쓰인 마지막 위치(없으면 -1).
+    자릿수 구분 쉼표는 경계로 세지 않고 건너뛰어 더 앞에서 계속 찾는다
+    (이유는 _preceding_context의 docstring 참고)."""
+    search_end = start
+    while True:
+        pos = text.rfind(char, 0, search_end)
+        if pos == -1:
+            return -1
+        if char in _DIGIT_GROUPING_COMMA_CHARS and _is_digit_grouping_comma(text, pos):
+            search_end = pos
+            continue
+        return pos
 
 
 def _preceding_context(text: str, start: int) -> str:
@@ -70,8 +93,20 @@ def _preceding_context(text: str, start: int) -> str:
     텍스트)만으로 항목명을 유추하는 가벼운 방법이라, "참여 인원 21명" 같은
     라벨+숫자 근접 표기에는 잘 맞지만 라벨이 문장 앞쪽에 멀리 떨어진 경우는
     잡지 못하는 한계가 있다(예: "이번 사업의 참여 인원은... 총 21명").
-    """
-    boundary = max((text.rfind(c, 0, start) for c in _CONTEXT_BOUNDARY_CHARS), default=-1)
+
+    (2026-09-12, 실사용 문서에서 재현) 쉼표는 두 가지 전혀 다른 역할로 쓰인다 —
+    "1,595"처럼 숫자 세 자리마다 넣는 자릿수 구분(양옆이 모두 숫자)과,
+    "...점검, 2024년도에는..."처럼 절을 나누는 구분자(쉼표 뒤에 공백과 다음
+    말이 옴)다. 원래는 이 둘을 구분하지 않고 "가장 가까운 쉼표"이면 무조건
+    끊었다 — 그래서 "정기점검 실적 : ('23) 1,595개소 → ('24) 1,694 → ('25)
+    1,827"에서 1,694의 문맥을 구하면, 진짜 절 구분 쉼표가 하나도 없는데도
+    "1,595"의 자릿수 구분 쉼표에서 끊겨 "595개소 → ('24) "만 남고 정작
+    항목명 "정기점검 실적"은 통째로 잘려나갔다(직접 재현해 확인함 — 그래서
+    바로 앞 숫자에 자릿수 구분 쉼표가 없는 첫 값만 라벨에 연결되고 나머지는
+    전부 회색으로 떨어졌다). 이제 자릿수 구분 쉼표는 경계로 세지 않고 계속
+    더 앞의 진짜 경계를 찾는다."""
+    boundary = max((_last_clause_boundary(text, char, start)
+                    for char in _CONTEXT_BOUNDARY_CHARS), default=-1)
     return text[boundary + 1:start].strip()
 
 
@@ -1029,6 +1064,39 @@ def _selftest_filter_candidates_by_context_mixed_pool():
     print("_selftest_filter_candidates_by_context_mixed_pool 통과")
 
 
+_MIN_LABEL_FRAGMENT_LENGTH = 3
+
+
+def _label_matches_context(label: str, context: str) -> bool:
+    """label(엑셀 행의 문자열 셀을 전부 이어붙인 것)이 context(보고서에서 그
+    수치 바로 앞부분)와 연결되는가.
+
+    (2026-09-12, 실사용 문서에서 재현) 통짜 부분문자열 비교만으로는 실패하는
+    실제 사례: 원본 행이 "지표명"("정기점검 실적")과 "단위"("개소") 두
+    문자열 칸을 갖고 있으면 label은 "정기점검 실적 개소"인데, 보고서 문장은
+    "정기점검 실적 : ('23) 1,595개소 → ('24) 1,694 → ('25) 1,827"처럼
+    "개소"가 숫자 뒤(그 다음 숫자의 앞이 아니라)에만 한 번 붙는다. 그러면
+    각 숫자 앞의 context("정기점검 실적 : ('23) " 등)에는 "개소"가 없어서
+    통짜 label 전체가 안 걸리고, 지표명과 단위 둘 다 진짜 원본 정보인데도
+    전부 회색(확인 필요)으로 떨어진다.
+
+    그래서 통짜 비교가 실패하면 label을 공백으로 쪼갠 조각 중 하나라도
+    context에 있으면 연결로 본다. 다만 너무 짧은 조각("개소","건","%" 같은
+    단위어)은 이 매칭에서 빼야 한다 — 그런 조각은 보고서 어디에나 흔해서,
+    엉뚱한 다른 행과도 걸려버리는 오탐을 만든다(예: 다른 지표도 전부 "개소"
+    단위면 그 지표들끼리 서로 라벨이 뒤섞인다). 그래서 길이가
+    _MIN_LABEL_FRAGMENT_LENGTH 이상인 조각만 독립 매칭 신호로 인정한다.
+    """
+    if not label:
+        return False
+    if label in context:
+        return True
+    return any(
+        len(fragment) >= _MIN_LABEL_FRAGMENT_LENGTH and fragment in context
+        for fragment in label.split()
+    )
+
+
 def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dict:
     """report_values 각각을 answer_pool과 대조해 네 갈래로 나눈다:
     - matches: 원본과 정확히 일치(정상) → 문서에 파란색으로 표시할 대상
@@ -1136,7 +1204,7 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
             (matches if rv["normalized"] in distinct_values else mismatches).append(rv)
             continue
         context = _matching_context_text(rv)
-        labeled_candidates = [c for c in candidates if c.get("label") and c["label"] in context]
+        labeled_candidates = [c for c in candidates if _label_matches_context(c.get("label"), context)]
         if not labeled_candidates:
             ambiguous.append(rv)  # 후보가 여럿인데 문맥으로 특정 못 함 → 확인 필요(회색)
             continue
@@ -1705,6 +1773,57 @@ def _selftest_categorize_table_cell_not_more_lenient_than_prose():
     print("_selftest_categorize_table_cell_not_more_lenient_than_prose 통과")
 
 
+def _selftest_label_matches_context_fragment_fix():
+    """(2026-09-12, 실사용 문서에서 재현) label이 "지표명 + 단위" 두 문자열
+    칸을 이어붙인 통짜("정기점검 실적 개소")면, 단위가 숫자 뒤에만 붙는
+    보통 문장에서는 통짜 전체가 절대 안 걸린다. 지표명 조각("정기점검
+    실적")만으로도 충분히 연결된다."""
+    assert _label_matches_context("정기점검 실적 개소", "정기점검 실적 : ('23) ") is True
+    # 너무 짧은 조각("개소")만 겹치고 나머지 실질 조각("우리동네")은 안
+    # 겹치면 연결로 보면 안 된다 - 다른 지표도 흔히 같은 단위를 쓰므로,
+    # 짧은 단위어만으로 걸리면 엉뚱한 행끼리 서로 라벨이 섞인다.
+    assert _label_matches_context("우리동네 개소", "다른동네 개소 관련 문장") is False
+    assert _label_matches_context("", "아무 문장") is False
+    print("_selftest_label_matches_context_fragment_fix 통과")
+
+
+def _selftest_preceding_context_ignores_digit_grouping_comma():
+    """(2026-09-12, 실사용 문서에서 재현) "정기점검 실적 : ('23) 1,595개소 →
+    ('24) 1,694 → ('25) 1,827"에서 1,694의 문맥을 구하면, 진짜 절 구분
+    쉼표가 하나도 없는데도 "1,595"의 자릿수 구분 쉼표에서 끊겨 항목명이
+    통째로 잘려나갔었다."""
+    text = "정기점검 실적 : ('23) 1,595개소 -> ('24) 1,694 -> ('25) 1,827"
+    idx = text.index("1,694")
+    context = _preceding_context(text, idx)
+    assert "정기점검 실적" in context, context
+    print("_selftest_preceding_context_ignores_digit_grouping_comma 통과:", context)
+
+
+def _selftest_categorize_prose_wide_source_real_document_shape():
+    """(2026-09-12, 실사용 문서 전체 경로 재현) 위 두 수정이 함께 있어야만
+    통과하는 통합 수준 테스트 — 보고서는 순수 평문(표 아님), 원본 엑셀은
+    연도 약칭 머리말("'23","'24","'25")을 쓰는 가로형 표. 이 조합이
+    실사용에서 그대로 재현됐다: 셋 다 회색으로 떨어졌었다."""
+    source_pool = [
+        {"type": "amount", "normalized": "1595", "raw": "1595",
+         "label": "정기점검 실적 개소", "row_label": "정기점검 실적 개소",
+         "column_header": "'23"},
+        {"type": "amount", "normalized": "1694", "raw": "1694",
+         "label": "정기점검 실적 개소", "row_label": "정기점검 실적 개소",
+         "column_header": "'24"},
+        {"type": "amount", "normalized": "1827", "raw": "1827",
+         "label": "정기점검 실적 개소", "row_label": "정기점검 실적 개소",
+         "column_header": "'25"},
+    ]
+    text = "정기점검 실적 : ('23) 1,595개소 -> ('24) 1,694 -> ('25) 1,827"
+    report_values = extract_values(text, default_year=2026)
+    result = categorize_values(report_values, source_pool)
+    matched_raws = sorted(m["raw"] for m in result["matches"])
+    assert matched_raws == ["1,595", "1,694", "1,827"], result
+    assert result["mismatches"] == [] and result["ambiguous"] == [], result
+    print("_selftest_categorize_prose_wide_source_real_document_shape 통과")
+
+
 def compute_column_sums(rows: list[dict], source_file: str, sheet: str,
                         wide_columns: set = None) -> list[dict]:
     """엑셀에서 읽은 행(딕셔너리 리스트)에서, 숫자로만 이루어진 각 컬럼의 단순 합계를
@@ -1918,3 +2037,6 @@ if __name__ == "__main__":
     _selftest_categorize_no_matching_column_falls_back_to_ambiguous()
     _selftest_categorize_table_cell_uses_row_header_as_label_context()
     _selftest_categorize_table_cell_not_more_lenient_than_prose()
+    _selftest_label_matches_context_fragment_fix()
+    _selftest_preceding_context_ignores_digit_grouping_comma()
+    _selftest_categorize_prose_wide_source_real_document_shape()
