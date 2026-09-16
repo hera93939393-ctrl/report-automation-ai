@@ -92,6 +92,11 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
             "ambiguous_count": 0,
             "summary": "원본자료에서 읽을 수 있는 데이터가 없어요. 지원 형식(엑셀 .xlsx/.xls, PDF .pdf)인지 확인해주세요.",
             "conflicts": conflicts,
+            "mismatch_items": [],  # (2026-09-13, 실사용 재현) 이 키가 빠져 있어서
+            # chat_assistant.py의 result["mismatch_items"] 접근이 그대로
+            # KeyError('mismatch_items')로 죽었다 — 반환 계약(docstring)에는
+            # 없다고 적어두지 않았지만 호출부는 모든 경로에서 이 키가 있다고
+            # 가정하므로, 빈 값이라도 항상 넣어야 한다.
         }
 
     report_text = report.get_text()
