@@ -495,10 +495,16 @@ class ChatAssistant(ctk.CTk):
         except Exception:
             return
         width, height = pil_image.size
-        max_width = 780  # 원본 그대로가 아니라 "옆에서 읽을 수 있는 정도"로만 확대
-        if width > max_width:
-            height = int(height * max_width / width)
-            width = max_width
+        # (2026-09-17, 실사용 재현) HWP 미리보기는 용량을 아끼려고 원래
+        # 저해상도(60dpi)로 만들어서(attachment_preview.py 참고), 이전
+        # 코드처럼 "원본이 목표보다 클 때만 줄이기"만 하면 원본이 이미
+        # 작은 HWP 미리보기는 확대창에서도 그대로 작게 떠버린다(실사용
+        # 재현 — "한글은 붙임처럼 너무 작게 나온다") — 작든 크든 항상
+        # 목표 크기에 맞춰(세로가 긴 문서 페이지, 가로가 긴 표 둘 다
+        # 화면 안에 들어오게 폭/높이 둘 다 제한) 키우거나 줄인다.
+        max_width, max_height = 780, 850
+        scale = min(max_width / width, max_height / height)
+        width, height = int(width * scale), int(height * scale)
 
         screen_width = self.winfo_screenwidth()
         x_right = self.winfo_x() + self.winfo_width() + 8
