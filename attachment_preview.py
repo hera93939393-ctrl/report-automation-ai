@@ -138,7 +138,7 @@ def generate_excel_preview_image(path: str) -> str | None:
         return None
 
 
-def _generate_hwp_preview(path: str, out_path: str) -> bool:
+def _generate_hwp_preview(path: str, out_path: str, resolution: int = _PREVIEW_RESOLUTION) -> bool:
     """path(.hwp/.hwpx)의 1페이지를 out_path(gif)로 저장한다. 이 함수 자체는
     현재 프로세스에서 새 Hwp 인스턴스를 만들므로, 채팅 세션이 이미 다른
     Hwp를 열어둔 상태에서 절대 직접 호출하면 안 된다 - 반드시
@@ -149,7 +149,7 @@ def _generate_hwp_preview(path: str, out_path: str) -> bool:
         hwp = Hwp(visible=False, new=True)
         if not hwp.open(path):
             return False
-        return bool(hwp.create_page_image(out_path, pgno=1, resolution=_PREVIEW_RESOLUTION, format="gif"))
+        return bool(hwp.create_page_image(out_path, pgno=1, resolution=resolution, format="gif"))
     except Exception:
         return False
     finally:
@@ -157,23 +157,29 @@ def _generate_hwp_preview(path: str, out_path: str) -> bool:
             hwp.quit()
 
 
-def generate_hwp_preview_isolated(path: str) -> str | None:
+def generate_hwp_preview_isolated(path: str, resolution: int = _PREVIEW_RESOLUTION) -> str | None:
     """_generate_hwp_preview()를 별도 프로세스에서 실행해, 성공하면 저장된
     미리보기 이미지 경로를, 실패하면 None을 반환한다. source_reader.py의
     read_hwp_source_isolated()와 동일한 subprocess 격리 패턴. 호출 성공
-    시마다 _prune_old_previews()로 오래된 미리보기를 정리한다."""
+    시마다 _prune_old_previews()로 오래된 미리보기를 정리한다.
+
+    (2026-09-17, 실사용 재현) resolution을 기본값(썸네일용, 저용량)보다
+    높여서 부를 수 있게 열어둔다 - 클릭해서 확대해 보는 화면은 저해상도
+    원본을 그냥 늘리면 글씨가 깨지는 게 실제로 재현됐다(용량을 아끼려고
+    60dpi로 만든 썸네일을 780px까지 늘려서 생긴 문제) - 확대해서 볼
+    때만 더 높은 해상도로 새로 만든다."""
     os.makedirs(_PREVIEW_DIR, exist_ok=True)
-    out_path = os.path.join(_PREVIEW_DIR, f"{os.path.basename(path)}_{os.getpid()}.gif")
+    out_path = os.path.join(_PREVIEW_DIR, f"{os.path.basename(path)}_{os.getpid()}_{resolution}.gif")
     module_dir = os.path.dirname(os.path.abspath(__file__))
     script = (
         "import sys; sys.path.insert(0, sys.argv[3]); "
         "from attachment_preview import _generate_hwp_preview; "
-        "ok = _generate_hwp_preview(sys.argv[1], sys.argv[2]); "
+        "ok = _generate_hwp_preview(sys.argv[1], sys.argv[2], int(sys.argv[4])); "
         "sys.exit(0 if ok else 1)"
     )
     try:
         result = subprocess.run(
-            [sys.executable, "-c", script, path, out_path, module_dir],
+            [sys.executable, "-c", script, path, out_path, module_dir, str(resolution)],
             capture_output=True, text=True, timeout=60,
         )
         if result.returncode != 0 or not os.path.exists(out_path):

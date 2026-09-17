@@ -462,7 +462,8 @@ class ChatAssistant(ctk.CTk):
                     thumb = ctk.CTkLabel(card, text="", image=image, cursor="hand2")
                     thumb.pack(padx=8, pady=(0, 6))
                     thumb.bind("<Button-1>",
-                              lambda _e, p=preview_path: self._toggle_click_preview(p))
+                              lambda _e, p=preview_path, sp=path, se=ext:
+                              self._toggle_click_preview(p, sp, se))
             else:
                 text_preview = generate_text_preview(path)
                 if text_preview:
@@ -470,7 +471,7 @@ class ChatAssistant(ctk.CTk):
         except Exception:
             pass  # 미리보기 실패는 첨부 자체를 막지 않음 - 부가기능
 
-    def _toggle_click_preview(self, preview_path: str):
+    def _toggle_click_preview(self, preview_path: str, source_path: str, ext: str):
         """썸네일을 클릭하면, 채팅창 옆에 좀 더 큰(하지만 원본 그대로는
         아닌 — "원본 크기보다는 옆에서 알아볼 정도로만" 사용자 요청)
         미리보기를 테두리 없는 팝업으로 띄운다. 이미 떠있는 상태에서
@@ -490,6 +491,15 @@ class ChatAssistant(ctk.CTk):
         if self._hover_popup is not None:
             self._hide_hover_preview()
             return
+        # (2026-09-17, 실사용 재현) HWP 썸네일은 용량을 아끼려고 저해상도
+        # (60dpi)로 만들어서, 그 이미지를 그대로 키우면 글씨가 깨진다
+        # (실사용 재현됨) - 엑셀 표 이미지는 직접 그린 거라 이 문제가 없다.
+        # 확대해서 볼 때만 HWP를 더 높은 해상도로 다시 렌더링한다(몇 초
+        # 더 걸릴 수 있음, 엑셀은 그대로 재사용).
+        if ext in (".hwp", ".hwpx"):
+            enlarged_path = generate_hwp_preview_isolated(source_path, resolution=150)
+            if enlarged_path is not None:
+                preview_path = enlarged_path
         try:
             pil_image = Image.open(preview_path)
         except Exception:
@@ -512,7 +522,9 @@ class ChatAssistant(ctk.CTk):
             x = x_right  # 오른쪽에 공간이 있으면 오른쪽에
         else:
             x = max(0, self.winfo_x() - width - 8)  # 없으면 왼쪽에
-        y = self.winfo_y()
+        # (2026-09-17, 실사용 피드백) 채팅창 맨 위와 나란히 뜨면 너무
+        # 높이 뜬다는 의견이 있어, 조금 아래로 내려서 띄운다.
+        y = self.winfo_y() + 60
 
         # (실사용 재현) overrideredirect(True)부터 먼저 부르고 그 다음에
         # geometry()로 위치를 준 순서로 짰더니, 실제로는 원본 썸네일과
