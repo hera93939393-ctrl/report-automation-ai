@@ -57,6 +57,7 @@ _PICKER_BUTTON_UNCHOSEN = {
     "border_color": ("#D3D1C7", "#444441"),
 }
 
+
 def _preview_kind_for(ext: str) -> str | None:
     """확장자별로 어떤 미리보기를 만들지 판단한다. ext는 점(.) 포함
     소문자(예: ".hwp"). HWP류는 이미지 미리보기, 엑셀/PDF는 텍스트
