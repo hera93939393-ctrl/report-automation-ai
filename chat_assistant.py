@@ -494,9 +494,14 @@ class ChatAssistant(ctk.CTk):
         # (2026-09-17, 실사용 재현) HWP 썸네일은 용량을 아끼려고 저해상도
         # (60dpi)로 만들어서, 그 이미지를 그대로 키우면 글씨가 깨진다
         # (실사용 재현됨) - 엑셀 표 이미지는 직접 그린 거라 이 문제가 없다.
-        # 확대해서 볼 때만 HWP를 더 높은 해상도로 다시 렌더링한다(몇 초
-        # 더 걸릴 수 있음, 엑셀은 그대로 재사용).
+        # 확대해서 볼 때만 HWP를 더 높은 해상도로 다시 렌더링한다. 이
+        # 렌더링 자체가 몇 초 걸리는데(실사용 재현 — "늦게 떴어") 그 동안
+        # 화면이 멈춘 것처럼 보이므로, 시작 전에 "불러오는 중" 메시지를
+        # 먼저 보여주고 화면을 강제로 갱신해서 반응은 하고 있다는 걸
+        # 바로 알 수 있게 한다.
         if ext in (".hwp", ".hwpx"):
+            self._log("확대 이미지를 새로 만들고 있어요, 잠시만요...")
+            self.update()
             enlarged_path = generate_hwp_preview_isolated(source_path, resolution=150)
             if enlarged_path is not None:
                 preview_path = enlarged_path
@@ -541,8 +546,12 @@ class ChatAssistant(ctk.CTk):
         popup.geometry(f"{width}x{height}+{x}+{y}")
         image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(width, height))
         popup_label = ctk.CTkLabel(popup, text="", image=image, cursor="hand2")
-        popup_label.pack()
+        popup_label.pack(fill="both", expand=True)
+        # 라벨과 팝업 창 둘 다에 바인딩 - 이미지가 라벨 전체를 채우긴
+        # 하지만, 혹시 못 채우는 가장자리를 클릭해도 안 닫히는 일이
+        #없게 이중으로 걸어둔다(실사용 재현 — "클릭해도 안 없어져").
         popup_label.bind("<Button-1>", lambda _e: self._hide_hover_preview())
+        popup.bind("<Button-1>", lambda _e: self._hide_hover_preview())
         self._hover_popup = popup
 
     def _hide_hover_preview(self):
