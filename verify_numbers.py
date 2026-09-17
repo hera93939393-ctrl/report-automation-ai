@@ -25,6 +25,19 @@ _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 # 취급을 받도록 문자 집합에 추가한다.
 _YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘`]\d{2}(?!\d)")
 
+# (2026-09-17 추가, 사용자가 직접 지적한 근본적 한계) 위 패턴은 특정 기호를
+# 하나씩 미리 나열하는 방식이라, 다른 사람이 다른 기호를 쓰거나 오타를 내면
+# (예: 큰따옴표, 그냥 기호 없이 "(23)") 또 놓친다 — "두더지 잡기"의 한계.
+# 그런데 사용자 문서들을 보면 진짜 불변의 구조는 "괄호 안에 숫자 2자리"라는
+# 형태 자체다("('23)","(`24)" 전부 이 틀을 따름) — 괄호 안 기호가 뭐든, 심지어
+# 아예 없어도("(23)") 이 틀로 잡으면 특정 기호 나열에 기대지 않아도 된다.
+# 다만 진짜 데이터가 "(23)"처럼 괄호에 숫자 2자리만 단독으로 들어가는 경우는
+# 이 프로젝트가 다루는 문서에서 실제로 관찰된 적이 없어(괄호 안 숫자는 보통
+# "(1,750)"처럼 콤마 있는 목표값이거나 "(63.2%)"처럼 %가 붙음) 이 일반화가
+# 안전하다고 판단한다. 위 _YEAR_ABBREVIATION_PATTERN은 괄호 없이 그냥
+# "'23"만 있는 경우까지 잡으므로 그대로 남겨두고, 이 패턴은 추가로 합쳐서 쓴다.
+_YEAR_PAREN_MARKER_PATTERN = re.compile(r"\([^\d()]?(\d{2})\)")
+
 # (2026-09-07, 실사용 피드백으로 발견) "1." "2)"처럼 목차·개요·붙임 번호 등
 # 문서 어디서나 등장하는 번호매기기 표기 — numbering_tool.py가 실제로 쓰는
 # 표준 번호서식("1. "/"1) "/"(1) ")과 정확히 일치한다. 이런 숫자는 순서를
@@ -191,16 +204,24 @@ def extract_dates(text: str, default_year: int) -> list[dict]:
 
 
 _YEAR_WORD_FULL = re.compile(r'(\d{4})년')
-_YEAR_WORD_ABBR = re.compile(r"['’‘](\d{2})년")
+# (2026-09-17 추가, 실사용 우려사항 반영) 따옴표/백틱 없이 그냥 "24년"만 쓴
+# 경우도 잡아야 한다 — "년"이라는 글자 자체가 이미 "이건 연도다"라는 확실한
+# 신호라 따옴표 유무와 무관하게 안전하다(2024년을 "24개소"처럼 단위와
+# 헷갈릴 일이 없음, 그래서 _YEAR_ABBREVIATION_PATTERN처럼 따옴표를 필수로
+# 요구하지 않는다). 다만 "2024년"의 "24"까지 별도로 다시 잡히면 안 되므로
+# ((?<!\d)로 앞에 숫자가 이어지지 않을 때만 매치), 4자리 연도의 뒷부분과
+# 겹치지 않는다.
+_YEAR_WORD_ABBR = re.compile(r"(?:['’‘`]|(?<!\d))(\d{2})년")
 
 
 def extract_years(text: str) -> list[dict]:
-    """"2026년"(4자리)과 "'26년"(작은따옴표+2자리) 표기를 모두 4자리 연도
-    문자열로 정규화해서 반환한다 — D05가 요구하는 "같은 연도로 정규화"를
-    실제로 비교 가능한 값으로 만드는 부분. "년" 없이 그냥 "'26"만 쓴
-    표기는 (예: "('23) 1,595개소")는 연도인지 확정할 수 없어 종전대로
-    _YEAR_ABBREVIATION_PATTERN이 금액 오인식만 막고, 이 함수는 다루지
-    않는다."""
+    """"2026년"(4자리)과 "'26년"/"26년"(2자리, 따옴표는 있어도 없어도 됨)
+    표기를 모두 4자리 연도 문자열로 정규화해서 반환한다 — D05가 요구하는
+    "같은 연도로 정규화"를 실제로 비교 가능한 값으로 만드는 부분. "년"
+    없이 그냥 "'23"만 쓴 표기는(예: "('23) 1,595개소") 연도인지 확정할 수
+    없어 종전대로 _YEAR_ABBREVIATION_PATTERN이 금액 오인식만 막고, 이
+    함수는 다루지 않는다 — "년"이 실제로 붙어있을 때만 이 함수가 연도로
+    확정한다."""
     results = []
     for m in _YEAR_WORD_ABBR.finditer(text):
         results.append({"type": "year", "normalized": f"20{m.group(1)}", "raw": m.group(0),
@@ -504,9 +525,10 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     phones = extract_phones(text)
     years = extract_years(text)
     year_abbreviations = [m.span() for m in _YEAR_ABBREVIATION_PATTERN.finditer(text)]
+    year_paren_markers = [m.span() for m in _YEAR_PAREN_MARKER_PATTERN.finditer(text)]
     list_markers = [m.span(1) for m in _LIST_MARKER_PATTERN.finditer(text)]
     excluded_spans = ([r["span"] for r in dates + times + phones + years]
-                       + year_abbreviations + list_markers)
+                       + year_abbreviations + year_paren_markers + list_markers)
 
     def _overlaps_excluded(span):
         a_start, a_end = span
@@ -563,6 +585,31 @@ def _selftest_extract_values_excludes_year_abbreviation():
     amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
     assert amounts == ["1595", "1694", "1827"], amounts
     print("_selftest_extract_values_excludes_year_abbreviation 통과:", result)
+
+
+def _selftest_extract_values_excludes_year_in_parens_any_symbol():
+    """(2026-09-17, 사용자가 직접 지적한 근본적 한계 반영) 괄호 안 연도
+    표기에 어떤 기호를 쓰든(작은따옴표/백틱/큰따옴표/기호 없음) 특정 기호를
+    미리 나열하는 방식으로는 언젠가 놓친다 — "괄호+숫자2자리"라는 틀
+    자체로 잡아야 튼튼하다. 동시에 진짜 데이터가 담긴 괄호(목표값처럼
+    콤마 있는 4자리, 증감률처럼 %가 붙은 경우)는 계속 정상적으로 뽑혀야
+    한다."""
+    no_symbol = extract_values(
+        "정기점검 실적 : (23) 1,595개소 → (24) 1,694 → (25) 1,827", default_year=2026)
+    amounts = sorted(r["normalized"] for r in no_symbol if r["type"] == "amount")
+    assert amounts == ["1595", "1694", "1827"], amounts
+
+    unexpected_symbol = extract_values(
+        '실적 : ("23) 1,595개소 → ("24) 1,694', default_year=2026)
+    amounts2 = sorted(r["normalized"] for r in unexpected_symbol if r["type"] == "amount")
+    assert amounts2 == ["1595", "1694"], amounts2
+
+    # 괄호 안 진짜 데이터는 계속 정상적으로 뽑혀야 한다(2자리가 아니므로 안 걸림)
+    real_target = extract_values("목표(1,750) 대비 실적", default_year=2026)
+    assert [r["normalized"] for r in real_target] == ["1750"], real_target
+    real_percent = extract_values("비고(63.2%)", default_year=2026)
+    assert [r["normalized"] for r in real_percent] == ["63.2"], real_percent
+    print("_selftest_extract_values_excludes_year_in_parens_any_symbol 통과")
 
 
 def _selftest_extract_values_excludes_year_abbreviation_with_backtick():
@@ -663,6 +710,21 @@ def _selftest_extract_years_full_and_abbreviated():
     normalized = sorted(r["normalized"] for r in result)
     assert normalized == ["2026", "2026"], normalized
     print("extract_years 통과:", result)
+
+
+def _selftest_extract_years_bare_abbreviation_without_quote():
+    """(2026-09-17, 실사용 우려사항 반영) 따옴표/백틱 없이 그냥 "24년"만
+    쓴 경우도 2024로 인식해야 한다 — 동시에 "2024년"의 뒷부분("24년")이
+    별도 연도로 중복 추출되면 안 된다."""
+    bare = extract_years("24년 실적은 좋았다")
+    assert [r["normalized"] for r in bare] == ["2024"], bare
+
+    full = extract_years("2024년 실적은 좋았다")
+    assert [r["normalized"] for r in full] == ["2024"], full  # "24년" 중복 없이 하나만
+
+    mixed = extract_years("23개소에서 24년까지 활동")
+    assert [r["normalized"] for r in mixed] == ["2024"], mixed  # "23"은 연도 아님(년 없음)
+    print("_selftest_extract_years_bare_abbreviation_without_quote 통과:", bare, full, mixed)
 
 
 def _selftest_extract_values_year_word_excluded_from_amounts():
@@ -2008,6 +2070,7 @@ if __name__ == "__main__":
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
     _selftest_extract_values_excludes_year_abbreviation()
     _selftest_extract_values_excludes_year_abbreviation_with_backtick()
+    _selftest_extract_values_excludes_year_in_parens_any_symbol()
     _selftest_extract_values_excludes_list_marker_dot()
     _selftest_extract_values_excludes_list_marker_paren()
     _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
@@ -2015,6 +2078,7 @@ if __name__ == "__main__":
     _selftest_extract_values_excludes_list_marker_in_real_positions()
     _selftest_extract_values_excludes_month_sequence()
     _selftest_extract_years_full_and_abbreviated()
+    _selftest_extract_years_bare_abbreviation_without_quote()
     _selftest_extract_values_year_word_excluded_from_amounts()
     _selftest_find_month_sequence_spans_detects_full_run()
     _selftest_find_month_sequence_spans_ignores_partial_run()
