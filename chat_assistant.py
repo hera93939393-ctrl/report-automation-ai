@@ -84,6 +84,7 @@ class ChatAssistant(ctk.CTk):
         self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
         self._busy = False
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
+        self._hover_popup = None  # ctk.CTkToplevel | None — 미리보기 확대창(마우스 올릴 때만)
         self._last_mismatch_items: list[str] = []  # list[str] - 마지막 숫자검증에서 빨갛게 표시된 항목들(span 순서)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
@@ -435,25 +436,66 @@ class ChatAssistant(ctk.CTk):
                 else:
                     preview_path = generate_excel_preview_image(path)
                 if preview_path is not None:
-                    card = self._log(f"미리보기: {os.path.basename(path)}", role="assistant")
+                    card = self._log(f"미리보기: {os.path.basename(path)} (마우스를 올리면 크게 보여요)",
+                                     role="assistant")
                     pil_image = Image.open(preview_path)
                     width, height = pil_image.size
                     # 엑셀 표 이미지는 HWP 페이지와 달리 열이 많으면 옆으로
                     # 넓어질 수 있다(고정 비율이 아님) - 채팅창 폭(320)보다
                     # 넓으면 비율 유지하며 줄여서 옆으로 잘려 보이지 않게 한다.
+                    # 이렇게 줄이면 특히 엑셀 표의 작은 글씨(숫자)가 안 읽힐
+                    # 수 있어(2026-09-17, 실사용 피드백 — 클릭 대신 "마우스
+                    # 올리면 커지고 떼면 사라지는" 방식을 선호함) 마우스를
+                    # 올리면 옆에 좀 더 큰 미리보기가 떴다가, 떼면 사라진다.
                     max_width = 280
                     if width > max_width:
                         height = int(height * max_width / width)
                         width = max_width
                     image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image,
                                           size=(width, height))
-                    ctk.CTkLabel(card, text="", image=image).pack(padx=8, pady=(0, 6))
+                    thumb = ctk.CTkLabel(card, text="", image=image)
+                    thumb.pack(padx=8, pady=(0, 6))
+                    thumb.bind("<Enter>",
+                              lambda _e, p=preview_path: self._show_hover_preview(p))
+                    thumb.bind("<Leave>", lambda _e: self._hide_hover_preview())
             else:
                 text_preview = generate_text_preview(path)
                 if text_preview:
                     self._log(f"미리보기: {os.path.basename(path)}\n{text_preview}", role="assistant")
         except Exception:
             pass  # 미리보기 실패는 첨부 자체를 막지 않음 - 부가기능
+
+    def _show_hover_preview(self, preview_path: str):
+        """썸네일에 마우스를 올리면, 채팅창 오른쪽 옆에 좀 더 큰(하지만
+        원본 그대로는 아닌 — 2026-09-17, "원본 크기보다는 옆에서 알아볼
+        정도로만" 사용자 요청) 미리보기를 테두리 없는 팝업으로 띄운다.
+        _hide_hover_preview()가 마우스를 떼는 순간 바로 닫는다."""
+        self._hide_hover_preview()
+        try:
+            pil_image = Image.open(preview_path)
+        except Exception:
+            return
+        width, height = pil_image.size
+        max_width = 520  # 원본 그대로가 아니라 "옆에서 읽을 수 있는 정도"로만 확대
+        if width > max_width:
+            height = int(height * max_width / width)
+            width = max_width
+
+        popup = ctk.CTkToplevel(self)
+        popup.overrideredirect(True)  # 제목표시줄 없는 툴팁 느낌
+        popup.attributes("-topmost", True)
+        x = self.winfo_x() + self.winfo_width() + 8  # 채팅창 바로 오른쪽 옆
+        y = self.winfo_y()
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(width, height))
+        ctk.CTkLabel(popup, text="", image=image).pack()
+        self._hover_popup = popup
+
+    def _hide_hover_preview(self):
+        """뜬 확대 미리보기가 있으면 닫는다. 없으면 아무 일도 안 한다."""
+        if self._hover_popup is not None:
+            self._hover_popup.destroy()
+            self._hover_popup = None
 
     def _pick_source_folder(self) -> bool:
         """_pick_source_files와 동일한 이유로 True/False를 반환한다."""
