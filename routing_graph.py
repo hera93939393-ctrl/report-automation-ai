@@ -9,7 +9,11 @@ qwen3.5:2b는 정식 도구호출을 지원하지 않아 결과가 불안정했�
 _route_by_keywords()의 우선순위/주석은 chat_assistant.py에서 그대로
 옮겨온 것이다 — 로직을 바꾼 게 아니라 위치만 옮겼다(사용자가 "안전망은
 그대로 유지"를 명시적으로 선택함, 2026-09-17)."""
-from typing import Optional
+from typing import Optional, TypedDict
+
+from langgraph.graph import END, StateGraph
+
+from ollama_client import ROUTING_MODEL, get_client
 
 _TOOLS = [
     {
@@ -107,6 +111,58 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
     if any(keyword in cleaned_message for keyword in _FIT_TO_PAGE_KEYWORDS):
         return "fit_to_one_page"
     return None
+
+
+class RouteState(TypedDict):
+    user_message: str
+    tool_name: Optional[str]
+
+
+def _classify_via_llm(state: RouteState) -> RouteState:
+    """서버의 qwen3.5:9b에 도구호출을 시도시킨다."""
+    client = get_client()
+    response = client.chat(
+        model=ROUTING_MODEL,
+        messages=[{"role": "user", "content": state["user_message"]}],
+        tools=_TOOLS,
+    )
+    tool_calls = response.get("message", {}).get("tool_calls") or []
+    tool_name = tool_calls[0]["function"]["name"] if tool_calls else None
+    return {"user_message": state["user_message"], "tool_name": tool_name}
+
+
+def _apply_keyword_fallback(state: RouteState) -> RouteState:
+    """LLM이 도구를 못 골랐을 때만 키워드 안전망으로 재확인한다.
+    LLM이 이미 뭔가 골랐으면 그 결과를 그대로 통과시킨다(안전망이 LLM의
+    선택을 덮어쓰지 않음 — 기존 route_intent()의 동작과 동일)."""
+    if state["tool_name"]:
+        return state
+    fallback = _route_by_keywords(state["user_message"])
+    return {"user_message": state["user_message"], "tool_name": fallback}
+
+
+def _build_graph():
+    graph = StateGraph(RouteState)
+    graph.add_node("classify", _classify_via_llm)
+    graph.add_node("keyword_fallback", _apply_keyword_fallback)
+    graph.set_entry_point("classify")
+    graph.add_edge("classify", "keyword_fallback")
+    graph.add_edge("keyword_fallback", END)
+    return graph.compile()
+
+
+_compiled_graph = _build_graph()
+
+
+def route_intent(user_message: str) -> Optional[str]:
+    """사용자의 자연어 입력이 어느 도구를 원하는지 판단한다. 랭그래프
+    2단계 그래프: ① 서버(qwen3.5:9b)의 정식 도구호출 시도, ② 실패 시
+    _route_by_keywords() 안전망. 이 함수 자체는 매 호출마다 서버에 실제로
+    접속하므로 결정적이지 않다 — self-test는 _route_by_keywords()를
+    직접 검증한다. 이 함수는 실사용 흐름(chat_assistant 실행 후 채팅
+    입력)에서 쓰인다."""
+    result = _compiled_graph.invoke({"user_message": user_message, "tool_name": None})
+    return result["tool_name"]
 
 
 def _selftest_route_by_keywords():
