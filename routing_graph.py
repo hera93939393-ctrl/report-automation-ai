@@ -116,19 +116,33 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
 class RouteState(TypedDict):
     user_message: str
     tool_name: Optional[str]
+    server_reachable: bool
 
 
 def _classify_via_llm(state: RouteState) -> RouteState:
-    """서버의 qwen3.5:9b에 도구호출을 시도시킨다."""
-    client = get_client()
-    response = client.chat(
-        model=ROUTING_MODEL,
-        messages=[{"role": "user", "content": state["user_message"]}],
-        tools=_TOOLS,
-    )
-    tool_calls = response.get("message", {}).get("tool_calls") or []
-    tool_name = tool_calls[0]["function"]["name"] if tool_calls else None
-    return {"user_message": state["user_message"], "tool_name": tool_name}
+    """서버의 qwen3.5:9b에 도구호출을 시도시킨다.
+
+    서버가 꺼져있거나 응답이 없어도(사용자가 서버 컴퓨터를 필요할 때만
+    켜는 걸 전제로 함, 2026-09-17) 예외를 올리지 않는다 — 실패하면
+    tool_name을 None으로 두어 다음 노드(_apply_keyword_fallback)가
+    안전망으로 판단하게 하고, server_reachable을 False로 남겨 호출자가
+    "서버 꺼짐" 안내를 보여줄 수 있게 한다. 이 프로젝트의 다른 LLM
+    호출부(예: llm_disambiguator.ask_ollama)와 같은 관례다."""
+    try:
+        client = get_client()
+        response = client.chat(
+            model=ROUTING_MODEL,
+            messages=[{"role": "user", "content": state["user_message"]}],
+            tools=_TOOLS,
+        )
+        tool_calls = response.get("message", {}).get("tool_calls") or []
+        tool_name = tool_calls[0]["function"]["name"] if tool_calls else None
+        server_reachable = True
+    except Exception:
+        tool_name = None
+        server_reachable = False
+    return {"user_message": state["user_message"], "tool_name": tool_name,
+            "server_reachable": server_reachable}
 
 
 def _apply_keyword_fallback(state: RouteState) -> RouteState:
@@ -138,7 +152,8 @@ def _apply_keyword_fallback(state: RouteState) -> RouteState:
     if state["tool_name"]:
         return state
     fallback = _route_by_keywords(state["user_message"])
-    return {"user_message": state["user_message"], "tool_name": fallback}
+    return {"user_message": state["user_message"], "tool_name": fallback,
+            "server_reachable": state["server_reachable"]}
 
 
 def _build_graph():
@@ -154,15 +169,23 @@ def _build_graph():
 _compiled_graph = _build_graph()
 
 
+def route_intent_verbose(user_message: str) -> tuple[Optional[str], bool]:
+    """route_intent()와 같지만, 서버 연결 성공 여부도 같이 돌려준다
+    (tool_name, server_reachable). chat_assistant.py가 server_reachable이
+    False일 때 "서버 꺼짐" 안내를 채팅창에 보여주는 데 쓴다."""
+    result = _compiled_graph.invoke(
+        {"user_message": user_message, "tool_name": None, "server_reachable": True})
+    return result["tool_name"], result["server_reachable"]
+
+
 def route_intent(user_message: str) -> Optional[str]:
     """사용자의 자연어 입력이 어느 도구를 원하는지 판단한다. 랭그래프
     2단계 그래프: ① 서버(qwen3.5:9b)의 정식 도구호출 시도, ② 실패 시
     _route_by_keywords() 안전망. 이 함수 자체는 매 호출마다 서버에 실제로
     접속하므로 결정적이지 않다 — self-test는 _route_by_keywords()를
-    직접 검증한다. 이 함수는 실사용 흐름(chat_assistant 실행 후 채팅
-    입력)에서 쓰인다."""
-    result = _compiled_graph.invoke({"user_message": user_message, "tool_name": None})
-    return result["tool_name"]
+    직접 검증한다. 서버 연결 상태까지 필요하면 route_intent_verbose()를
+    쓸 것 — 이 함수는 하위호환용 얇은 래퍼다."""
+    return route_intent_verbose(user_message)[0]
 
 
 def _selftest_route_by_keywords():

@@ -11,7 +11,7 @@ from attachment_preview import generate_hwp_preview_isolated, generate_text_prev
 from hwp_report import HwpReport
 from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
-from routing_graph import route_intent, _route_by_keywords
+from routing_graph import route_intent_verbose, _route_by_keywords
 from window_layout import position_windows
 
 ctk.set_appearance_mode("system")
@@ -564,10 +564,17 @@ class ChatAssistant(ctk.CTk):
                 # 한다(2026-09-01 Task9 리뷰에서 확인, 도구가 늘어나는 다음
                 # 라운드에서 누적형으로 재검토할 만함).
                 combined = f"{self._pending_clarification} {text}"
-                tool_name = route_intent(combined)
+                tool_name, server_reachable = route_intent_verbose(combined)
                 self._pending_clarification = None
             else:
-                tool_name = route_intent(text)
+                tool_name, server_reachable = route_intent_verbose(text)
+
+            if not server_reachable:
+                # (2026-09-17) 홈서버는 필요할 때만 켜는 걸 전제로 하므로
+                # (personal-ai-server-roadmap 참고), 꺼져있으면 조용히 키워드
+                # 방식으로만 판단하지 않고 매번 알려준다 — 사용자가 지금
+                # AI가 얼마나 똑똑하게 판단했는지 신뢰 수준을 알 수 있어야 함.
+                self._log("(서버에 연결할 수 없어서 간단한 키워드 방식으로 판단했어요 — 서버가 켜져 있는지 확인해보세요)")
 
             if tool_name == "verify_numbers":
                 if not self.source_paths:
