@@ -10,14 +10,17 @@ import os
 import tempfile
 import openpyxl
 
-from verify_numbers import extract_values, categorize_values, check_weekday_consistency
+from verify_numbers import (extract_values, categorize_values, check_weekday_consistency,
+                            build_table_contexts, attach_table_context)
 from source_reader import read_source_files
 from hwp_report import HwpReport
 from ignore_list import load_ignored_values, DEFAULT_IGNORE_PATH
+import llm_disambiguator
 
 
 def run_verification(report: HwpReport, source_paths: list[str], default_year: int,
-                      ignore_list_path: str = DEFAULT_IGNORE_PATH) -> dict:
+                      ignore_list_path: str = DEFAULT_IGNORE_PATH,
+                      llm_reconsider: bool = True) -> dict:
     """채팅창이 호출하는 숫자검증 도구 함수.
     1) report(이미 열려있는 문서 핸들)의 텍스트를 읽는다 — 이 함수는 문서를
        열거나 닫지 않는다, 호출자가 열고 닫을 책임을 진다
@@ -37,6 +40,20 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         (2026-09-08 추가, 아래 참고).
       - summary: str — 채팅창에 그대로 보여줄 사람이 읽는 요약 텍스트.
       - conflicts: list — read_source_files가 찾은 원본 파일 간 불일치 목록.
+      - llm_calls: int / llm_resolutions: list — LLM 재검토 단계(아래 참고)가
+        실제로 로컬 모델을 부른 횟수와, 그 결과 갈래가 바뀐 항목들. 진단용.
+
+    (F14 후속, 사용자 실제 문서에서 재현된 오판정 수정) categorize_values()가
+    끝난 뒤 llm_disambiguator.reconsider()를 한 번 더 돌린다. 결정론 라벨
+    매칭은 글자 겹침으로만 행을 찾기 때문에, 뜻이 같아도 단어가 다르면 진짜
+    출처 행을 아예 못 보고(예: 보고서 "위반업체 제재" ↔ 원본 "행정처분
+    정보연계 제재업체"), 동시에 엉뚱한 행이 우연히 걸려("계약관련"의 "계"가
+    라벨 "계"와 일치) 확신에 찬 빨강을 만들어내는 일이 실제로 있었다. 값이
+    똑같은 진짜 데이터 칸이 원본에 따로 있는 항목에 한해서만 로컬 LLM에게
+    "이 문장이 어느 항목 얘기냐"를 묻고, 그 답이 확인 질문까지 통과할 때만
+    갈래를 옮긴다. llm_reconsider=False면 이 단계를 통째로 건너뛰어 예전
+    동작 그대로가 되고(테스트가 모델 없이 결정론만 검증할 때 쓴다), Ollama가
+    꺼져 있거나 느려도 예외 없이 결정론 판정이 그대로 쓰인다.
 
     (2026-09-04, 실사용 피드백) "문서가 길어지니 전부 확인한 건지 모르겠다"는
     지적을 받아, 불일치(빨강)만 표시하던 것에 정상(파랑)/대조불가(초록)도
@@ -91,20 +108,59 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
             "ambiguous_count": 0,
             "summary": "원본자료에서 읽을 수 있는 데이터가 없어요. 지원 형식(엑셀 .xlsx/.xls, PDF .pdf)인지 확인해주세요.",
             "conflicts": conflicts,
+            # (F14 후속) 아래 mismatch_items와 같은 이유로, 이 경로에서도 반환
+            # 계약의 키를 빠뜨리지 않는다 - 원본을 못 읽었으면 LLM 재검토는
+            # 당연히 한 번도 안 돈 것이므로 0/빈 목록이 사실에 맞는 값이다.
+            "llm_calls": 0,
+            "llm_resolutions": [],
+            "mismatch_items": [],  # (2026-09-13, 실사용 재현) 이 키가 빠져 있어서
+            # chat_assistant.py의 result["mismatch_items"] 접근이 그대로
+            # KeyError('mismatch_items')로 죽었다 — 반환 계약(docstring)에는
+            # 없다고 적어두지 않았지만 호출부는 모든 경로에서 이 키가 있다고
+            # 가정하므로, 빈 값이라도 항상 넣어야 한다.
         }
 
     report_text = report.get_text()
     report_values = extract_values(report_text, default_year)
+
+    # (F14) 표 안에서 뽑힌 값에는 그 칸의 행/열 머리말을 붙여준다. 평문
+    # 텍스트(GetTextFile("TEXT",""))는 표를 셀 하나당 한 줄로 평평하게
+    # 흘려보내 행/열 정보를 통째로 잃어버리므로, 표 격자를 따로 읽어
+    # (get_table_grids) 그 평문에 다시 맞춘다. 맥락이 붙은 값만
+    # categorize_values에서 "출처가 맞는 원본 값"으로 후보가 좁혀진다 —
+    # 표 밖의 값과 격자를 못 맞춘 표는 맥락이 안 붙어 기존 동작 그대로다.
+    # get_table_grids()는 실패해도 예외 대신 빈 목록을 돌려주므로, 표를
+    # 못 읽는 문서에서도 검증 자체는 예전처럼 끝까지 진행된다.
+    table_contexts = build_table_contexts(report_text, report.get_table_grids())
+    attach_table_context(report_values, table_contexts)
+
     categorized = categorize_values(report_values, answer_pool)
-    mismatches = categorized["mismatches"]
-    matches = categorized["matches"]
-    unverifiable = categorized["unverifiable"]
-    ambiguous = categorized["ambiguous"]
 
     # (F14) ignore_list_path에 등록된 값(raw 문자열 그대로 비교)은 원본과
     # 실제로 불일치해도 mismatches에서 제외한다 - "이건 괜찮아, 무시해"로
     # 한 번 확인한 값은 다음부터 오류로 표시하지 않는다는 오탐 학습 기능.
     ignored_raws = set(load_ignored_values(ignore_list_path))
+
+    # (F14 후속) 결정론 판정이 끝난 뒤, 빨강·회색 중 "값은 원본에 분명히 있는데
+    # 엉뚱한 행에 연결된 것으로 보이는" 항목만 골라 로컬 LLM에게 의미로 다시
+    # 물어본다. 글자 겹침으로는 원리적으로 못 푸는 부분(같은 뜻, 다른 단어)만
+    # 담당하는 별도 후처리라, 여기서 끄면(llm_reconsider=False) 위 categorize_values의
+    # 결과가 그대로 쓰인다 — 판정 로직 자체는 한 글자도 안 바뀌었다.
+    # 대부분의 값은 LLM까지 가지도 않는다(호출 조건은 llm_disambiguator 참고).
+    # Ollama가 꺼져 있거나 느려도 예외 없이 결정론 판정 그대로 넘어간다.
+    llm_calls, llm_resolutions = 0, []
+    if llm_reconsider:
+        reconsidered = llm_disambiguator.reconsider(
+            categorized, answer_pool, skip_raws=ignored_raws)
+        categorized = reconsidered
+        llm_calls = reconsidered["llm_calls"]
+        llm_resolutions = reconsidered["resolutions"]
+
+    mismatches = categorized["mismatches"]
+    matches = categorized["matches"]
+    unverifiable = categorized["unverifiable"]
+    ambiguous = categorized["ambiguous"]
+
     if ignored_raws:
         mismatches = [m for m in mismatches if m["raw"] not in ignored_raws]
 
@@ -170,7 +226,19 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     first_type_by_raw = {}
     for m in mismatches:
         first_type_by_raw.setdefault(m["raw"], m["type"])
-    lines = [f"- [{first_type_by_raw[raw]}] '{raw}' 원본에서 확인 안 됨" for raw in unique_mismatch_raw]
+    # (F14 후속) LLM이 "이 문장은 원본의 이 항목 얘기"라고 짚어준 값은, 어느
+    # 항목과 비교해서 틀렸다는 건지 같이 알려준다 - 사용자가 원본에서 그
+    # 행을 바로 찾아볼 수 있어야 빨강을 믿을지 말지 판단할 수 있다.
+    llm_source_by_raw = {}
+    for m in mismatches:
+        if m.get("resolved_by") == "llm":
+            llm_source_by_raw.setdefault(m["raw"], m.get("resolved_location"))
+    lines = []
+    for raw in unique_mismatch_raw:
+        line = f"- [{first_type_by_raw[raw]}] '{raw}' 원본에서 확인 안 됨"
+        if llm_source_by_raw.get(raw):
+            line += f" (원본 {llm_source_by_raw[raw]} 항목과 대조)"
+        lines.append(line)
     for w in weekday_mismatches:
         lines.append(f"- [요일불일치] '{w['raw']}' 실제로는 {w['actual_weekday']}요일")
     for c in conflicts:
@@ -199,6 +267,12 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         "summary": summary,
         "conflicts": conflicts,
         "mismatch_items": mismatch_items,
+        # (F14 후속) LLM 재검토 단계가 실제로 몇 번 불렸고 무엇을 바꿨는지.
+        # 진단용이라 요약 텍스트에는 넣지 않는다 - 사용자에게는 색과 항목
+        # 설명만 보이면 되고, 이 숫자는 "정상 문서에서 쓸데없이 부르고 있지
+        # 않은지"를 확인하는 테스트/디버깅용이다.
+        "llm_calls": llm_calls,
+        "llm_resolutions": llm_resolutions,
     }
 
 
@@ -541,6 +615,518 @@ def _selftest_run_verification_mismatch_items_in_span_order():
         os.remove(report_path)
 
 
+def _build_hwp_table(hwp, rows: list, merge_first_column: bool = False) -> None:
+    """진짜 한글 표를 만들어 rows 내용을 채운다(테스트 픽스처용).
+    merge_first_column=True면 1열의 데이터 행 두 칸을 세로 병합한다 —
+    글자가 이미 들어있는 두 칸을 합치는 것이라, 한글이 두 문단을 한 칸에
+    몰아넣는 실제 병합 동작(table_to_df는 값 복제, 평문은 두 줄)이 그대로
+    재현된다."""
+    hwp.create_table(rows=len(rows), cols=len(rows[0]))
+    hwp.get_into_nth_table(0)
+    for r, row in enumerate(rows):
+        for c, val in enumerate(row):
+            if val:
+                hwp.insert_text(val)
+            if not (r == len(rows) - 1 and c == len(row) - 1):
+                hwp.TableRightCell()
+    if merge_first_column:
+        hwp.get_into_nth_table(0)
+        for _ in range(len(rows[0])):  # 머리말 행을 지나 1열 첫 데이터 칸으로
+            hwp.TableRightCell()
+        hwp.TableCellBlock()
+        hwp.TableCellBlockExtend()
+        hwp.TableLowerCell()
+        hwp.TableMergeCell()
+    hwp.MoveDocEnd()
+
+
+def _selftest_run_verification_table_cell_wrong_year_is_flagged():
+    """(F14, 이 기능이 존재하는 이유 — 진짜 .hwp와 진짜 .xlsx로 확인)
+    원본의 정기점검 실적은 2024년 1,694 / 2025년 1,827인데, 보고서 표의
+    "2024년" 칸에 2025년 값(1,827)을 잘못 옮겨적은 상황이다.
+
+    이 기능이 없으면 2024년 칸의 오류를 특정할 수 없다. 이제는 각 칸이
+    자기 열(2024년/2025년)의 원본 값하고만 대조되므로, 2024년 칸은
+    빨강(오류), 2025년 칸은 파랑(정상)이어야 한다. 같은 글자("1,827")가
+    문서에 두 번 나오므로 색을 문서 순서대로 읽어 [빨강, 파랑]인지 확인한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_표맥락")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["분류", "지표명", "2024", "2025"])
+    ws.append(["점검", "정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표맥락.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("2025년 주요 실적\n")
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["정기점검 실적", "1,827", "1,827"],  # 2024년 칸이 틀렸다(진짜 값은 1,694)
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        colors = report.get_char_colors("1,827")
+        assert colors == [(255, 0, 0), (0, 0, 255)], (
+            f"2024년 칸은 빨강, 2025년 칸은 파랑이어야 하는데 {colors}. "
+            f"둘 다 같은 색이면 표 맥락이 안 붙은 것(기능 이전 동작)이다."
+        )
+        print("run_verification(표 2024년 칸의 잘못된 연도 값 적발) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_abbreviated_year_column_still_catches_error():
+    """(F14, 3차 검토에서 발견된 회귀의 진짜 .hwp/.xlsx 재현) 보고서 표
+    머리말은 "'24년"처럼 연도를 줄여 쓰고 원본 엑셀 머리말은 평범한
+    "2024"인, 실사용에서 가장 흔한 조합이다.
+
+    열 머리말의 연도 약칭을 못 읽으면 모든 후보가 "연도가 다르다"로 걸러져
+    그 칸의 검증이 통째로 무력해지고, 원본 2024년 값(1,694)과 다른 1,900이
+    조용히 빨강에서 빠진다. 표기를 흡수하면 1,900은 빨강, 2025년 칸의
+    1,827은 파랑이어야 한다.
+
+    (A 브랜치는 이 회귀를 단위 테스트로 고정해 뒀는데, 두 기능을 합치면서
+    실제 한글 문서 경로까지 그대로인지 확인하려고 통합 수준으로도 고정한다.)"""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_연도약칭")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["지표명", "2024", "2025"])
+    ws.append(["정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_연도약칭.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("연도 약칭 표기 확인\n")
+    _build_hwp_table(setup, [
+        ["구분", "'24년", "'25년"],
+        ["정기점검 실적", "1,900", "1,827"],   # '24년 칸이 틀렸다(진짜 값은 1,694)
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,900") == [(255, 0, 0)], (
+            "'24년 칸의 오류가 빨강으로 잡히지 않았다 — 열 머리말의 연도 "
+            f"약칭을 못 읽어 후보가 전부 걸러진 것으로 보인다: "
+            f"{report.get_char_colors('1,900')}"
+        )
+        assert report.get_char_colors("1,827") == [(0, 0, 255)], (
+            f"'25년 칸의 정상 값이 파랑이 아니다 — {report.get_char_colors('1,827')}"
+        )
+        print("run_verification(열 머리말 연도 약칭 '24년에서도 오류 적발) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_with_merged_cell_keeps_alignment():
+    """(F14) 병합된 셀이 있는 진짜 한글 표에서도 줄 정렬이 밀리지 않아야 한다.
+    table_to_df는 병합 칸의 값을 걸친 행마다 복제해 넣지만 평문 텍스트에는
+    그 내용이 한 번만(여기서는 두 문단이라 두 줄로) 나오므로, 처리하지
+    않으면 그 뒤의 모든 칸이 한 줄씩 밀려 엉뚱한 열 머리말이 붙는다.
+
+    표 마지막 행의 "2024년" 칸에 2025년 값(600,000)을 적어두고, 그 값이
+    빨강으로 잡히는지 본다 — 정렬이 밀렸다면 이 칸의 열 머리말이
+    "2025년"으로 잘못 읽혀 파랑(정상)이 되어버린다. 즉 이 단언은 병합
+    처리가 실제로 동작했는지를 결과로 확인한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_병합표")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["구분", "2024", "2025"])
+    ws.append(["점검 예산", 500000, 600000])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_병합표.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("병합 표 확인\n")
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["점검", "500,000", "600,000"],   # 정상
+        ["예산", "600,000", "600,000"],   # 2024년 칸이 틀렸다(진짜 값은 500,000)
+    ], merge_first_column=True)
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        # 문서에 "600,000"은 세 번 나온다: 1행 2025년(정상, 파랑),
+        # 2행 2024년(오류, 빨강), 2행 2025년(정상, 파랑).
+        colors = report.get_char_colors("600,000")
+        assert colors == [(0, 0, 255), (255, 0, 0), (0, 0, 255)], (
+            f"병합 표에서 열 머리말 정렬이 어긋났다: {colors}"
+        )
+        # 정상 값은 그대로 파랑이어야 한다(병합이 앞쪽 행까지 망치지 않았는지).
+        assert report.get_char_colors("500,000") == [(0, 0, 255)], \
+            report.get_char_colors("500,000")
+        print("run_verification(병합 셀 있는 표의 정렬 유지) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_with_tall_source_keeps_old_behavior():
+    """(F14 회귀 방지 — 실사용에서 가장 중요한 보장) 보고서에 표가 있어도,
+    원본이 가로형(연도별 열)이 아닌 보통 세로형 엑셀이면 판정이 표 맥락
+    기능 이전과 똑같아야 한다.
+
+    이 경우 원본 값에는 열/행 출처 정보가 아예 없으므로, "모르는 것은 막지
+    않는다"는 원칙에 따라 후보가 하나도 걸러지지 않는다 — 즉 표 안 값도
+    예전처럼 값이 맞으면 파랑, 틀리면 빨강이어야 한다. 여기서 회색이나
+    초록이 나오면 멀쩡히 쓰던 검증이 조용히 무력화된 것이므로 반드시
+    잡아야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_세로형")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws.append(["항목", "값"])            # 가로형이 아님(2열, 연도 없음)
+    ws.append(["예산", 1850000])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_세로형원본.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산 현황\n")
+    _build_hwp_table(setup, [
+        ["구분", "금액"],
+        ["예산", "1,850,000"],   # 원본과 일치 -> 파랑이어야 한다
+        ["기타", "7,777,777"],   # 원본에 없음 -> 빨강이어야 한다
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,850,000") == [(0, 0, 255)], (
+            "가로형이 아닌 원본인데 표 안의 정상 값이 파랑이 아니다 — "
+            f"{report.get_char_colors('1,850,000')} (기존 동작이 깨졌다)"
+        )
+        assert report.get_char_colors("7,777,777") == [(255, 0, 0)], \
+            report.get_char_colors("7,777,777")
+        print("run_verification(가로형 아닌 원본 + 표 = 기존 동작 유지) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_table_is_not_more_lenient_than_prose():
+    """(2026-09-11, 두 기능 통합을 정면으로 겨냥한 테스트) 표 맥락은 후보를
+    "좁히는" 장치일 뿐이므로, 좁힐 근거가 없을 때 표 안의 값이 평문보다
+    관대하게 판정되면 안 된다.
+
+    원본이 라벨 없는(숫자만 있는 행) 2열 시트라, master의 문맥 연결 규칙은
+    "어느 항목인지 못 좁혔다"며 회색으로 남긴다. 같은 숫자를 표에 적었다고
+    해서 파랑/빨강으로 단정하면, master가 이미 없앤 가짜 파랑·가짜 빨강이
+    표 안에서만 되살아난다. 문장과 표 둘 다 회색이어야 한다.
+
+    (이 픽스처는 표 맥락 기능을 처음 만들 때 "기존 동작 유지" 테스트로
+    쓰였고 그때 기대값은 파랑/빨강이었다. 그 뒤 master에 문맥 연결 수정이
+    들어가면서, 표가 없는 평문에서도 이 원본에 대한 판정이 회색으로
+    바뀌었다 — 즉 기준선 자체가 옮겨갔다. 위의
+    _selftest_run_verification_table_with_tall_source_keeps_old_behavior가
+    라벨이 있는 원본으로 파랑/빨강 쪽을 따로 지킨다.)"""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_라벨없음")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws.append(["예산", "인원"])          # 항목명이 머리행에만 있고 데이터 행엔 없음
+    ws.append([1850000, 342])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_라벨없는원본.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 1,850,000원입니다\n")   # 평문 — 회색이 기준선
+    _build_hwp_table(setup, [
+        ["구분", "금액"],
+        ["예산", "1,850,000"],
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        colors = report.get_char_colors("1,850,000")
+        assert colors == [(128, 128, 128), (128, 128, 128)], (
+            f"평문과 표의 판정이 갈렸다: {colors} — 표 안의 값만 관대하게 "
+            f"판정되면 master의 문맥 연결 보호가 표 안에서 풀린 것이다."
+        )
+        print("run_verification(표가 평문보다 관대해지지 않음) 통과:", colors)
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_routes_table_and_prose_in_one_document():
+    """(2026-09-11, 두 기능 통합을 정면으로 겨냥한 테스트) 한 문서 안에 표와
+    평문이 같이 있을 때, 각 값이 자기에게 맞는 판정 경로로 가야 한다.
+
+    - 평문 "정기점검 실적은 1,694건" → 표 맥락이 없으므로 master의 라벨
+      연결 경로. 문맥에 원본 라벨("정기점검 실적")이 걸려 1,694와 비교돼
+      파랑이어야 한다.
+    - 표의 "2024년" 칸 1,900 → 표 맥락 경로. 2024년 열의 원본 값(1,694)
+      하고만 비교돼 빨강이어야 한다.
+    - 표의 "2025년" 칸 1,827 → 같은 경로로 2025년 값과 일치해 파랑.
+
+    셋이 동시에 맞아야 통과한다 — 한쪽 경로가 다른 쪽을 덮어쓰면(예: 표
+    맥락 dict가 평문 문맥 문자열을 밀어내면) 반드시 깨진다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_표와평문")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "실적"
+    ws.append(["지표명", "2024", "2025"])
+    ws.append(["정기점검 실적", 1694, 1827])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_표와평문.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("점검 실적 보고\n")
+    setup.insert_text("정기점검 실적은 1,694건입니다\n")   # 평문 → 라벨 연결 경로
+    _build_hwp_table(setup, [
+        ["구분", "2024년", "2025년"],
+        ["정기점검 실적", "1,900", "1,827"],   # 2024년 칸이 틀렸다
+    ])
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert report.get_char_colors("1,694") == [(0, 0, 255)], (
+            "평문 값이 라벨 연결로 파랑이 되지 않았다 — "
+            f"{report.get_char_colors('1,694')}"
+        )
+        assert report.get_char_colors("1,900") == [(255, 0, 0)], (
+            "표의 2024년 칸 오류가 빨강으로 잡히지 않았다 — "
+            f"{report.get_char_colors('1,900')}"
+        )
+        assert report.get_char_colors("1,827") == [(0, 0, 255)], (
+            f"표의 2025년 칸 정상 값이 파랑이 아니다 — "
+            f"{report.get_char_colors('1,827')}"
+        )
+        print("run_verification(한 문서 안 표/평문 경로 분기) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_llm_rescues_paraphrased_row():
+    """(F14 후속, 사용자 실제 문서에서 재현된 오판정) 보고서가 원본 행을
+    "같은 뜻, 다른 단어"로 부르고 있고, 동시에 엉뚱한 행의 라벨이 글자로
+    우연히 걸리는 상황.
+
+    실제 문서에서 난 일을 그대로 축소해 옮겼다(사용자 파일은 커밋하지 않고
+    같은 모양의 fixture를 만든다):
+      - 보고서: "식품 및 계약관련 법률 위반업체 제재 : ('24) 83개소 → ('25) 101"
+      - 원본 9행: "행정처분 정보연계 제재업체" 2024=83, 2025=101  ← 진짜 출처
+      - 원본 다른 시트: 합계 행의 라벨이 딱 한 글자 "계"
+
+    결정론 라벨 매칭은 이 문장에서 진짜 출처 행을 아예 못 본다 — 그 행의
+    조각("행정처분","정보연계","제재업체")이 문장과 글자가 하나도 안 겹치기
+    때문이다. 대신 라벨 "계"가 문장의 "계약관련"에 부분문자열로 걸려서, 83이
+    엉뚱하게 그 행의 값(109)과 비교돼 빨강이 된다. 값이 원본에 글자 그대로
+    있는데도 "원본에서 확인 안 됨"이라고 단정하는, 확신에 찬 오답이다.
+
+    그래서 이 테스트는 두 번 돌린다 — llm_reconsider=False로 버그가 실제로
+    재현되는지(빨강) 먼저 확인하고, 켠 채로 다시 돌려 파랑으로 고쳐지는지
+    본다. 그래야 "fixture가 애초에 문제를 재현하지도 못하는데 통과만 하는"
+    빈 테스트가 되지 않는다. 로컬 모델을 진짜로 부르므로(모킹 없음, 이
+    파일의 다른 통합 테스트와 같은 관례) Ollama가 떠 있어야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_의미연결")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook()
+    ws = wb.active; ws.title = "핵심추이"
+    ws.append(["지표명", "단위", "2024", "2025", "비고"])
+    ws.append(["3회 초과 반려 공급업체", "건", 43, 29, "전년대비 14건↓"])
+    ws.append(["행정처분 정보연계 제재업체", "개소", 83, 101,
+               "전년대비 63.2%↑ (식품·계약 관련 법률 위반업체)"])
+    # 실제 문서에서 83을 엉뚱하게 가로챘던 바로 그 모양 — 라벨이 한 글자 "계"인
+    # 합계 행. 문장의 "계약관련"에 "계"가 들어 있어 통짜 부분문자열로 걸린다.
+    ws2 = wb.create_sheet("평가시스템")
+    ws2.append(["구분", "참여 학교수"])
+    ws2.append(["상반기", 52])
+    ws2.append(["하반기", 66])
+    ws2.append(["계", 109])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_의미연결.hwp")
+    setup = Hwp(visible=False, new=True)
+    # 문단을 진짜로 나눠야 한다(insert_text에 "\n"을 넣는 것만으로는 한 문단으로
+    # 붙어버리는 게 실측됨). 실제 문서에서도 "③ 행정처분 정보연계"는 윗줄
+    # 제목이라 별도 문단이고, 그래서 아래 문장의 문맥(_preceding_context는 가장
+    # 가까운 줄바꿈까지만 본다)에 "행정처분"이 들어오지 않는다 — 이 문단 분리가
+    # 바로 이 버그가 성립하는 조건이라, 한 문단으로 붙으면 재현 자체가 안 된다.
+    setup.insert_text("③ 행정처분 정보연계")
+    setup.HAction.Run("BreakPara")
+    setup.insert_text("  * 식품 및 계약관련 법률 위반업체 제재 : (‘24) 83개소 → (’25) 101")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+
+        # 1) LLM 재검토를 끈 상태 — 버그가 실제로 재현되는지 먼저 확인한다.
+        before = run_verification(report, source_paths=[test_dir], default_year=2025,
+                                  llm_reconsider=False)
+        assert before["llm_calls"] == 0, before
+        assert report.get_char_colors("83") == [(255, 0, 0)], (
+            "fixture가 원래 버그를 재현하지 못했다 — 결정론 판정이 83을 빨강으로 "
+            f"단정해야 이 테스트가 의미가 있다: {report.get_char_colors('83')}"
+        )
+
+        # 2) 켠 상태 — 의미로 진짜 출처 행을 찾아 파랑으로 고쳐져야 한다.
+        after = run_verification(report, source_paths=[test_dir], default_year=2025)
+        assert after["llm_calls"] > 0, ("LLM이 한 번도 불리지 않았다 — 재검토 "
+                                        f"조건이 안 걸린 것으로 보인다: {after}")
+        assert report.get_char_colors("83") == [(0, 0, 255)], (
+            "의미상 진짜 출처(행정처분 정보연계 제재업체, 2024=83)로 연결되지 "
+            f"않았다: {report.get_char_colors('83')} / {after['summary']}"
+        )
+        assert report.get_char_colors("101") == [(0, 0, 255)], (
+            f"101이 파랑으로 고쳐지지 않았다: {report.get_char_colors('101')}"
+        )
+        # 어느 행으로 연결됐는지 출처가 남아야 한다(사용자가 원본에서 찾아볼 수 있게).
+        resolved = {r["raw"]: r for r in after["llm_resolutions"]}
+        assert "83" in resolved and "핵심추이" in (resolved["83"]["location"] or ""), \
+            after["llm_resolutions"]
+        print("run_verification(LLM 의미 재검토로 패러프레이즈 행 연결) 통과:",
+              after["llm_resolutions"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_llm_not_called_without_alternative():
+    """(F14 후속) 진짜로 틀린 값이라 원본 어디에도 같은 값이 없으면, LLM을
+    단 한 번도 부르지 않고 결정론 판정 그대로 빨강이어야 한다.
+
+    이게 이 기능의 성능/신뢰성 계약이다 — 보통 문서의 값은 거의 전부 이
+    경로로 끝나야 한다(대안이 없으면 LLM이 바꿀 수 있는 게 없으므로 부르는
+    것 자체가 낭비다). llm_calls를 반환값으로 노출해 둔 이유가 이 단언을
+    쓸 수 있게 하기 위해서다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_대안없음")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_대안없음.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 185만원이며, 오타는 9999999원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["llm_calls"] == 0, (
+            "같은 값을 가진 원본 항목이 하나도 없는데 LLM을 불렀다 — 호출 "
+            f"조건이 너무 넓다: {result['llm_calls']}회"
+        )
+        # 판정은 LLM 단계가 없던 때와 글자 그대로 같아야 한다.
+        assert result["mismatch_count"] == 1, result
+        assert "9999999" in result["summary"], result
+        assert report.get_char_colors("9999999") == [(255, 0, 0)], \
+            report.get_char_colors("9999999")
+        print("run_verification(대안 없으면 LLM 호출 0회) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_llm_falls_back_to_ambiguous_when_unclear():
+    """(F14 후속) 값이 같은 대안은 있지만 문장만 봐서는 어느 항목인지 정말
+    알 수 없을 때는, 찍어서 파랑/빨강으로 단정하지 말고 회색(확인 필요)으로
+    남겨야 한다.
+
+    보고서 문장 "기타 사항은 다음과 같음 : 45"에는 항목을 가리키는 단서가
+    전혀 없다. 원본의 "가 항목"이 마침 45라서 재검토 조건에는 걸리지만,
+    그것만으로 "이 문장은 가 항목 얘기"라고 단정하면 우연히 값이 같은
+    무관한 항목을 정상이라고 칠해주는 셈이 된다 — 이 도구가 원래 막으려던
+    사고 그대로다. 이 프로젝트의 정직한 기본값은 "확인 필요"다.
+
+    안전장치는 두 겹이다: 고르기 질문에서 "해당 없음(0)"을 고르거나, 골랐더라도
+    뒤이은 예/아니오 확인 질문을 통과하지 못하면 회색으로 간다. 로컬 모델을
+    진짜로 부르므로 둘 중 어느 쪽으로 걸리든 결과는 회색이어야 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_원본_모호")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "현황"
+    ws.append(["항목", "값"])
+    ws.append(["가 항목", 45])
+    ws.append(["나 항목", 60])
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_모호.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("기타 사항은 다음과 같음 : 45\n")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert result["llm_calls"] > 0, (
+            f"재검토 조건(값이 같은 대안 존재)에 걸렸어야 한다: {result}")
+        assert report.get_char_colors("45") == [(128, 128, 128)], (
+            "문맥이 전혀 없는 값을 LLM이 찍어서 단정해버렸다 — 회색(확인 "
+            f"필요)이어야 한다: {report.get_char_colors('45')} / {result['summary']}"
+        )
+        assert result["llm_resolutions"] == [], result["llm_resolutions"]
+        print("run_verification(모호하면 회색으로 안전하게 후퇴) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
 if __name__ == "__main__":
     _selftest_run_verification()
     _selftest_run_verification_skips_ignored_mismatch()
@@ -550,3 +1136,14 @@ if __name__ == "__main__":
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
     _selftest_run_verification_flags_weekday_mismatch()
     _selftest_run_verification_mismatch_items_in_span_order()
+    # (F14) 표 맥락 + 통합 검증
+    _selftest_run_verification_table_cell_wrong_year_is_flagged()
+    _selftest_run_verification_abbreviated_year_column_still_catches_error()
+    _selftest_run_verification_table_with_merged_cell_keeps_alignment()
+    _selftest_run_verification_table_with_tall_source_keeps_old_behavior()
+    _selftest_run_verification_table_is_not_more_lenient_than_prose()
+    _selftest_run_verification_routes_table_and_prose_in_one_document()
+    # (F14 후속) LLM 의미 재검토 — 로컬 Ollama가 떠 있어야 통과한다.
+    _selftest_run_verification_llm_rescues_paraphrased_row()
+    _selftest_run_verification_llm_not_called_without_alternative()
+    _selftest_run_verification_llm_falls_back_to_ambiguous_when_unclear()
