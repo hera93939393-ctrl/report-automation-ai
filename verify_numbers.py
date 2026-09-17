@@ -16,7 +16,14 @@ _UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
 # 실제 재현됨 — 1,595/1,694/1,827은 정상인데 23/24/25가 전부 오류로 잘못
 # 표시됨). extract_values()가 날짜/시간/전화번호처럼 이 패턴도 "제외 구간"으로
 # 다뤄서, 겹치는 금액 매치를 애초에 뽑지 않게 한다.
-_YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘]\d{2}(?!\d)")
+#
+# (2026-09-17 추가, 실사용 재현) 같은 문서의 다른 절에서는 작은따옴표 대신
+# 백틱(`)으로 연도를 적은 경우("`24개소" 등, 작성자가 키보드에서 잘못
+# 눌렀거나 자동고침 결과로 추정)가 실제로 있었다 — 이 문자는 원래 패턴에
+# 없어서 "24"/"25"가 그대로 금액으로 뽑혀 똑같은 오탐이 재현됐다(19→31,
+# 63.2%↑ 자체는 정상인데 연도 24/25가 오류로 잘못 표시됨). 백틱도 같은
+# 취급을 받도록 문자 집합에 추가한다.
+_YEAR_ABBREVIATION_PATTERN = re.compile(r"['’‘`]\d{2}(?!\d)")
 
 # (2026-09-07, 실사용 피드백으로 발견) "1." "2)"처럼 목차·개요·붙임 번호 등
 # 문서 어디서나 등장하는 번호매기기 표기 — numbering_tool.py가 실제로 쓰는
@@ -556,6 +563,18 @@ def _selftest_extract_values_excludes_year_abbreviation():
     amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
     assert amounts == ["1595", "1694", "1827"], amounts
     print("_selftest_extract_values_excludes_year_abbreviation 통과:", result)
+
+
+def _selftest_extract_values_excludes_year_abbreviation_with_backtick():
+    """(2026-09-17, 실사용 재현) 같은 문서의 다른 절에서 연도 약칭에
+    작은따옴표 대신 백틱(`)을 쓴 경우 — "동일IP주소 중복투찰 제재 : (`24)
+    19개소 → (`25) 31 (63.2%↑)". 백틱도 작은따옴표와 똑같이 연도 약칭으로
+    인식해서, "24"/"25"는 안 뽑히고 진짜 데이터(19/31/63.2)만 뽑혀야 한다."""
+    text = "동일IP주소 중복투찰 제재 : (`24) 19개소 → (`25) 31 (63.2%↑)"
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["19", "31", "63.2"], amounts
+    print("_selftest_extract_values_excludes_year_abbreviation_with_backtick 통과:", result)
 
 
 def _selftest_extract_values_excludes_list_marker_dot():
@@ -1988,6 +2007,7 @@ if __name__ == "__main__":
     _selftest_extract_values_reverse_direction_overlap()
     _selftest_extract_values_straddles_two_adjacent_excluded_spans()
     _selftest_extract_values_excludes_year_abbreviation()
+    _selftest_extract_values_excludes_year_abbreviation_with_backtick()
     _selftest_extract_values_excludes_list_marker_dot()
     _selftest_extract_values_excludes_list_marker_paren()
     _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
