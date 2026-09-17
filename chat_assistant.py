@@ -462,8 +462,7 @@ class ChatAssistant(ctk.CTk):
                     thumb = ctk.CTkLabel(card, text="", image=image, cursor="hand2")
                     thumb.pack(padx=8, pady=(0, 6))
                     thumb.bind("<Button-1>",
-                              lambda _e, p=preview_path, sp=path, se=ext:
-                              self._toggle_click_preview(p, sp, se))
+                              lambda _e, p=preview_path: self._toggle_click_preview(p))
             else:
                 text_preview = generate_text_preview(path)
                 if text_preview:
@@ -471,7 +470,7 @@ class ChatAssistant(ctk.CTk):
         except Exception:
             pass  # 미리보기 실패는 첨부 자체를 막지 않음 - 부가기능
 
-    def _toggle_click_preview(self, preview_path: str, source_path: str, ext: str):
+    def _toggle_click_preview(self, preview_path: str):
         """썸네일을 클릭하면, 채팅창 옆에 좀 더 큰(하지만 원본 그대로는
         아닌 — "원본 크기보다는 옆에서 알아볼 정도로만" 사용자 요청)
         미리보기를 테두리 없는 팝업으로 띄운다. 이미 떠있는 상태에서
@@ -483,6 +482,14 @@ class ChatAssistant(ctk.CTk):
         증상이 있었고 근본 원인을 못 찾아 사용자가 직접 클릭 방식으로
         바꾸자고 결정함).
 
+        (실사용 재현) HWP 썸네일은 원래 여기서 클릭할 때마다 더 높은
+        해상도로 다시 렌더링했었는데, 매번 한글 COM을 새로 여는 데만
+        8~9초가 걸려 클릭이 느리게 느껴졌다("한글은 너무 느리다"). 지금은
+        attachment_preview.generate_hwp_preview_isolated()가 처음 첨부할
+        때부터 이미 150dpi로 만들어두므로(_show_attachment_preview 참고),
+        여기서는 항상 preview_path를 그대로 쓰기만 하면 되고 클릭은
+        즉시 뜬다.
+
         (실사용 재현) 채팅창은 원래 position_windows()가 화면 오른쪽
         25% 자리에 놓는 창이라(window_layout.py), "채팅창 오른쪽에 더"
         띄우면 화면 밖으로 나가버려 안 보이는 게 실제로 재현됐다 —
@@ -491,20 +498,6 @@ class ChatAssistant(ctk.CTk):
         if self._hover_popup is not None:
             self._hide_hover_preview()
             return
-        # (2026-09-17, 실사용 재현) HWP 썸네일은 용량을 아끼려고 저해상도
-        # (60dpi)로 만들어서, 그 이미지를 그대로 키우면 글씨가 깨진다
-        # (실사용 재현됨) - 엑셀 표 이미지는 직접 그린 거라 이 문제가 없다.
-        # 확대해서 볼 때만 HWP를 더 높은 해상도로 다시 렌더링한다. 이
-        # 렌더링 자체가 몇 초 걸리는데(실사용 재현 — "늦게 떴어") 그 동안
-        # 화면이 멈춘 것처럼 보이므로, 시작 전에 "불러오는 중" 메시지를
-        # 먼저 보여주고 화면을 강제로 갱신해서 반응은 하고 있다는 걸
-        # 바로 알 수 있게 한다.
-        if ext in (".hwp", ".hwpx"):
-            self._log("확대 이미지를 새로 만들고 있어요, 잠시만요...")
-            self.update()
-            enlarged_path = generate_hwp_preview_isolated(source_path, resolution=150)
-            if enlarged_path is not None:
-                preview_path = enlarged_path
         try:
             pil_image = Image.open(preview_path)
         except Exception:
