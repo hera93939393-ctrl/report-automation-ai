@@ -5,8 +5,9 @@ import unicodedata
 from decimal import Decimal
 
 
-_AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(만원|천원|원|%))?')
-_UNIT_MULTIPLIER = {"만원": 10000, "천원": 1000, "원": 1, "%": 1, None: 1}
+_AMOUNT_PATTERN = re.compile(r'(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(조원|억원|만원|천원|원|%))?')
+_UNIT_MULTIPLIER = {"조원": 1000000000000, "억원": 100000000, "만원": 10000, "천원": 1000,
+                     "원": 1, "%": 1, None: 1}
 
 # (2026-09-04, 실사용 피드백으로 발견) 공공기관 보고서에서 흔한 "('23)","'24년"
 # 같은 연도 약칭 표기 — 작은따옴표(또는 스마트따옴표) 바로 뒤에 두 자리 숫자가
@@ -246,6 +247,21 @@ def _selftest_extract_amounts_decimal_unit_no_float_noise():
     b = extract_amounts("예산은 1,005원입니다")
     assert a[0]["normalized"] == b[0]["normalized"] == "1005", (a, b)
     print("_selftest_extract_amounts_decimal_unit_no_float_noise 통과:", a, b)
+
+
+def _selftest_extract_amounts_eok_jo_units():
+    """(2026-09-17, 사용자 직접 요청) "억"/"조" 단위도 "만원"/"천원"처럼
+    배율이 적용돼야 하고, 특히 소수와 결합했을 때(1.5억원 등) 정확해야
+    한다 — float 오차 없이, 그리고 다른 표기와 같은 실제 값이면 같은
+    문자열로 정규화되어야 한다."""
+    a = extract_amounts("예산 1.5억원")
+    assert a[0]["normalized"] == "150000000", a
+    b = extract_amounts("예산 150,000,000원")
+    assert a[0]["normalized"] == b[0]["normalized"], (a, b)  # 같은 값, 다른 표기
+
+    c = extract_amounts("예산 2.3조원")
+    assert c[0]["normalized"] == "2300000000000", c
+    print("_selftest_extract_amounts_eok_jo_units 통과:", a, c)
 
 
 def _selftest_extract_amounts_no_scientific_notation():
@@ -2055,6 +2071,7 @@ def _selftest_compute_column_average_rounds_repeating_decimal():
 if __name__ == "__main__":
     _selftest_extract_amounts()
     _selftest_extract_amounts_decimal_unit_no_float_noise()
+    _selftest_extract_amounts_eok_jo_units()
     _selftest_extract_amounts_no_scientific_notation()
     _selftest_decimal_to_normalized_str_large_integral_no_scientific_notation()
     _selftest_unit_multipliers()
