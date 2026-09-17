@@ -7,7 +7,8 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image
 
-from attachment_preview import generate_hwp_preview_isolated, generate_text_preview
+from attachment_preview import (generate_excel_preview_image, generate_hwp_preview_isolated,
+                                 generate_text_preview)
 from hwp_report import HwpReport
 from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
@@ -60,12 +61,13 @@ _PICKER_BUTTON_UNCHOSEN = {
 
 def _preview_kind_for(ext: str) -> str | None:
     """확장자별로 어떤 미리보기를 만들지 판단한다. ext는 점(.) 포함
-    소문자(예: ".hwp"). HWP류는 이미지 미리보기, 엑셀/PDF는 텍스트
-    미리보기, 그 외(이미지 자체를 첨부한 경우 등)는 미리보기를 만들지
-    않는다(None)."""
-    if ext in (".hwp", ".hwpx"):
+    소문자(예: ".hwp"). HWP류/엑셀류는 이미지 미리보기(엑셀은 2026-09-17
+    추가 — "엑셀 켜서 보는 번거로움을 줄이자"는 사용자 요청, 앞쪽 몇
+    행만 표로 그림), PDF는 텍스트 미리보기, 그 외(이미지 자체를 첨부한
+    경우 등)는 미리보기를 만들지 않는다(None)."""
+    if ext in (".hwp", ".hwpx", ".xlsx", ".xls"):
         return "image"
-    if ext in (".xlsx", ".xls", ".pdf"):
+    if ext in (".pdf",):
         return "text"
     return None
 
@@ -416,22 +418,35 @@ class ChatAssistant(ctk.CTk):
 
     def _show_attachment_preview(self, path: str):
         """첨부 직후 파일 하나의 작은 미리보기를 채팅창에 바로 보여준다.
-        HWP/HWPX는 이미지(별도 프로세스에서 1페이지만 렌더링, 같은
+        HWP/HWPX는 문서 이미지(별도 프로세스에서 1페이지만 렌더링, 같은
         프로세스 안의 다른 Hwp 인스턴스가 이미 열려있는 보고서의 COM
         연결을 깨뜨리는 pyhwpx 한계 때문 - attachment_preview.py 참고),
-        엑셀/PDF는 텍스트(상위 5줄)를 보여준다. 실패해도 조용히
-        건너뛴다(미리보기는 부가기능이라 실패가 첨부 자체를 막으면 안 됨)."""
+        엑셀은 표 이미지(앞쪽 몇 행만, 2026-09-17 추가), PDF는 텍스트(상위
+        5줄)를 보여준다. 실패해도 조용히 건너뛴다(미리보기는 부가기능이라
+        실패가 첨부 자체를 막으면 안 됨)."""
         ext = os.path.splitext(path)[1].lower()
         kind = _preview_kind_for(ext)
         if kind is None:
             return
         try:
             if kind == "image":
-                preview_path = generate_hwp_preview_isolated(path)
+                if ext in (".hwp", ".hwpx"):
+                    preview_path = generate_hwp_preview_isolated(path)
+                else:
+                    preview_path = generate_excel_preview_image(path)
                 if preview_path is not None:
                     card = self._log(f"미리보기: {os.path.basename(path)}", role="assistant")
-                    image = ctk.CTkImage(light_image=Image.open(preview_path),
-                                          dark_image=Image.open(preview_path), size=(160, 220))
+                    pil_image = Image.open(preview_path)
+                    width, height = pil_image.size
+                    # 엑셀 표 이미지는 HWP 페이지와 달리 열이 많으면 옆으로
+                    # 넓어질 수 있다(고정 비율이 아님) - 채팅창 폭(320)보다
+                    # 넓으면 비율 유지하며 줄여서 옆으로 잘려 보이지 않게 한다.
+                    max_width = 280
+                    if width > max_width:
+                        height = int(height * max_width / width)
+                        width = max_width
+                    image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image,
+                                          size=(width, height))
                     ctk.CTkLabel(card, text="", image=image).pack(padx=8, pady=(0, 6))
             else:
                 text_preview = generate_text_preview(path)
@@ -673,12 +688,15 @@ class ChatAssistant(ctk.CTk):
 
 def _selftest_build_preview_message_routes_by_extension():
     """확장자에 따라 어떤 종류의 미리보기를 만들지 올바르게 판단하는지
-    확인한다(HWP류는 이미지, 엑셀/PDF는 텍스트, 그 외는 미리보기 없음).
-    이 함수는 실제 pyhwpx/openpyxl을 부르지 않고 순수하게 분기만
-    검증한다 - 실제 생성은 attachment_preview.py 쪽 self-test가 담당."""
+    확인한다(HWP류/엑셀류는 이미지, PDF는 텍스트, 그 외는 미리보기 없음 —
+    엑셀이 텍스트에서 이미지로 바뀐 건 2026-09-17, 표를 그려서 보여주는
+    쪽으로 변경). 이 함수는 실제 pyhwpx/openpyxl을 부르지 않고 순수하게
+    분기만 검증한다 - 실제 생성은 attachment_preview.py 쪽 self-test가
+    담당."""
     assert _preview_kind_for(".hwp") == "image"
     assert _preview_kind_for(".hwpx") == "image"
-    assert _preview_kind_for(".xlsx") == "text"
+    assert _preview_kind_for(".xlsx") == "image"
+    assert _preview_kind_for(".xls") == "image"
     assert _preview_kind_for(".pdf") == "text"
     assert _preview_kind_for(".txt") is None
     print("_preview_kind_for 통과")

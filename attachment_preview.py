@@ -48,6 +48,96 @@ def generate_text_preview(path: str, max_lines: int = 5) -> str:
     return ""
 
 
+_EXCEL_PREVIEW_MAX_ROWS = 15
+_EXCEL_PREVIEW_MAX_COLS = 8
+_EXCEL_PREVIEW_CELL_MAX_CHARS = 18  # 이보다 길면 "…"로 잘라서 칸이 무한정 안 넓어지게 함
+_EXCEL_PREVIEW_FONT_PATH = "C:/Windows/Fonts/malgun.ttf"  # 이 프로젝트의 다른 곳(PDF self-test)과 같은 폰트
+_EXCEL_PREVIEW_FONT_SIZE = 14
+_EXCEL_PREVIEW_PADDING = 6
+_EXCEL_PREVIEW_HEADER_FILL = (230, 241, 251)  # 이 앱 채팅창의 연파랑 계열과 통일(_BUBBLE_STYLE 참고)
+
+
+def generate_excel_preview_image(path: str) -> str | None:
+    """엑셀 앞쪽 몇 행 x 몇 열만(전체가 아니라 "맛보기") 표 모양으로 그려
+    작은 이미지 파일로 저장한다. 파일이 아무리 커도(수만 행이어도) 실제로
+    읽고 그리는 범위는 항상 앞쪽 _EXCEL_PREVIEW_MAX_ROWS행뿐이라, 속도가
+    원본 파일 크기와 무관하게 항상 일정하다(2026-09-17, 사용자 요청 —
+    "엑셀 켜서 보는 번거로움을 줄이자"는 목적에 실제 파일 전체를 그릴
+    필요는 없다는 점 확인). 잘려서 안 보이는 행/열이 있으면 마지막 줄에
+    "...더 있음" 표시를 남긴다. 지원하지 않는 형식이거나 읽기 실패하면
+    None(예외 없음, 이 모듈의 다른 함수들과 같은 관례)."""
+    try:
+        import openpyxl
+        from PIL import Image as PILImage, ImageDraw, ImageFont
+
+        # read_only=True는 openpyxl이 XML을 스트리밍으로 훑게 해서, 뒤에서
+        # max_row로 앞쪽 몇 줄만 자르더라도 파일 전체를 먼저 메모리에 다
+        # 올리지 않는다 - 파일이 몇만 행이어도 미리보기 속도가 행 개수와
+        # 무관하게 일정하다는 요구사항(사용자가 직접 우려한 부분)의 핵심.
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+        try:
+            ws = wb.active
+            total_rows = ws.max_row or 0
+            total_cols = ws.max_column or 0
+            rows = []
+            for row in ws.iter_rows(max_row=_EXCEL_PREVIEW_MAX_ROWS,
+                                     max_col=_EXCEL_PREVIEW_MAX_COLS, values_only=True):
+                cells = []
+                for v in row:
+                    text = "" if v is None else str(v)
+                    if len(text) > _EXCEL_PREVIEW_CELL_MAX_CHARS:
+                        text = text[:_EXCEL_PREVIEW_CELL_MAX_CHARS - 1] + "…"
+                    cells.append(text)
+                rows.append(cells)
+        finally:
+            # read_only 워크북은 명시적으로 닫아야 파일 핸들이 풀린다 - 안
+            # 닫으면 이 함수가 끝난 뒤에도 원본 엑셀 파일이 "다른 프로세스가
+            # 사용 중"이라며 잠겨있는 상태가 되는 게 실측 확인됐다(self-test의
+            # 정리 단계에서 PermissionError로 재현됨).
+            wb.close()
+        if not rows:
+            return None
+
+        truncated = total_rows > _EXCEL_PREVIEW_MAX_ROWS or total_cols > _EXCEL_PREVIEW_MAX_COLS
+        if truncated:
+            rows.append([f"... 더 있음 (전체 {total_rows}행 x {total_cols}열)"] +
+                        [""] * (len(rows[0]) - 1))
+
+        font = ImageFont.truetype(_EXCEL_PREVIEW_FONT_PATH, _EXCEL_PREVIEW_FONT_SIZE)
+        n_cols = max(len(r) for r in rows)
+        col_widths = []
+        for c in range(n_cols):
+            widest = max((font.getlength(r[c]) if c < len(r) else 0) for r in rows)
+            col_widths.append(int(widest) + _EXCEL_PREVIEW_PADDING * 2)
+        row_height = _EXCEL_PREVIEW_FONT_SIZE + _EXCEL_PREVIEW_PADDING * 2
+
+        img_width = sum(col_widths)
+        img_height = row_height * len(rows)
+        image = PILImage.new("RGB", (img_width, img_height), "white")
+        draw = ImageDraw.Draw(image)
+
+        for r_idx, row in enumerate(rows):
+            y = r_idx * row_height
+            if r_idx == 0 and not (truncated and r_idx == len(rows) - 1):
+                draw.rectangle([0, y, img_width, y + row_height], fill=_EXCEL_PREVIEW_HEADER_FILL)
+            x = 0
+            for c_idx, width in enumerate(col_widths):
+                text = row[c_idx] if c_idx < len(row) else ""
+                draw.text((x + _EXCEL_PREVIEW_PADDING, y + _EXCEL_PREVIEW_PADDING),
+                          text, fill="black", font=font)
+                x += width
+            draw.line([0, y, img_width, y], fill=(221, 221, 221))
+        draw.rectangle([0, 0, img_width - 1, img_height - 1], outline=(200, 200, 200))
+
+        os.makedirs(_PREVIEW_DIR, exist_ok=True)
+        out_path = os.path.join(_PREVIEW_DIR, f"{os.path.basename(path)}_{os.getpid()}.gif")
+        image.save(out_path)
+        _prune_old_previews()
+        return out_path
+    except Exception:
+        return None
+
+
 def _generate_hwp_preview(path: str, out_path: str) -> bool:
     """path(.hwp/.hwpx)의 1페이지를 out_path(gif)로 저장한다. 이 함수 자체는
     현재 프로세스에서 새 Hwp 인스턴스를 만들므로, 채팅 세션이 이미 다른
@@ -140,6 +230,53 @@ def _selftest_generate_hwp_preview_isolated_missing_file_returns_none():
     print("generate_hwp_preview_isolated(파일없음) 통과")
 
 
+def _selftest_generate_excel_preview_image_creates_small_file():
+    """작은 엑셀은 잘림 없이, 이미지가 실제로 생성되고 gif라 용량이 작은지
+    확인한다."""
+    import openpyxl
+    path = os.path.join(tempfile.gettempdir(), "_test_엑셀미리보기.xlsx")
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["항목", "금액"])
+    ws.append(["인건비", 1000000])
+    wb.save(path)
+    try:
+        preview_path = generate_excel_preview_image(path)
+        assert preview_path is not None
+        assert os.path.exists(preview_path)
+        size = os.path.getsize(preview_path)
+        assert size < 200_000, f"미리보기 용량이 예상보다 큼: {size} bytes"
+        print("generate_excel_preview_image(작은 파일) 통과: 용량", size, "bytes")
+    finally:
+        os.remove(path)
+        for f in glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")):
+            os.remove(f)
+
+
+def _selftest_generate_excel_preview_image_large_file_stays_fast_and_capped():
+    """(2026-09-17, 사용자가 직접 우려한 부분) 행이 아주 많은 엑셀이라도
+    앞쪽 _EXCEL_PREVIEW_MAX_ROWS행만 읽고 그려서, 걸리는 시간이 행 개수와
+    무관하게 일정해야 한다 — 1만 행짜리 파일로 직접 재현해서 확인한다."""
+    import time
+    import openpyxl
+    path = os.path.join(tempfile.gettempdir(), "_test_엑셀미리보기_대용량.xlsx")
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["번호", "항목"])
+    for i in range(10000):
+        ws.append([i, f"항목{i}"])
+    wb.save(path)
+    try:
+        t0 = time.time()
+        preview_path = generate_excel_preview_image(path)
+        elapsed = time.time() - t0
+        assert preview_path is not None
+        assert elapsed < 5, f"1만 행 파일인데 {elapsed:.1f}초나 걸림 - 앞쪽만 읽는지 확인 필요"
+        print(f"generate_excel_preview_image(1만 행) 통과: {elapsed:.2f}초")
+    finally:
+        os.remove(path)
+        for f in glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")):
+            os.remove(f)
+
+
 def _selftest_generate_text_preview_excel():
     import openpyxl
     path = os.path.join(tempfile.gettempdir(), "_test_미리보기.xlsx")
@@ -199,6 +336,8 @@ def _selftest_prune_old_previews_keeps_recent_n():
 if __name__ == "__main__":
     _selftest_generate_hwp_preview_isolated_creates_small_file()
     _selftest_generate_hwp_preview_isolated_missing_file_returns_none()
+    _selftest_generate_excel_preview_image_creates_small_file()
+    _selftest_generate_excel_preview_image_large_file_stays_fast_and_capped()
     _selftest_generate_text_preview_excel()
     _selftest_generate_text_preview_pdf()
     _selftest_prune_old_previews_keeps_recent_n()
