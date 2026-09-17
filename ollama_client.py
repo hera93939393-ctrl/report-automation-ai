@@ -10,6 +10,9 @@ SERVER_HOST = "http://100.74.107.35:11434"
 ROUTING_MODEL = "qwen3.5:9b"
 
 
-def get_client() -> ollama.Client:
-    """서버의 Ollama에 접속하는 클라이언트를 새로 만든다."""
-    return ollama.Client(host=SERVER_HOST)
+def get_client(timeout: float | None = None) -> ollama.Client:
+    """서버의 Ollama에 접속하는 클라이언트를 새로 만든다. timeout을 주면
+    그 초만큼(요청 하나당) 기다리고, 안 주면 라이브러리 기본값을 쓴다."""
+    if timeout is None:
+        return ollama.Client(host=SERVER_HOST)
+    return ollama.Client(host=SERVER_HOST, timeout=timeout)
