@@ -84,7 +84,7 @@ class ChatAssistant(ctk.CTk):
         self.source_paths = []  # list[str] — "+"로 첨부된 파일/폴더 경로 목록 (Task 7에서 실제 채워짐, 이 태스크에선 아직 빈 리스트로만 둠)
         self._busy = False
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
-        self._hover_popup = None  # ctk.CTkToplevel | None — 미리보기 확대창(마우스 올릴 때만)
+        self._hover_popup = None  # ctk.CTkToplevel | None — 미리보기 확대창(클릭으로 열고 닫음)
         self._last_mismatch_items: list[str] = []  # list[str] - 마지막 숫자검증에서 빨갛게 표시된 항목들(span 순서)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
@@ -436,7 +436,7 @@ class ChatAssistant(ctk.CTk):
                 else:
                     preview_path = generate_excel_preview_image(path)
                 if preview_path is not None:
-                    card = self._log(f"미리보기: {os.path.basename(path)} (마우스를 올리면 크게 보여요)",
+                    card = self._log(f"미리보기: {os.path.basename(path)} (클릭하면 크게 보여요)",
                                      role="assistant")
                     pil_image = Image.open(preview_path)
                     width, height = pil_image.size
@@ -444,20 +444,25 @@ class ChatAssistant(ctk.CTk):
                     # 넓어질 수 있다(고정 비율이 아님) - 채팅창 폭(320)보다
                     # 넓으면 비율 유지하며 줄여서 옆으로 잘려 보이지 않게 한다.
                     # 이렇게 줄이면 특히 엑셀 표의 작은 글씨(숫자)가 안 읽힐
-                    # 수 있어(2026-09-17, 실사용 피드백 — 클릭 대신 "마우스
-                    # 올리면 커지고 떼면 사라지는" 방식을 선호함) 마우스를
-                    # 올리면 옆에 좀 더 큰 미리보기가 떴다가, 떼면 사라진다.
+                    # 수 있어 클릭하면 확대해서 보여주는 기능을 같이 둔다.
+                    #
+                    # (2026-09-17, 실사용 재현) 원래 "마우스를 올리면
+                    # 커지고 떼면 사라지는" 방식으로 만들었으나, CTkLabel/
+                    # CTkFrame 내부 구조 때문인지 Enter/Leave 이벤트 자체가
+                    # 불안정해서(뜨자마자 닫힘, 마우스가 올라가 있는데도
+                    # 닫힘, 수초 지연 등 여러 증상이 실제로 재현됨) 근본
+                    # 원인을 못 찾고 사용자가 직접 "그냥 클릭으로 하자"고
+                    # 결정함 — 클릭은 이벤트가 명확해서 이런 문제가 없다.
                     max_width = 280
                     if width > max_width:
                         height = int(height * max_width / width)
                         width = max_width
                     image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image,
                                           size=(width, height))
-                    thumb = ctk.CTkLabel(card, text="", image=image)
+                    thumb = ctk.CTkLabel(card, text="", image=image, cursor="hand2")
                     thumb.pack(padx=8, pady=(0, 6))
-                    thumb.bind("<Enter>",
-                              lambda _e, p=preview_path: self._show_hover_preview(p))
-                    thumb.bind("<Leave>", lambda _e: self._hide_hover_preview())
+                    thumb.bind("<Button-1>",
+                              lambda _e, p=preview_path: self._toggle_click_preview(p))
             else:
                 text_preview = generate_text_preview(path)
                 if text_preview:
@@ -465,30 +470,61 @@ class ChatAssistant(ctk.CTk):
         except Exception:
             pass  # 미리보기 실패는 첨부 자체를 막지 않음 - 부가기능
 
-    def _show_hover_preview(self, preview_path: str):
-        """썸네일에 마우스를 올리면, 채팅창 오른쪽 옆에 좀 더 큰(하지만
-        원본 그대로는 아닌 — 2026-09-17, "원본 크기보다는 옆에서 알아볼
-        정도로만" 사용자 요청) 미리보기를 테두리 없는 팝업으로 띄운다.
-        _hide_hover_preview()가 마우스를 떼는 순간 바로 닫는다."""
-        self._hide_hover_preview()
+    def _toggle_click_preview(self, preview_path: str):
+        """썸네일을 클릭하면, 채팅창 옆에 좀 더 큰(하지만 원본 그대로는
+        아닌 — "원본 크기보다는 옆에서 알아볼 정도로만" 사용자 요청)
+        미리보기를 테두리 없는 팝업으로 띄운다. 이미 떠있는 상태에서
+        다시 클릭하면(썸네일이든 팝업 자신이든) 닫는다 — 마우스
+        올림/뗌 이벤트 기반보다 클릭 기반이 훨씬 명확하고 안정적이다
+        (2026-09-17, 실사용 재현 — 마우스 올림/뗌 방식은 CTkLabel/
+        CTkFrame 내부 구조 때문인지 이벤트 자체가 불안정해서 뜨자마자
+        닫히거나, 마우스가 위에 있는데도 닫히거나, 수초씩 지연되는
+        증상이 있었고 근본 원인을 못 찾아 사용자가 직접 클릭 방식으로
+        바꾸자고 결정함).
+
+        (실사용 재현) 채팅창은 원래 position_windows()가 화면 오른쪽
+        25% 자리에 놓는 창이라(window_layout.py), "채팅창 오른쪽에 더"
+        띄우면 화면 밖으로 나가버려 안 보이는 게 실제로 재현됐다 —
+        화면 폭을 확인해서 오른쪽에 공간이 없으면 왼쪽(한글 창이 있는
+        방향)에 띄운다."""
+        if self._hover_popup is not None:
+            self._hide_hover_preview()
+            return
         try:
             pil_image = Image.open(preview_path)
         except Exception:
             return
         width, height = pil_image.size
-        max_width = 520  # 원본 그대로가 아니라 "옆에서 읽을 수 있는 정도"로만 확대
+        max_width = 780  # 원본 그대로가 아니라 "옆에서 읽을 수 있는 정도"로만 확대
         if width > max_width:
             height = int(height * max_width / width)
             width = max_width
 
-        popup = ctk.CTkToplevel(self)
-        popup.overrideredirect(True)  # 제목표시줄 없는 툴팁 느낌
-        popup.attributes("-topmost", True)
-        x = self.winfo_x() + self.winfo_width() + 8  # 채팅창 바로 오른쪽 옆
+        screen_width = self.winfo_screenwidth()
+        x_right = self.winfo_x() + self.winfo_width() + 8
+        if x_right + width <= screen_width:
+            x = x_right  # 오른쪽에 공간이 있으면 오른쪽에
+        else:
+            x = max(0, self.winfo_x() - width - 8)  # 없으면 왼쪽에
         y = self.winfo_y()
+
+        # (실사용 재현) overrideredirect(True)부터 먼저 부르고 그 다음에
+        # geometry()로 위치를 준 순서로 짰더니, 실제로는 원본 썸네일과
+        # 거의 같은 자리에 겹쳐서 떴다(Tk가 위치 지정을 무시하는 것처럼
+        # 동작 — 직접 재현해서 확인함). geometry()를 overrideredirect()
+        # 보다 먼저 한 번 주고, 창을 뒤늦게 건드리는 overrideredirect/
+        # attributes 이후에 같은 geometry()를 한 번 더 줘야 실제
+        # 화면에도 의도한 위치로 뜬다.
+        popup = ctk.CTkToplevel(self)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.update_idletasks()
+        popup.overrideredirect(True)  # 제목표시줄 없는 팝업 느낌
+        popup.attributes("-topmost", True)
         popup.geometry(f"{width}x{height}+{x}+{y}")
         image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(width, height))
-        ctk.CTkLabel(popup, text="", image=image).pack()
+        popup_label = ctk.CTkLabel(popup, text="", image=image, cursor="hand2")
+        popup_label.pack()
+        popup_label.bind("<Button-1>", lambda _e: self._hide_hover_preview())
         self._hover_popup = popup
 
     def _hide_hover_preview(self):
