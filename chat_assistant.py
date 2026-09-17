@@ -5,13 +5,13 @@ import re
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-import ollama
 from PIL import Image
 
 from attachment_preview import generate_hwp_preview_isolated, generate_text_preview
 from hwp_report import HwpReport
 from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
+from routing_graph import route_intent, _route_by_keywords
 from window_layout import position_windows
 
 ctk.set_appearance_mode("system")
@@ -57,90 +57,6 @@ _PICKER_BUTTON_UNCHOSEN = {
     "border_color": ("#D3D1C7", "#444441"),
 }
 
-_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "verify_numbers",
-            "description": "지금 열려있는 한글 보고서의 금액/날짜/시간/전화번호를 원본데이터와 대조해서 틀린 부분을 빨간색으로 표시한다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "polish_to_formal_style",
-            "description": "선택된 문장을 공문서체로 다듬거나, 새 문장을 공문서체로 만들어 커서 위치에 삽입한다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "insert_table",
-            "description": "첨부된 원본자료(엑셀)를 표로 변환해 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "insert_numbering",
-            "description": "번호서식(1. / 1) / (1) / ① 등)을 미리보기에서 고른 뒤 커서 위치에 삽입한다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "merge_weekly_reports",
-            "description": "여러 사람이 첨부한 주간업무보고 문서에서 파란색으로 쓴 내용만 뽑아, 지금 열려있는 대상 문서의 이번주/다음주 칸으로 옮겨 붙인다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fit_to_one_page",
-            "description": "지금 열려있는 문서를 행간/자간/글자크기를 조금씩 줄여 1페이지에 맞춘다",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-]
-
-
-_VERIFY_KEYWORDS = [
-    "검증", "확인", "대조", "체크", "맞는지", "틀린",
-    # 2026-08-31 Task14 리뷰 반영: 이 프로젝트의 PRD.md 자체가 "검토"를 이런 요청의
-    # 자연어 표현으로 20회 넘게 쓰고 있는데도 원래 목록에 빠져 있었음(예: "형식검토",
-    # "최종 검토"). "점검"/"검사"/"오류"도 비개발자가 같은 요청을 할 법한 표현이라 추가.
-    "검토", "점검", "검사", "오류",
-]
-
-_POLISH_KEYWORDS = [
-    "공문서", "다듬어", "정리해", "써줘", "작성해", "바꿔줘", "고쳐줘",
-    "손봐줘", "매끄럽게", "격식있게",
-]
-
-_TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
-
-_NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식", "순번"]
-
-_WEEKLY_MERGE_KEYWORDS = ["옆 한글파일로", "주간보고 취합", "주간업무보고 취합", "취합해"]
-
-_FIT_TO_PAGE_KEYWORDS = ["한 페이지에 맞춰", "한페이지에 맞춰", "한 장에 맞춰", "페이지 맞춤", "쪽맞춤"]
-
-# 오탐(false positive) 방지용 최소 안전장치. bare substring 매칭이라 검증과 무관한
-# 문장에도 우연히 걸릴 수 있음이 리뷰에서 실측 확인됨:
-#   - "체크카드로 결제했어요" → "체크"가 "체크카드"의 일부로 걸림
-#   - "파일 선택 확인했어" → "확인"이 "그냥 선택을 확인했다"는 무관한 진술에 걸림
-# 완전한 자연어 이해 없이 이 두 사례만 막기 위해, 매칭 전에 이런 무관한 복합어/구절을
-# 먼저 지워버리는 최소 denylist를 둔다("체크"는 살려둬서 "더블체크해줘" 같은 정상
-# 요청은 계속 잡히게 함). 이 정도가 "가벼운 안전망" 단계에 맞는 절충이라고 판단함 —
-# 완벽한 정확도가 필요해지면(도구가 여러 개로 늘어나는 다음 라운드) 재설계 대상.
-_FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
-
-
 def _preview_kind_for(ext: str) -> str | None:
     """확장자별로 어떤 미리보기를 만들지 판단한다. ext는 점(.) 포함
     소문자(예: ".hwp"). HWP류는 이미지 미리보기, 엑셀/PDF는 텍스트
@@ -151,98 +67,6 @@ def _preview_kind_for(ext: str) -> str | None:
     if ext in (".xlsx", ".xls", ".pdf"):
         return "text"
     return None
-
-
-def _route_by_keywords(user_message: str) -> str | None:
-    """키워드 안전망만으로 도구를 판단한다(로컬 LLM 호출 없음, 순수 함수).
-
-    route_intent()의 도구호출이 실패했을 때 쓰이는 바로 그 로직이지만, 이
-    함수 자체는 ollama를 전혀 부르지 않는다 — 그래서 결정적(deterministic)이다.
-
-    (F12 2단계, 사용자 요청으로 안정화) 원래는 이 로직이 route_intent() 안에
-    있었고, self-test(_selftest_route_intent)도 route_intent()를 통해서만
-    검증했다. 그런데 route_intent()는 키워드 판단 전에 먼저 실제로 로컬
-    LLM(qwen3.5:2b)의 도구호출을 시도하고, 그게 성공하면(즉 LLM이 스스로
-    맞든 틀리든 뭔가 하나를 골라내면) 아래 키워드 로직을 아예 거치지 않고
-    그 결과를 그대로 반환해버린다. 그래서 "표에 번호 매겨줘" 같은 tie-break
-    케이스를 route_intent()로 테스트하면, 실행할 때마다 LLM이 그 문장을
-    스스로 맞히는지 여부에 따라 결과가 달라지는 게 실측 확인됐다(F12 2단계
-    Task5 최종검증에서 재현, 그리고 사용자가 직접 실행했을 때도 같은 현상
-    재현됨) — 키워드 우선순위 코드 자체는 정확히 구현돼 있는데도 테스트
-    결과만 흔들리는 상황이었다. 키워드 로직을 이 별도 함수로 뽑아내고
-    self-test가 이 함수를 직접 부르도록 바꾸면, LLM의 성공/실패 여부와
-    무관하게 "키워드 안전망 코드 자체가 맞는 우선순위로 짜여있는지"만
-    순수하게 검증할 수 있다 — 부수 효과로 self-test 전체가 ollama.chat()을
-    한 번도 안 부르게 되어, 이 세션에서 반복 재현됐던 "연속 호출 시 멈춤"
-    현상의 영향도 받지 않는다.
-
-    키워드 매칭은 bare substring 매칭이라 오탐 가능성이 남아있다. 실측된
-    오탐 두 건은 `_FALSE_POSITIVE_DENYLIST`로 막는다(F11에서 이미 검증됨).
-    """
-    cleaned_message = user_message
-    for phrase in _FALSE_POSITIVE_DENYLIST:
-        cleaned_message = cleaned_message.replace(phrase, "")
-
-    # (2026-09-01 Task8 리뷰에서 발견) 한 문장에 두 키워드 목록이 동시에 걸리는
-    # 경우(예: "이거 검토해서 공문서체로 다듬어줘" — "검토"와 "다듬어" 둘 다 걸림)
-    # 는 verify_numbers가 항상 이긴다 — 순서상 우연이 아니라 의도적으로 정한
-    # 우선순위다. 근거: _VERIFY_KEYWORDS는 검증 도구를 놓치는 게 가장 위험하다는
-    # 판단(오탐지보다 미탐지가 더 나쁨, F11 12-6 성공기준 참고)이 깔려있고, 이
-    # 우선순위 덕에 최악의 경우도 "공문서체 변환 대신 검증이 한 번 더 도는" 정도로
-    # 그친다(자동저장 없어 비파괴적). 다만 이 tie-break는 두 키워드가 실제로
-    # 겹치는 드문 입력에서만 작동하고, 문장 끝의 동사(예: "다듬어줘")가 진짜
-    # 의도를 더 잘 나타내는 경우도 있어 완벽하진 않음 — 다음 라운드에서 도구가
-    # 더 늘어나면 재검토 대상.
-    if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
-        return "verify_numbers"
-    if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
-        return "polish_to_formal_style"
-    if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
-        return "insert_table"
-    # (F12 2단계 Task4 코드품질 검토에서 발견) "표"와 "번호" 두 키워드가 동시에
-    # 걸리는 문장(예: "표에 번호 매겨줘" — 실제로는 번호서식을 원하는데 "표"라는
-    # 단어가 스쳐 지나가듯 들어있는 경우)에서는 위 순서상 insert_table이 항상
-    # 이긴다. 이 우선순위를 verify_numbers/polish_to_formal_style 사이의
-    # tie-break(F12 1단계 Task8)처럼 의도적으로 설계한 건 아니고, 코드에 먼저
-    # 등장한 순서가 그대로 우선순위가 된 것 — 다만 두 팝업 모두 스타일 버튼을
-    # 누르기 전까지는 문서를 전혀 건드리지 않으므로(비파괴적), 어느 쪽이 먼저
-    # 떠도 사용자가 원치 않는 팝업임을 보고 창을 닫은 뒤 다시 명확히 말하면
-    # 복구 가능하다 — 이 정도 무해함을 근거로 순서를 그대로 두고 회귀
-    # 테스트로만 고정해둔다(_selftest_route_intent 8번 참고). "표"가 실제로는
-    # 그냥 스쳐가는 명사이고 "번호"가 진짜 동사인 경우가 흔할 수 있어 이
-    # 우선순위가 항상 최선은 아니다 — 도구가 더 늘어나는 다음 라운드에서
-    # 재검토 대상.
-    if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
-        return "insert_numbering"
-    if any(keyword in cleaned_message for keyword in _WEEKLY_MERGE_KEYWORDS):
-        return "merge_weekly_reports"
-    if any(keyword in cleaned_message for keyword in _FIT_TO_PAGE_KEYWORDS):
-        return "fit_to_one_page"
-    return None
-
-
-def route_intent(user_message: str) -> str | None:
-    """사용자의 자연어 입력이 어느 도구(verify_numbers/polish_to_formal_style/
-    insert_table/insert_numbering)를 원하는지 판단한다. "뜻을 이해"하는
-    역할은 로컬 LLM(qwen3.5:2b)의 도구호출이 담당하고, `_route_by_keywords()`는
-    그 도구호출이 실패했을 때의 안전망이다(F11에서 실측된 도구호출 성공률
-    약 33% — 코드만으로 완전한 자유 이해를 만들 수는 없고, 이는 결국 로컬
-    모델 성능/하드웨어에 달린 문제).
-
-    이 함수 자체는 매 호출마다 ollama.chat()을 실제로 부르므로 결정적이지
-    않다(LLM 응답에 따라 같은 입력도 다른 결과가 나올 수 있음) — 그래서
-    self-test는 이 함수가 아니라 `_route_by_keywords()`를 직접 검증한다
-    (아래 _selftest_route_intent 참고). 이 함수는 실사용 흐름(chat_assistant
-    실행 후 채팅 입력)에서 쓰인다."""
-    response = ollama.chat(
-        model="qwen3.5:2b",
-        messages=[{"role": "user", "content": user_message}],
-        tools=_TOOLS,
-    )
-    tool_calls = response.get("message", {}).get("tool_calls") or []
-    if tool_calls:
-        return tool_calls[0]["function"]["name"]
-    return _route_by_keywords(user_message)
 
 
 class ChatAssistant(ctk.CTk):
@@ -852,75 +676,6 @@ def _selftest_build_preview_message_routes_by_extension():
     print("_preview_kind_for 통과")
 
 
-def _selftest_route_intent():
-    """키워드 안전망(_route_by_keywords)만 검증한다 — ollama.chat()을 전혀
-    부르지 않으므로 결정적이고, 로컬 LLM 서버가 안 떠 있어도 실행 가능하다
-    (F12 2단계, 사용자 요청으로 안정화: route_intent()를 통해 검증하면 LLM이
-    스스로 도구호출에 성공/실패하는지에 따라 결과가 흔들리는 게 실측
-    확인됐음 — _route_by_keywords 함수 docstring에 상세 경위 기록).
-    route_intent() 자체(LLM 통합 포함)는 이 self-test 범위가 아니고, 실제
-    `python chat_assistant.py` 실행 후 채팅 입력으로 확인한다."""
-    # 1) 검증 요청 -> verify_numbers
-    tool_called = _route_by_keywords("숫자 검증해줘")
-    assert tool_called == "verify_numbers", tool_called
-    print("route_intent 통과 (검증 요청):", tool_called)
-
-    # 2) 무관한 요청 -> None (안전망이 과도하게 넓지 않은지 확인)
-    unrelated = _route_by_keywords("오늘 날씨 어때")
-    assert unrelated is None, unrelated
-    print("route_intent 통과 (무관한 요청):", unrelated)
-
-    # 3) 2026-08-31 Task14 리뷰 반영: 새로 추가된 키워드(검토/점검/오류/검사)도
-    # 안전망에서 잡히는지 확인 (PRD.md가 "검토"를 이런 요청에 20회 넘게 쓰는데
-    # 정작 원래 키워드 목록에는 빠져 있었던 커버리지 공백에 대한 회귀 테스트)
-    new_keywords = _route_by_keywords("이거 검토 점검하고 오류 있는지 검사해줘")
-    assert new_keywords == "verify_numbers", new_keywords
-    print("route_intent 통과 (검토/점검/오류/검사):", new_keywords)
-
-    # 4) 2026-08-31 Task14 리뷰 반영: 실측된 오탐 두 건이 denylist로 막히는지 확인
-    fp_choice = _route_by_keywords("파일 선택 확인했어")
-    assert fp_choice is None, fp_choice
-    print("route_intent 통과 (오탐 방지: 파일 선택 확인했어):", fp_choice)
-
-    fp_card = _route_by_keywords("체크카드로 결제했어요")
-    assert fp_card is None, fp_card
-    print("route_intent 통과 (오탐 방지: 체크카드로 결제했어요):", fp_card)
-
-    # 5) F12: 새로 추가된 polish_to_formal_style 도구도 키워드로 잡히는지 확인
-    polish_choice = _route_by_keywords("이 문장 공문서체로 다듬어줘")
-    assert polish_choice == "polish_to_formal_style", polish_choice
-    print("route_intent 통과 (공문서체 변환):", polish_choice)
-
-    # 6) F12 2단계: 새로 추가된 insert_table 도구가 키워드로 잡히는지 확인
-    table_choice = _route_by_keywords("이 데이터로 표 만들어줘")
-    assert table_choice == "insert_table", table_choice
-    print("route_intent 통과 (표 삽입):", table_choice)
-
-    # 7) F12 2단계: 새로 추가된 insert_numbering 도구가 키워드로 잡히는지 확인
-    numbering_choice = _route_by_keywords("이 목록에 번호 매겨줘")
-    assert numbering_choice == "insert_numbering", numbering_choice
-    print("route_intent 통과 (번호서식):", numbering_choice)
-
-    # 8) F12 2단계 Task4 코드품질 검토 반영: "표"와 "번호"가 한 문장에 동시에
-    # 걸리는 경우(예: "표에 번호 매겨줘") insert_table이 이긴다는 현재 우선순위를
-    # 회귀 테스트로 고정해둔다 — Task8에서 verify_numbers/polish_to_formal_style
-    # tie-break를 테스트로 고정한 것과 같은 맥락. _route_by_keywords를 직접
-    # 부르므로 이제 LLM이 이 문장을 스스로 맞히든 말든 결과가 항상 같다.
-    table_numbering_tie = _route_by_keywords("표에 번호 매겨줘")
-    assert table_numbering_tie == "insert_table", table_numbering_tie
-    print("route_intent 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
-
-    # 9) F14: 주간업무보고 취합 도구가 키워드로 잡히는지 확인
-    weekly_choice = _route_by_keywords("옆 한글파일로 옮겨줘")
-    assert weekly_choice == "merge_weekly_reports", weekly_choice
-    print("route_intent 통과 (주간보고 취합):", weekly_choice)
-
-    # 10) F14: 한 페이지 맞춤 도구가 키워드로 잡히는지 확인
-    fit_choice = _route_by_keywords("이거 한 페이지에 맞춰줘")
-    assert fit_choice == "fit_to_one_page", fit_choice
-    print("route_intent 통과 (한 페이지 맞춤):", fit_choice)
-
-
 def parse_goto_index(text: str) -> int | None:
     """"3번째로 가줘"류 입력에서 순서 번호(1-based)를 뽑는다. 매치 안 되면
     None(숫자검증/공문서체 등 다른 요청과 혼동하지 않기 위해, route_intent()의
@@ -960,7 +715,6 @@ def _selftest_parse_ignore_index():
 if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
-        _selftest_route_intent()
         _selftest_parse_goto_index()
         _selftest_parse_ignore_index()
         _selftest_build_preview_message_routes_by_extension()
