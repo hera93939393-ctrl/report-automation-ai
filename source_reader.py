@@ -181,6 +181,16 @@ def read_excel_source(path: str, default_year: int) -> list[dict]:
                     for v in extract_values(value, default_year):
                         v["source_file"] = path
                         v["location"] = f"{ws.title}!{cell.coordinate}"
+                        # (F14 후속) 이 숫자는 "숫자 칸"이 아니라 문자열 칸의
+                        # 문장 속에서 긁어낸 것이라는 표시. 대조(categorize_values)
+                        # 에서는 지금까지처럼 똑같이 쓰이고 판정도 전혀 안 바뀐다 —
+                        # llm_disambiguator만 이 표시를 본다. 비고/메모 칸의 숫자는
+                        # 독립된 근거가 아니라 보고서 문장을 옮겨 적은 것인 경우가
+                        # 많아서(이 도구가 검증하려는 바로 그 보고서에서 베껴온 말),
+                        # 그걸 근거로 빨강을 파랑으로 뒤집으면 보고서가 스스로를
+                        # 증명하는 꼴이 된다. 자세한 사례는 llm_disambiguator.py의
+                        # is_named_data_cell() 주석 참고.
+                        v["from_text"] = True
                         del v["span"]
                         results.append(_attach_identity(v, col_idx))
             if row_dict:
