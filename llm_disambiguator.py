@@ -290,6 +290,18 @@ def ask_ollama(prompt: str, timeout: float = DEFAULT_TIMEOUT_SEC):
         return None
 
 
+def _server_reachable(timeout: float = 5.0) -> bool:
+    """서버가 지금 응답하는지 가볍게 확인한다(모델을 부르지 않고 목록
+    조회만 함). reconsider()가 실제로 재검토할 첫 항목을 만났을 때 딱
+    한 번만 부른다 — 매 항목마다 따로 확인하면 서버가 꺼져있을 때
+    항목 수만큼 대기시간이 곱해진다."""
+    try:
+        get_client(timeout=timeout).list()
+        return True
+    except Exception:
+        return False
+
+
 def reconsider_item(rv: dict, answer_pool: list, ask=ask_ollama,
                     timeout: float = DEFAULT_TIMEOUT_SEC):
     """값 하나를 LLM에게 다시 물어본다.
@@ -338,12 +350,18 @@ def reconsider(categorized: dict, answer_pool: list, skip_raws=frozenset(),
 
     반환 dict에는 네 갈래 외에 llm_calls(실제 호출 횟수)와 resolutions(바뀐
     항목 설명)를 같이 담는다 — 호출부가 요약에 쓰고, 테스트가 "안 불렀어야
-    할 때 정말 안 불렀는지"를 확인하는 데 쓴다."""
+    할 때 정말 안 불렀는지"를 확인하는 데 쓴다. 서버가 꺼져있어서 재검토할
+    자격이 있던 항목을 하나도 못 물어봤으면 server_reachable=False와
+    skipped_for_server(그 개수)도 같이 담는다 — 호출부(run_verification)가
+    "N건은 서버 연결 안 돼서 문맥판단 못 했다"고 사용자에게 알릴 수 있게."""
     matches = list(categorized["matches"])
     unverifiable = list(categorized["unverifiable"])
     mismatches, ambiguous = [], []
     calls = {"n": 0}
     resolutions = []
+    server_reachable = True
+    server_checked = False
+    skipped_for_server = 0
 
     def counting_ask(prompt, call_timeout):
         calls["n"] += 1
@@ -362,6 +380,18 @@ def reconsider(categorized: dict, answer_pool: list, skip_raws=frozenset(),
                     or reconsidered >= max_items):
                 target.append(rv)
                 continue
+
+            # 재검토할 자격이 있는 첫 항목을 만났을 때만, 딱 한 번 서버가
+            # 살아있는지 확인한다(항목마다 확인하면 서버가 꺼져있을 때
+            # 대기시간이 항목 수만큼 곱해진다).
+            if not server_checked:
+                server_reachable = _server_reachable(timeout=min(timeout, 5.0))
+                server_checked = True
+            if not server_reachable:
+                skipped_for_server += 1
+                target.append(rv)
+                continue
+
             reconsidered += 1
             verdict, picked = reconsider_item(rv, answer_pool, ask=counting_ask,
                                               timeout=timeout)
@@ -388,4 +418,6 @@ def reconsider(categorized: dict, answer_pool: list, skip_raws=frozenset(),
 
     return {"matches": matches, "mismatches": mismatches,
             "unverifiable": unverifiable, "ambiguous": ambiguous,
-            "llm_calls": calls["n"], "resolutions": resolutions}
+            "llm_calls": calls["n"], "resolutions": resolutions,
+            "server_reachable": server_reachable,
+            "skipped_for_server": skipped_for_server}

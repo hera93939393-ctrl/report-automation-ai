@@ -113,6 +113,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
             # 당연히 한 번도 안 돈 것이므로 0/빈 목록이 사실에 맞는 값이다.
             "llm_calls": 0,
             "llm_resolutions": [],
+            "llm_skipped_for_server": 0,
             "mismatch_items": [],  # (2026-09-13, 실사용 재현) 이 키가 빠져 있어서
             # chat_assistant.py의 result["mismatch_items"] 접근이 그대로
             # KeyError('mismatch_items')로 죽었다 — 반환 계약(docstring)에는
@@ -148,13 +149,14 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     # 결과가 그대로 쓰인다 — 판정 로직 자체는 한 글자도 안 바뀌었다.
     # 대부분의 값은 LLM까지 가지도 않는다(호출 조건은 llm_disambiguator 참고).
     # Ollama가 꺼져 있거나 느려도 예외 없이 결정론 판정 그대로 넘어간다.
-    llm_calls, llm_resolutions = 0, []
+    llm_calls, llm_resolutions, llm_skipped_for_server = 0, [], 0
     if llm_reconsider:
         reconsidered = llm_disambiguator.reconsider(
             categorized, answer_pool, skip_raws=ignored_raws)
         categorized = reconsidered
         llm_calls = reconsidered["llm_calls"]
         llm_resolutions = reconsidered["resolutions"]
+        llm_skipped_for_server = reconsidered["skipped_for_server"]
 
     mismatches = categorized["mismatches"]
     matches = categorized["matches"]
@@ -258,6 +260,12 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         f"확인 필요(회색) {len(unique_ambiguous_raw)}건"
     )
     summary = header + ("\n" + "\n".join(lines) if lines else "")
+    if llm_skipped_for_server:
+        # (2026-09-17) 홈서버가 꺼져있으면 문맥판단 단계가 조용히 건너뛰어져
+        # 결정론 판정 그대로 남는데(안전하지만 덜 정확함), 그 사실 자체는
+        # 반드시 알려야 한다 - 사용자가 "왜 이건 확인 필요로 남았지"를
+        # 판단할 때 서버 상태를 고려할 수 있어야 한다.
+        summary += f"\n(참고: {llm_skipped_for_server}건은 서버 연결 안 돼서 문맥판단 못 했어요 - 서버를 켜고 다시 검증해보세요)"
 
     return {
         "mismatch_count": len(unique_mismatch_raw),
@@ -273,6 +281,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
         # 않은지"를 확인하는 테스트/디버깅용이다.
         "llm_calls": llm_calls,
         "llm_resolutions": llm_resolutions,
+        "llm_skipped_for_server": llm_skipped_for_server,
     }
 
 
