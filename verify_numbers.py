@@ -80,6 +80,70 @@ _LIST_MARKER_PATTERN = re.compile(
 # 헤더) — extract_values()가 후보 amounts 중에서 이 조건에 맞는 런을 찾아
 # 검증 대상에서 제외한다(_find_month_sequence_spans 참고).
 
+# (2026-09-17, 사용자가 직접 지적) 목차의 쪽번호("Ⅰ. 공급업체 관리 개요\t 1")는
+# 실제 데이터가 아니라 단순 안내용 숫자다 — 원본자료와 대조하면 우연히 겹치는
+# 진짜 데이터와 잘못 비교돼 엉뚱하게 정상/오류로 판정될 위험이 있다(실사용
+# 문서로 재현 확인: "목   차" 다음에 오는 1/2/3/10/12가 전부 금액으로 잘못
+# 뽑혔었음). "목차"는 글자 사이에 공백이 여러 칸 들어갈 수 있어(사용자가
+# 직접 지적, "목   차"처럼) \s*로 허용한다.
+_TOC_HEADING_PATTERN = re.compile(r'목\s*차')
+_TOC_ENTRY_LINE_PATTERN = re.compile(r'^.*\t\s*(\d+)\s*$')
+
+
+def _find_toc_number_spans(text: str) -> list[tuple[int, int]]:
+    """"목차" 표제 뒤에 "제목\t쪽번호" 꼴로 이어지는 목차 항목들을 찾아
+    그 줄 전체를 제외구간으로 반환한다. 표제 다음 줄부터 시작해서, 그
+    줄이 "텍스트 + 탭 + 숫자"꼴이면 그 줄 전체를 제외구간에 넣고 다음
+    줄로 계속 가고, 그 모양이 아닌 줄을 만나면(목차가 끝났다고 보고)
+    멈춘다. 빈 줄은 건너뛰고 계속 본다(목차 항목 사이에 빈 줄이 있는
+    문서가 실제로 있음).
+
+    (2026-09-17, 실사용 문서로 재현) 처음엔 줄 끝의 쪽번호만 제외했는데,
+    "붙 임 1. 기관별 합동점검 실적\t 14"처럼 목차 항목 자체에 번호가 또
+    붙는 경우(붙임 자료 번호매기기) 그 앞쪽 번호("1")는 걸러지지
+    않았다 — 줄이 목차 항목으로 확정되면 쪽번호뿐 아니라 그 줄 전체를
+    제외해야, 줄 안 어디에 다른 숫자가 있어도 안전하다."""
+    spans = []
+    for heading in _TOC_HEADING_PATTERN.finditer(text):
+        first_newline = text.find('\n', heading.end())
+        if first_newline == -1:
+            continue
+        pos = first_newline + 1
+        while pos < len(text):
+            next_newline = text.find('\n', pos)
+            line_end = next_newline if next_newline != -1 else len(text)
+            line = text[pos:line_end].rstrip('\r')
+            if line.strip() == "":
+                pos = line_end + 1
+                continue
+            m = _TOC_ENTRY_LINE_PATTERN.match(line)
+            if not m:
+                break
+            spans.append((pos, pos + len(line)))
+            pos = line_end + 1
+    return spans
+
+
+def _selftest_find_toc_number_spans_handles_spaced_heading():
+    """(2026-09-17, 사용자가 직접 지적) "목차"뿐 아니라 "목   차"처럼
+    글자 사이 공백이 여러 칸이어도 목차로 인식해야 한다. 이제 줄 전체를
+    제외구간으로 반환하므로, 각 span이 해당 줄의 쪽번호를 포함하는지로
+    확인한다(정확히 그 줄 하나씩과 대응하는지도 개수로 확인)."""
+    text = ("목   차\n\n"
+            "Ⅰ. 공급업체 관리 개요\t 1\n"
+            "Ⅱ. 사전관리\t 2\n"
+            "Ⅲ. 상시관리\t 3\n"
+            "Ⅳ. 사후관리\t 10\n"
+            "Ⅴ. 향후 개선방향\t 12\n"
+            "Ⅵ. 교육청 협조요청\n")
+    spans = _find_toc_number_spans(text)
+    lines = sorted(text[s:e] for s, e in spans)
+    assert lines == [
+        "Ⅰ. 공급업체 관리 개요\t 1", "Ⅱ. 사전관리\t 2", "Ⅲ. 상시관리\t 3",
+        "Ⅳ. 사후관리\t 10", "Ⅴ. 향후 개선방향\t 12",
+    ], lines
+    print("_selftest_find_toc_number_spans_handles_spaced_heading 통과:", lines)
+
 
 _CONTEXT_BOUNDARY_CHARS = ",.\n;、。，"
 _DIGIT_GROUPING_COMMA_CHARS = ",，"
@@ -543,8 +607,10 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     year_abbreviations = [m.span() for m in _YEAR_ABBREVIATION_PATTERN.finditer(text)]
     year_paren_markers = [m.span() for m in _YEAR_PAREN_MARKER_PATTERN.finditer(text)]
     list_markers = [m.span(1) for m in _LIST_MARKER_PATTERN.finditer(text)]
+    toc_numbers = _find_toc_number_spans(text)
     excluded_spans = ([r["span"] for r in dates + times + phones + years]
-                       + year_abbreviations + year_paren_markers + list_markers)
+                       + year_abbreviations + year_paren_markers + list_markers
+                       + toc_numbers)
 
     def _overlaps_excluded(span):
         a_start, a_end = span
@@ -554,6 +620,40 @@ def extract_values(text: str, default_year: int) -> list[dict]:
     month_spans = _find_month_sequence_spans(amounts)
     amounts = [r for r in amounts if r["span"] not in month_spans]
     return amounts + dates + times + phones + years
+
+
+def _selftest_extract_values_excludes_toc_page_numbers():
+    """(2026-09-17, 실사용 문서로 재현) 목차의 쪽번호는 실제 데이터가
+    아니므로 extract_values()가 금액으로 뽑으면 안 된다 - 목차 뒤에 이어지는
+    진짜 본문의 금액은 평소처럼 그대로 뽑혀야 한다."""
+    text = ("목   차\n\n"
+            "Ⅰ. 공급업체 관리 개요\t 1\n"
+            "Ⅱ. 사전관리\t 2\n"
+            "Ⅲ. 상시관리\t 3\n\n"
+            "Ⅰ. 공급업체 관리 개요\n\n"
+            "예산은 1,850,000원입니다.")
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1850000"], amounts
+    print("_selftest_extract_values_excludes_toc_page_numbers 통과:", amounts)
+
+
+def _selftest_extract_values_excludes_toc_embedded_item_number():
+    """(2026-09-17, 실사용 문서로 재현) "붙 임 1. 기관별 합동점검 실적\t 14"
+    처럼 목차 항목 자체에 번호(붙임 자료 번호매기기)가 또 붙어있으면,
+    줄 끝 쪽번호(14)뿐 아니라 그 앞의 "1"도 데이터로 뽑히면 안 된다 -
+    처음엔 줄 끝 쪽번호만 제외해서 이 "1"이 새어나갔던 게 실제 문서로
+    확인됨."""
+    text = ("목   차\n\n"
+            "Ⅰ. 공급업체 관리 개요\t 1\n"
+            " 붙 임 1. 기관별 합동점검 실적\t 14\n"
+            " 붙 임 2. 정부부처 간 협업 통한 학교급식 안전망 구축 현황\t 15\n\n"
+            "Ⅰ. 공급업체 관리 개요\n\n"
+            "예산은 1,850,000원입니다.")
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1850000"], amounts
+    print("_selftest_extract_values_excludes_toc_embedded_item_number 통과:", amounts)
 
 
 def _selftest_extract_values():
@@ -2088,6 +2188,9 @@ if __name__ == "__main__":
     _selftest_extract_values_excludes_year_abbreviation()
     _selftest_extract_values_excludes_year_abbreviation_with_backtick()
     _selftest_extract_values_excludes_year_in_parens_any_symbol()
+    _selftest_find_toc_number_spans_handles_spaced_heading()
+    _selftest_extract_values_excludes_toc_page_numbers()
+    _selftest_extract_values_excludes_toc_embedded_item_number()
     _selftest_extract_values_excludes_list_marker_dot()
     _selftest_extract_values_excludes_list_marker_paren()
     _selftest_extract_values_list_marker_does_not_exclude_decimal_amount()
