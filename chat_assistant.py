@@ -59,6 +59,30 @@ _PICKER_BUTTON_UNCHOSEN = {
 }
 
 
+_HWP_THUMBNAIL_BOX = (280, 396)  # A4(210x297mm, 세로/가로 = √2) 비율의 썸네일 칸
+
+
+def _fit_image_to_box(pil_image: Image.Image, box_size: tuple[int, int]) -> Image.Image:
+    """pil_image를 원래 비율 그대로 box_size 안에 들어오게 키우거나 줄여서,
+    흰 배경 위 정중앙에 놓은 box_size 크기의 새 이미지를 반환한다.
+
+    (2026-09-18, 실사용 재현) HWP 미리보기가 "가로 폭만 280px에 맞추고
+    세로는 비율대로"만 줄이다 보니, 문서마다 1페이지의 실제 모양이 다르면
+    (표지처럼 A4 전체를 쓰는 페이지 vs 제목 띠 하나뿐인 얇은 페이지)
+    썸네일 크기가 문서마다 들쭉날쭉해서 마치 한쪽만 잘려 보이는 것처럼
+    느껴졌다(사용자가 직접 스크린샷으로 지적). 모든 HWP 썸네일을 항상
+    A4 비율의 같은 칸에 담아 놓으면, 페이지가 원래 얇든 두껍든 칸 크기
+    자체는 일정해서 더 이상 "이상하게" 보이지 않는다."""
+    box_w, box_h = box_size
+    src_w, src_h = pil_image.size
+    scale = min(box_w / src_w, box_h / src_h)
+    new_w, new_h = max(1, int(src_w * scale)), max(1, int(src_h * scale))
+    resized = pil_image.resize((new_w, new_h))
+    canvas = Image.new("RGB", box_size, "white")
+    canvas.paste(resized, ((box_w - new_w) // 2, (box_h - new_h) // 2))
+    return canvas
+
+
 def _preview_kind_for(ext: str) -> str | None:
     """확장자별로 어떤 미리보기를 만들지 판단한다. ext는 점(.) 포함
     소문자(예: ".hwp"). HWP류/엑셀류는 이미지 미리보기(엑셀은 2026-09-17
@@ -439,13 +463,6 @@ class ChatAssistant(ctk.CTk):
                     card = self._log(f"미리보기: {os.path.basename(path)} (클릭하면 크게 보여요)",
                                      role="assistant")
                     pil_image = Image.open(preview_path)
-                    width, height = pil_image.size
-                    # 엑셀 표 이미지는 HWP 페이지와 달리 열이 많으면 옆으로
-                    # 넓어질 수 있다(고정 비율이 아님) - 채팅창 폭(320)보다
-                    # 넓으면 비율 유지하며 줄여서 옆으로 잘려 보이지 않게 한다.
-                    # 이렇게 줄이면 특히 엑셀 표의 작은 글씨(숫자)가 안 읽힐
-                    # 수 있어 클릭하면 확대해서 보여주는 기능을 같이 둔다.
-                    #
                     # (2026-09-17, 실사용 재현) 원래 "마우스를 올리면
                     # 커지고 떼면 사라지는" 방식으로 만들었으나, CTkLabel/
                     # CTkFrame 내부 구조 때문인지 Enter/Leave 이벤트 자체가
@@ -453,11 +470,29 @@ class ChatAssistant(ctk.CTk):
                     # 닫힘, 수초 지연 등 여러 증상이 실제로 재현됨) 근본
                     # 원인을 못 찾고 사용자가 직접 "그냥 클릭으로 하자"고
                     # 결정함 — 클릭은 이벤트가 명확해서 이런 문제가 없다.
-                    max_width = 280
-                    if width > max_width:
-                        height = int(height * max_width / width)
-                        width = max_width
-                    image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image,
+                    if ext in (".hwp", ".hwpx"):
+                        # (2026-09-18, 실사용 재현) 문서마다 1페이지의 실제
+                        # 모양이 달라(표지처럼 A4 전체를 쓰는 페이지 vs
+                        # 제목 띠 하나뿐인 얇은 페이지) 가로 폭만 맞추면
+                        # 썸네일 크기가 들쭉날쭉해 보였다 - 항상 A4 비율의
+                        # 같은 칸에 담아 크기를 통일한다.
+                        thumb_image = _fit_image_to_box(pil_image, _HWP_THUMBNAIL_BOX)
+                        width, height = _HWP_THUMBNAIL_BOX
+                    else:
+                        # 엑셀 표 이미지는 HWP 페이지와 달리 열이 많으면
+                        # 옆으로 넓어질 수 있다(고정 비율이 아님, 페이지가
+                        # 아니라 표 조각이라 A4 칸에 담을 대상이 아님) -
+                        # 채팅창 폭(320)보다 넓으면 비율 유지하며 줄여서
+                        # 옆으로 잘려 보이지 않게 한다. 이렇게 줄이면 특히
+                        # 엑셀 표의 작은 글씨(숫자)가 안 읽힐 수 있어
+                        # 클릭하면 확대해서 보여주는 기능을 같이 둔다.
+                        width, height = pil_image.size
+                        max_width = 280
+                        if width > max_width:
+                            height = int(height * max_width / width)
+                            width = max_width
+                        thumb_image = pil_image
+                    image = ctk.CTkImage(light_image=thumb_image, dark_image=thumb_image,
                                           size=(width, height))
                     thumb = ctk.CTkLabel(card, text="", image=image, cursor="hand2")
                     thumb.pack(padx=8, pady=(0, 6))
@@ -800,6 +835,30 @@ def _selftest_build_preview_message_routes_by_extension():
     print("_preview_kind_for 통과")
 
 
+def _selftest_fit_image_to_box_pads_thin_banner_page():
+    """(2026-09-18, 실사용 재현) "한-베 수교 30주년..." 문서처럼 1페이지가
+    제목 띠 하나뿐인 얇은 페이지(가로로 10배 넘게 긴 모양)라도, 결과
+    이미지는 항상 _HWP_THUMBNAIL_BOX 크기여야 한다 - 원본이 얇으면 위아래
+    흰 여백으로 채워지지, 칸 자체가 작아지지 않는다."""
+    thin_banner = Image.new("RGB", (1001, 94), "black")
+    result = _fit_image_to_box(thin_banner, _HWP_THUMBNAIL_BOX)
+    assert result.size == _HWP_THUMBNAIL_BOX, result.size
+    print("_fit_image_to_box(얇은 배너) 통과:", result.size)
+
+
+def _selftest_fit_image_to_box_fills_a4_cover_page_with_little_padding():
+    """A4 비율에 가까운 표지 페이지(예: 1240x1754, "요약본.hwp" 실측값)는
+    이미 칸과 비율이 비슷하므로 거의 여백 없이 꽉 채워야 한다."""
+    a4_like = Image.new("RGB", (1240, 1754), "black")
+    result = _fit_image_to_box(a4_like, _HWP_THUMBNAIL_BOX)
+    assert result.size == _HWP_THUMBNAIL_BOX, result.size
+    box_w, box_h = _HWP_THUMBNAIL_BOX
+    scale = min(box_w / 1240, box_h / 1754)
+    expected_w, expected_h = int(1240 * scale), int(1754 * scale)
+    assert abs(expected_w - box_w) <= 1 or abs(expected_h - box_h) <= 1, (expected_w, expected_h)
+    print("_fit_image_to_box(A4 표지) 통과:", result.size)
+
+
 def parse_goto_index(text: str) -> int | None:
     """"3번째로 가줘"류 입력에서 순서 번호(1-based)를 뽑는다. 매치 안 되면
     None(숫자검증/공문서체 등 다른 요청과 혼동하지 않기 위해, route_intent()의
@@ -842,6 +901,8 @@ if __name__ == "__main__":
         _selftest_parse_goto_index()
         _selftest_parse_ignore_index()
         _selftest_build_preview_message_routes_by_extension()
+        _selftest_fit_image_to_box_pads_thin_banner_page()
+        _selftest_fit_image_to_box_fills_a4_cover_page_with_little_padding()
     else:
         app = ChatAssistant()
         app.mainloop()
