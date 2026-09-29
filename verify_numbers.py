@@ -238,6 +238,22 @@ _DATE_ISO = re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})')
 _DATE_KOR = re.compile(r'(\d{1,2})월\s*(\d{1,2})일')
 _DATE_ABBR = re.compile(r"'(\d{2})\.(\d{1,2})\.(\d{1,2})(?:\([월화수목금토일]\))?")
 
+# (2026-09-19, 실사용 재현) 표지에 흔한 "2026. 1."(연.월.만, 년/월 글자도
+# 따옴표도 없음) 표기가 기존 세 패턴 어디에도 안 걸려서, "2026"과 "1"이
+# 둘 다 그냥 숫자(금액 후보)로 잘못 뽑혔다. 일(day)까지 있는 "2026. 1.
+# 15."도 같은 표기 관례라 하나의 패턴으로 같이 처리한다 - 일 부분은
+# 있어도 되고 없어도 된다. 줄바꿈을 사이에 두고 엉뚱한 숫자를 "일"로
+# 잘못 묶지 않도록, 점 뒤 공백은 같은 줄 안(스페이스/탭)으로만 허용한다.
+_DATE_DOTTED = re.compile(r'(\d{4})\.[ \t]*(\d{1,2})\.(?:[ \t]*(\d{1,2})\.)?')
+
+# (2026-09-21, 실사용 재현) "기간/대상 : 2024.1월~12월"처럼 월 뒤에 마침표
+# 대신 "월" 글자가 바로 붙는 표기도 있다 - 이건 위 _DATE_DOTTED(마침표로
+# 끝남)와 다른 모양이라 안 걸려서, "2024.1"이 소수점 숫자로 잘못 뽑혔다.
+# "~12월"처럼 뒤에 끝월이 이어지는 기간 표기도 흔해서, 있으면 같이
+# 묶어 끝월("12")까지 통째로 제외구간에 넣는다(없으면 시작월만).
+_DATE_DOT_MONTH_WORD = re.compile(
+    r'(\d{4})\.[ \t]*(\d{1,2})월(?:[ \t]*[~∼-][ \t]*(\d{1,2})월)?')
+
 # (F13) "'26.9.7(화)"처럼 날짜 뒤 괄호에 요일이 적힌 경우만 잡는다.
 # _DATE_ABBR과 같은 날짜 모양에 괄호+요일을 필수로 요구하는 점만 다르다.
 _DATE_WEEKDAY_PATTERN = re.compile(r"'(\d{2})\.(\d{1,2})\.(\d{1,2})\(([월화수목금토일])\)")
@@ -263,6 +279,20 @@ def extract_dates(text: str, default_year: int) -> list[dict]:
     for m in _DATE_ABBR.finditer(text):
         yy, mo, d = m.groups()
         results.append({"type": "date", "normalized": f"{2000 + int(yy):04d}-{int(mo):02d}-{int(d):02d}",
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
+    for m in _DATE_DOTTED.finditer(text):
+        y, mo, d = m.groups()
+        normalized = (f"{int(y):04d}-{int(mo):02d}-{int(d):02d}" if d
+                      else f"{int(y):04d}-{int(mo):02d}")
+        results.append({"type": "date", "normalized": normalized,
+                         "raw": m.group(0), "span": m.span(),
+                         "context": _preceding_context(text, m.start())})
+    for m in _DATE_DOT_MONTH_WORD.finditer(text):
+        y, mo, end_mo = m.groups()
+        start = f"{int(y):04d}-{int(mo):02d}"
+        normalized = f"{start}~{int(y):04d}-{int(end_mo):02d}" if end_mo else start
+        results.append({"type": "date", "normalized": normalized,
                          "raw": m.group(0), "span": m.span(),
                          "context": _preceding_context(text, m.start())})
     return results
@@ -380,6 +410,68 @@ def _selftest_extract_dates():
     normalized = [r["normalized"] for r in result]
     assert normalized == ["2026-09-07", "2026-09-07", "2026-09-07"], normalized
     print("extract_dates 통과:", result)
+
+
+def _selftest_extract_dates_dotted_year_month_no_day():
+    """(2026-09-19, 실사용 재현) 표지에 흔한 "2026. 1."(일 없음) 표기도
+    날짜로 인식해야 한다 - 일이 없으니 정규화는 "2026-01"까지만."""
+    result = extract_dates("2026. 1.", default_year=2026)
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "2026-01", result
+    print("_selftest_extract_dates_dotted_year_month_no_day 통과:", result)
+
+
+def _selftest_extract_dates_dotted_full_date_with_day():
+    """같은 표기 관례로 일까지 쓴 "2026. 1. 15."는 완전한 날짜로 인식한다."""
+    result = extract_dates("2026. 1. 15.", default_year=2026)
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "2026-01-15", result
+    print("_selftest_extract_dates_dotted_full_date_with_day 통과:", result)
+
+
+def _selftest_extract_values_excludes_dotted_cover_date():
+    """(2026-09-19, 실사용 문서로 재현) 표지의 "2026. 1."가 년/월 글자도
+    따옴표도 없어 기존 날짜 패턴 어디에도 안 걸려서, "2026"과 "1"이 둘 다
+    그냥 금액으로 잘못 뽑혔던 실제 버그 - 이제는 날짜로 인식되어
+    제외되고, 뒤에 이어지는 진짜 금액은 평소처럼 그대로 뽑혀야 한다."""
+    text = "2026. 1.\n\n\n\n예산은 1,850,000원입니다."
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1850000"], amounts
+    print("_selftest_extract_values_excludes_dotted_cover_date 통과:", amounts)
+
+
+def _selftest_extract_dates_dot_month_word_single():
+    """"2024.1월"처럼 월 뒤에 마침표 대신 "월" 글자가 바로 붙는 표기도
+    날짜로 인식해야 한다 - _DATE_DOTTED(마침표로 끝남)와는 다른 모양."""
+    result = extract_dates("2024.1월", default_year=2026)
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "2024-01", result
+    print("_selftest_extract_dates_dot_month_word_single 통과:", result)
+
+
+def _selftest_extract_dates_dot_month_word_range():
+    """(2026-09-21, 실사용 재현) "기간/대상 : 2024.1월~12월"처럼 기간
+    표기로 끝월까지 이어지면, 끝월("12")까지 통째로 하나의 날짜 매치로
+    묶여야 한다 - 안 그러면 "12"만 따로 남아 금액으로 잘못 뽑힌다."""
+    result = extract_dates("2024.1월~12월", default_year=2026)
+    assert len(result) == 1, result
+    assert result[0]["normalized"] == "2024-01~2024-12", result
+    assert result[0]["raw"] == "2024.1월~12월", result
+    print("_selftest_extract_dates_dot_month_word_range 통과:", result)
+
+
+def _selftest_extract_values_excludes_dot_month_word_range():
+    """(2026-09-21, 실사용 문서로 재현) "기간/대상 : 2024.1월~12월 /
+    회원(계약담당자 및 급식담당자)"에서 "2024.1"이 소수점 숫자(2024.1)로,
+    "12"가 별개 금액으로 잘못 뽑혔던 실제 버그 - 이제는 둘 다 날짜
+    범위로 인식되어 제외되고, 뒤에 이어지는 진짜 금액은 그대로 뽑혀야
+    한다."""
+    text = "기간/대상 : 2024.1월~12월 / 회원. 예산은 1,850,000원입니다."
+    result = extract_values(text, default_year=2026)
+    amounts = sorted(r["normalized"] for r in result if r["type"] == "amount")
+    assert amounts == ["1850000"], amounts
+    print("_selftest_extract_values_excludes_dot_month_word_range 통과:", amounts)
 
 
 def check_weekday_consistency(text: str) -> list[dict]:
@@ -2177,6 +2269,12 @@ if __name__ == "__main__":
     _selftest_unit_multipliers()
     _selftest_no_unit_no_trailing_space()
     _selftest_extract_dates()
+    _selftest_extract_dates_dotted_year_month_no_day()
+    _selftest_extract_dates_dotted_full_date_with_day()
+    _selftest_extract_values_excludes_dotted_cover_date()
+    _selftest_extract_dates_dot_month_word_single()
+    _selftest_extract_dates_dot_month_word_range()
+    _selftest_extract_values_excludes_dot_month_word_range()
     _selftest_extract_times()
     _selftest_extract_times_minute_precision()
     _selftest_extract_times_mixed_notation_no_false_match()
