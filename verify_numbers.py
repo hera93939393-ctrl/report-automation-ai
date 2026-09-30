@@ -1457,7 +1457,14 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
     관대하게 판정되는 모순이 생긴다 — 같은 원본·같은 숫자인데 문장에 쓰면
     회색, 표에 쓰면 파랑/빨강이 된다. 표 맥락으로 좁히지 못한 값은 평문과
     똑같은 라벨 연결 규칙을 거치게 해서 그 구멍을 막는다.
-    """
+
+    (2026-09-30, "근거 메모" 기능 추가) matches/mismatches로 분류되는 값에는
+    rv["resolved_source_ref"]로 실제 비교에 쓰인 원본 후보의 출처를 같이
+    붙인다({"source_file", "location", "normalized", "raw"}) — verify_tool.py가
+    이걸로 "원본: 파일명 시트!셀 → 값" 근거 메모를 문서에 남긴다. unverifiable/
+    ambiguous는 애초에 "이 후보다"라고 특정할 수 있는 게 없으므로 안 붙인다.
+    mismatch일 때 붙는 참조는 "원본에 있던 진짜 값"(보고서가 틀리게 옮겨적은
+    대상)이지, 보고서 값 자체의 출처가 아니다."""
     matches, mismatches, unverifiable, ambiguous = [], [], [], []
     for rv in report_values:
         candidates = [a for a in answer_pool if a["type"] == rv["type"]]
@@ -1490,6 +1497,7 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
             # 값이 전부 같으면 어느 후보와 비교하든 결과가 같으므로(어느
             # 항목이든 판정이 달라지지 않으므로) 문맥 연결 없이 바로 비교해도
             # 안전하다.
+            _attach_source_ref(rv, candidates[0])
             (matches if rv["normalized"] in distinct_values else mismatches).append(rv)
             continue
         context = _matching_context_text(rv)
@@ -1497,12 +1505,35 @@ def categorize_values(report_values: list[dict], answer_pool: list[dict]) -> dic
         if not labeled_candidates:
             ambiguous.append(rv)  # 후보가 여럿인데 문맥으로 특정 못 함 → 확인 필요(회색)
             continue
-        if any(c["normalized"] == rv["normalized"] for c in labeled_candidates):
+        matched = next((c for c in labeled_candidates if c["normalized"] == rv["normalized"]), None)
+        if matched is not None:
+            _attach_source_ref(rv, matched)
             matches.append(rv)
         else:
+            # mismatch: "이 값이어야 했다"는 참조로 labeled_candidates의 첫
+            # 후보를 붙인다 - 라벨로 이미 좁혔으므로 보통 하나뿐이다.
+            _attach_source_ref(rv, labeled_candidates[0])
             mismatches.append(rv)
     return {"matches": matches, "mismatches": mismatches, "unverifiable": unverifiable,
             "ambiguous": ambiguous}
+
+
+def _attach_source_ref(rv: dict, candidate: dict) -> None:
+    """rv에 실제 비교 대상이 된 원본 후보의 출처를 붙인다(근거 메모용).
+    candidate는 보통 answer_pool 항목이라 source_file을 갖고 있다
+    (source_reader.py의 모든 리더가 채움) - 다만 이 파일 자체의 일부
+    self-test 픽스처는 categorize_values()만 단위테스트하려고 source_file
+    없이 최소 구성(type/normalized/raw)만 만들어 쓰기도 하므로, 없으면
+    조용히 건너뛴다(방어적으로 - 근거 메모가 하나 안 남는 것뿐이지 검증
+    자체를 막을 이유는 없다)."""
+    if "source_file" not in candidate:
+        return
+    rv["resolved_source_ref"] = {
+        "source_file": candidate["source_file"],
+        "location": candidate.get("location"),
+        "normalized": candidate["normalized"],
+        "raw": candidate.get("raw"),
+    }
 
 
 def _selftest_categorize_values_connects_via_label_when_multiple_candidates():
@@ -1675,6 +1706,35 @@ def _selftest_categorize_values_three_buckets():
     assert [m["raw"] for m in result["mismatches"]] == ["999만9900원"], result["mismatches"]
     assert [m["raw"] for m in result["unverifiable"]] == ["031-1234-5678"], result["unverifiable"]
     print("_selftest_categorize_values_three_buckets 통과:", result)
+
+
+def _selftest_categorize_values_attaches_resolved_source_ref():
+    """(2026-09-30, "근거 메모" 기능) matches/mismatches 항목에는 실제
+    비교에 쓰인 원본 후보의 출처(resolved_source_ref)가 붙어야 한다 -
+    verify_tool.py가 이걸로 "원본: 파일 시트!셀 → 값" 메모를 만든다.
+    unverifiable은 애초에 비교 대상 후보가 없었으므로 안 붙어야 한다."""
+    answer_pool = [
+        {"type": "amount", "normalized": "1850000", "raw": "1,850,000",
+         "source_file": "원본.xlsx", "location": "Sheet1!C15"},
+    ]
+    report_values = [
+        {"type": "phone", "normalized": "031-1234-5678", "raw": "031-1234-5678", "span": (0, 13)},
+        {"type": "amount", "normalized": "1850000", "raw": "185만원", "span": (20, 24)},  # match
+        {"type": "amount", "normalized": "9999999", "raw": "999만9900원", "span": (30, 40)},  # mismatch
+    ]
+    result = categorize_values(report_values, answer_pool)
+
+    match_ref = result["matches"][0]["resolved_source_ref"]
+    assert match_ref == {"source_file": "원본.xlsx", "location": "Sheet1!C15",
+                          "normalized": "1850000", "raw": "1,850,000"}, match_ref
+
+    # mismatch에는 "원래 있었어야 할 값"(원본 후보)이 참조로 붙는다 -
+    # 보고서 값 자체("9999999")가 아니라 원본 값("1850000")을 가리켜야 한다.
+    mismatch_ref = result["mismatches"][0]["resolved_source_ref"]
+    assert mismatch_ref["normalized"] == "1850000", mismatch_ref
+
+    assert "resolved_source_ref" not in result["unverifiable"][0], result["unverifiable"][0]
+    print("_selftest_categorize_values_attaches_resolved_source_ref 통과:", match_ref, mismatch_ref)
 
 
 # ---------------------------------------------------------------------------
@@ -2308,6 +2368,7 @@ if __name__ == "__main__":
     _selftest_compare_values_still_flags_when_type_present_but_no_match()
     _selftest_compare_values_per_type_skip_does_not_hide_other_mismatches()
     _selftest_categorize_values_three_buckets()
+    _selftest_categorize_values_attaches_resolved_source_ref()
     _selftest_categorize_values_connects_via_label_when_multiple_candidates()
     _selftest_categorize_values_marks_ambiguous_when_context_has_no_label()
     _selftest_categorize_values_single_candidate_ignores_missing_label()

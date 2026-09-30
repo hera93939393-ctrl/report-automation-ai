@@ -18,6 +18,34 @@ from ignore_list import load_ignored_values, DEFAULT_IGNORE_PATH
 import llm_disambiguator
 
 
+def _build_evidence_memo_text(rv: dict, is_mismatch: bool) -> str:
+    """rv["resolved_source_ref"](verify_numbers.categorize_values가 붙임)로
+    "근거 메모" 내용을 만든다. 값은 일부러 안 적는다 - 메모는 이미 그
+    값이 있는 문서 안 바로 그 자리에 붙으므로(insert_memo_next가 find()로
+    그 위치를 찾아 붙임), 값을 또 적으면 정보가 중복될 뿐 아니라 실제
+    버그로도 이어졌다.
+
+    (2026-09-30, 실제 재현으로 두 번 발견된 버그) 처음엔 mismatch 메모에
+    "문서엔 '{rv['raw']}'로 다르게 적힘"처럼 보고서 원문을 그대로
+    적었었다 — 메모 삽입 직후 이어지는 색칠 단계가 같은 문자열을
+    find()로 다시 찾을 때 본문이 아니라 방금 만든 메모 안의 그 텍스트를
+    찾아 칠해버리는 사고가 재현됐다. raw 반복만 없애고 넘어갔더니, 이번엔
+    match 메모의 "→ {display_value}"(원본 값)에서 또 재현됐다 - 재검증
+    시나리오에서 원본 값이 우연히 보고서 숫자와 똑같아지자(정상 판정이니
+    당연히 같음) 같은 충돌이 또 났다. 두 경우 다 본질은 같다: 메모 안에
+    사람이 찾아볼 만한 값을 넣으면, 그 값이 나중에(같은 실행 안에서든,
+    다음 재검증에서든, 심지어 이 함수 밖의 get_char_color_at() 같은
+    단순 조회에서든) find()의 의도치 않은 매치 대상이 될 위험이 있다.
+    그래서 아예 값을 반복하지 않는 것으로 근본 해결한다 - 메모는 출처
+    (파일·위치)만 알려주고, 값 자체는 커서가 이미 가리키고 있는 바로
+    그 텍스트를 보면 된다."""
+    ref = rv["resolved_source_ref"]
+    source_desc = f"{os.path.basename(ref['source_file'])} {ref['location']}"
+    if is_mismatch:
+        return f"원본에는 이 값이 없음 - 원본 출처: {source_desc}"
+    return f"원본 출처: {source_desc}"
+
+
 def run_verification(report: HwpReport, source_paths: list[str], default_year: int,
                       ignore_list_path: str = DEFAULT_IGNORE_PATH,
                       llm_reconsider: bool = True) -> dict:
@@ -91,6 +119,7 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
     """
     answer_pool, conflicts = read_source_files(source_paths, default_year)
     report.reset_colors()  # 재검증 시 이전 호출이 남긴 표시가 잔류하지 않도록, 매 호출 시작 시 문서 전체를 검정으로 리셋
+    report.reset_memos()  # 위와 같은 이유 - 이전 호출이 남긴 근거 메모가 재검증마다 쌓이지 않도록 리셋
 
     if not answer_pool:
         # (2026-09-04, 실사용 피드백) 원본자료를 첨부했는데 실제로 읽을 수
@@ -219,6 +248,36 @@ def run_verification(report: HwpReport, source_paths: list[str], default_year: i
             # 폴백 — 문서 처음부터 다시 찾아서라도 반드시 칠한다.
             report.hwp.MoveDocBegin()
             report.mark_next_color(raw, r, g, b)
+
+    # (2026-09-30, "근거 메모" 기능) 정상(파랑)/오류(빨강)로 판정된 값에는
+    # 실제 비교에 쓰인 원본 출처(resolved_source_ref, verify_numbers.py
+    # categorize_values 참고)를 한글 네이티브 "메모"로 남긴다 - 파일을 다시
+    # 열어보지 않아도 "이 숫자가 어디서 왔는지/원래 뭐였는지" 바로 보이게
+    # 하기 위함. 대조불가(초록)/확인필요(회색)는 특정할 수 있는 출처 자체가
+    # 없으므로 대상이 아니다.
+    #
+    # 반드시 색칠 다음에 해야 한다(직접 재현으로 발견한 버그) — 메모
+    # 안에 사람이 읽는 텍스트를 새로 써넣는데, 그 문서 안에 마침 다른
+    # 항목의 raw 문자열과 우연히 겹치는 글자가 있으면, 색칠 단계가
+    # find()로 그 raw를 다시 찾을 때 본문이 아니라 방금 쓴 메모 안의
+    # 그 글자를 찾아 칠해버릴 수 있다(실제로 mismatch 메모 문구에 원문
+    # raw를 그대로 인용했다가 이 사고가 재현됨 - _build_evidence_memo_text가
+    # 이제 raw를 반복하지 않도록 고쳤지만, 순서 자체도 안전하게 색칠을
+    # 먼저 끝내둔다 - 메모가 본문에 아직 없으면 색칠 단계가 실수로
+    # 메모 안을 찾을 여지 자체가 없다).
+    memo_in_order = sorted(
+        [(m["span"][0], m["raw"], _build_evidence_memo_text(m, is_mismatch=True))
+         for m in mismatches if m.get("resolved_source_ref")]
+        + [(m["span"][0], m["raw"], _build_evidence_memo_text(m, is_mismatch=False))
+           for m in matches if m.get("resolved_source_ref")],
+        key=lambda item: item[0],
+    )
+    report.hwp.MoveDocBegin()
+    for _pos, raw, memo_text in memo_in_order:
+        found = report.insert_memo_next(raw, memo_text)
+        if not found:
+            report.hwp.MoveDocBegin()
+            report.insert_memo_next(raw, memo_text)
 
     unique_mismatch_raw = list(dict.fromkeys(m["raw"] for m in mismatches))
     unique_match_raw = list(dict.fromkeys(m["raw"] for m in matches))
@@ -460,6 +519,107 @@ def _selftest_run_verification_colors_all_three_categories_in_one_pass():
         assert report.get_char_color_at("9999999") == (255, 0, 0), "오류(빨강) 표시 안 됨"
         assert report.get_char_color_at("031-1234-5678") == (0, 128, 0), "대조불가(초록) 표시 안 됨"
         print("run_verification(세 카테고리 한 번에 색칠) 통과:", result["summary"])
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _count_memo_ctrls(report: HwpReport) -> int:
+    """문서 안의 메모(%%me) 컨트롤 개수를 센다. chart_tool.py의
+    _count_picture_ctrls와 같은 이유로 pyhwpx의 get_ctrl_by_ctrl_id()를
+    안 쓴다(ctrl.UserDesc와 ctrl_id 코드를 직접 비교하는 버그로 항상 빈
+    리스트만 반환함) - CtrlID를 직접 프로브해 확인한 실제 값('%%me')으로
+    직접 순회한다."""
+    count = 0
+    ctrl = report.hwp.HeadCtrl.Next.Next
+    while ctrl:
+        if ctrl.CtrlID == "%%me":
+            count += 1
+        ctrl = ctrl.Next
+    return count
+
+
+def _selftest_run_verification_attaches_evidence_memo_to_match_and_mismatch():
+    """(2026-09-30, "근거 메모" 기능) 정상(파랑)/오류(빨강) 항목에는 원본
+    출처를 알려주는 한글 네이티브 메모가 남아야 한다. 대조불가(초록)는
+    비교 대상 후보 자체가 없어 참조할 출처가 없으므로 메모가 없어야
+    한다(정상 1건 + 오류 1건 + 대조불가 1건 = 메모는 정확히 2건)."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_근거메모")
+    os.makedirs(test_dir, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(os.path.join(test_dir, "원본.xlsx"))
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_근거메모.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text(
+        "예산은 185만원이며, 오타는 9999999원이고, "
+        "담당자 연락처는 031-1234-5678입니다"
+    )
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert _count_memo_ctrls(report) == 2, (
+            f"근거 메모가 정확히 2건(정상+오류)이어야 하는데 {_count_memo_ctrls(report)}건"
+        )
+        print("run_verification(근거 메모 정상+오류에만 부착) 통과")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        import shutil
+        shutil.rmtree(test_dir)
+        os.remove(report_path)
+
+
+def _selftest_run_verification_does_not_duplicate_memos_on_rerun():
+    """(2026-09-30, 실제 재현으로 발견한 회귀) 근거 메모를 지우지 않으면
+    재검증할 때마다 같은 자리에 메모가 계속 쌓인다 - 두 번 연속
+    run_verification()을 호출해도 메모 개수가 늘지 않고 그대로 1건이어야
+    한다(reset_colors()가 색에 대해 이미 보장하는 멱등성과 동일한 계약을
+    메모에도 적용). 이 회귀는 메모를 지우지 않을 때 두 번째 호출에서
+    "같은 자리에 메모를 또 붙이려다" 색칠까지 같이 깨지는 형태로도
+    나타났다(재검증 후 색이 바뀌어야 하는데 검정으로 남음) - 그래서
+    색 확인도 같이 한다."""
+    test_dir = os.path.join(tempfile.gettempdir(), "_test_근거메모_재검증")
+    os.makedirs(test_dir, exist_ok=True)
+    source_path = os.path.join(test_dir, "원본.xlsx")
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sheet1"
+    ws["A1"] = "예산"; ws["A2"] = 1850000
+    wb.save(source_path)
+
+    from pyhwpx import Hwp
+    report_path = os.path.join(tempfile.gettempdir(), "_test_보고서_근거메모_재검증.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 9999999원입니다")
+    setup.save_as(report_path)
+    setup.quit()
+
+    report = None
+    try:
+        report = HwpReport(report_path)
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert _count_memo_ctrls(report) == 1, _count_memo_ctrls(report)
+        assert report.get_char_color_at("9999999") == (255, 0, 0), report.get_char_color_at("9999999")
+
+        # 원본을 고쳐서 이제 일치하게 만든 뒤 재검증(위 rerun 테스트와 같은 시나리오)
+        wb2 = openpyxl.Workbook(); ws2 = wb2.active; ws2.title = "Sheet1"
+        ws2["A1"] = "예산"; ws2["A2"] = 9999999
+        wb2.save(source_path)
+
+        run_verification(report, source_paths=[test_dir], default_year=2026)
+        assert _count_memo_ctrls(report) == 1, (
+            f"재검증 후 메모가 쌓이면 안 되는데 {_count_memo_ctrls(report)}건"
+        )
+        assert report.get_char_color_at("9999999") == (0, 0, 255), report.get_char_color_at("9999999")
+        print("run_verification(재검증해도 근거 메모 안 쌓임) 통과")
     finally:
         if report is not None:
             report.close(save=False)
@@ -1141,6 +1301,8 @@ if __name__ == "__main__":
     _selftest_run_verification_skips_ignored_mismatch()
     _selftest_run_verification_clears_stale_marks_on_rerun()
     _selftest_run_verification_colors_all_three_categories_in_one_pass()
+    _selftest_run_verification_attaches_evidence_memo_to_match_and_mismatch()
+    _selftest_run_verification_does_not_duplicate_memos_on_rerun()
     _selftest_run_verification_connects_by_label_and_marks_ambiguous_gray()
     _selftest_run_verification_empty_answer_pool_gives_clear_message()
     _selftest_run_verification_flags_weekday_mismatch()

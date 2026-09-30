@@ -231,6 +231,25 @@ class HwpReport:
             self.hwp.set_font(TextColor=self.hwp.RGBColor(r, g, b))
         return found
 
+    def insert_memo_next(self, target_text: str, memo_text: str) -> bool:
+        """현재 커서 위치부터 앞으로(Forward) target_text의 다음 occurrence를
+        찾아 그 자리에 한글 네이티브 "메모"(마진 코멘트)를 삽입한다.
+        mark_next_color()와 완전히 같은 찾기 방식(순수 숫자는
+        _find_whole_number()로 독립된 숫자만, 그 외는 일반 find())을 쓴다 —
+        "근거 메모"(2026-09-30)가 색칠과 같은 문서 위치·같은 순서로 붙어야
+        하므로 찾기 로직을 반드시 동일하게 맞춰야 한다. 못 찾으면 False.
+
+        pyhwpx의 insert_memo()는 "선택 모드가 아니면 캐럿이 위치한 단어에"
+        메모를 붙인다고 문서화돼 있다 — find()가 이미 target_text를
+        선택해둔 상태이므로, 그 선택된 단어 그대로에 메모가 붙는다."""
+        found = (
+            _find_whole_number(self.hwp, target_text, "Forward") if target_text.isdigit()
+            else self.hwp.find(target_text, direction="Forward")
+        )
+        if found:
+            self.hwp.insert_memo(memo_text, memo_type="memo")
+        return found
+
     def mark_red(self, target_text: str) -> bool:
         """mark_color(target_text, 255, 0, 0)의 얇은 래퍼 — "오류(원본과 불일치)"
         표시용으로 기존 호출자들이 계속 이 이름을 쓴다."""
@@ -267,6 +286,25 @@ class HwpReport:
         self.hwp.SelectAll()
         self.hwp.set_font(TextColor=self.hwp.RGBColor(0, 0, 0))
         self.hwp.Cancel()
+
+    def reset_memos(self) -> None:
+        """insert_memo_next()가 남긴 "근거 메모"를 문서에서 전부 지운다.
+
+        reset_colors()와 똑같은 이유(멱등성) - run_verification()이 같은
+        핸들에 여러 번 호출될 수 있는데, 지우지 않으면 재검증할 때마다
+        메모가 계속 쌓인다(2026-09-30, 재검증 회귀 테스트로 직접 재현 -
+        같은 자리에 두 번째 메모를 덧붙이려다 표시가 꼬여 색칠까지
+        같이 망가짐). 컨트롤 목록을 순회하며 지우는 동안 연결리스트
+        자체가 바뀌므로, 먼저 지울 대상을 전부 모아둔 다음에 지운다
+        (순회 중 삭제하면 Next 참조가 끊길 위험 방지)."""
+        to_delete = []
+        ctrl = self.hwp.HeadCtrl.Next.Next
+        while ctrl:
+            if ctrl.CtrlID == "%%me":
+                to_delete.append(ctrl)
+            ctrl = ctrl.Next
+        for ctrl in to_delete:
+            self.hwp.delete_ctrl(ctrl)
 
     def get_char_color_at(self, target_text: str):
         """target_text 위치의 현재 글자색을 (R,G,B) 튜플로 반환한다 (테스트 검증용).
@@ -482,6 +520,48 @@ def _selftest_mark_next_color_skips_digit_embedded_in_larger_number():
             "1,827이 무관한 '7' 표시로 오염됨(버그 재현)"
         )
         print("mark_next_color(숫자 경계 보호) 통과: '1,827'이 오염되지 않음")
+    finally:
+        if report is not None:
+            report.close(save=False)
+        os.remove(test_path)
+
+
+def _count_memo_ctrls_for_test(report) -> int:
+    count = 0
+    ctrl = report.hwp.HeadCtrl.Next.Next
+    while ctrl:
+        if ctrl.CtrlID == "%%me":
+            count += 1
+        ctrl = ctrl.Next
+    return count
+
+
+def _selftest_insert_memo_next_and_reset_memos():
+    """(2026-09-30, "근거 메모" 기능) insert_memo_next()가 실제로 메모를
+    남기고, reset_memos()가 남긴 메모를 전부 지우는지 직접 확인한다 -
+    verify_tool.py의 run_verification() 레벨 테스트와 별도로, 이 두
+    메서드 자체의 계약을 낮은 수준에서 고정해둔다."""
+    import tempfile
+    from pyhwpx import Hwp
+
+    test_path = os.path.join(tempfile.gettempdir(), "_test_메모_삽입_리셋.hwp")
+    setup = Hwp(visible=False, new=True)
+    setup.insert_text("예산은 1,850,000원입니다")
+    setup.save_as(test_path)
+    setup.quit()
+    report = None
+    try:
+        report = HwpReport(test_path)
+        report.hwp.MoveDocBegin()
+        found = report.insert_memo_next("1,850,000", "원본: 원본.xlsx Sheet1!C15 → 1,850,000")
+        assert found is True
+        assert _count_memo_ctrls_for_test(report) == 1, _count_memo_ctrls_for_test(report)
+
+        report.reset_memos()
+        assert _count_memo_ctrls_for_test(report) == 0, (
+            f"reset_memos() 후에도 메모가 남아있음: {_count_memo_ctrls_for_test(report)}건"
+        )
+        print("insert_memo_next/reset_memos 통과")
     finally:
         if report is not None:
             report.close(save=False)
@@ -744,6 +824,8 @@ if __name__ == "__main__":
     _selftest_mark_color_skips_digit_embedded_in_larger_number()
     time.sleep(2)
     _selftest_mark_next_color_skips_digit_embedded_in_larger_number()
+    time.sleep(2)
+    _selftest_insert_memo_next_and_reset_memos()
     time.sleep(2)
     _selftest_get_window_handle()
     time.sleep(2)
