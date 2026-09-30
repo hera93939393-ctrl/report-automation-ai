@@ -2,15 +2,26 @@
 문장으로 만들어 커서 위치에 삽입하는 도구. verify_tool.py와 나란한 두 번째 도구."""
 import os
 import tempfile
-import ollama
 
 from hwp_report import HwpReport
+from ollama_client import GENERATION_MODEL, get_client
 from speed_tracker import record_call_speed
 
 
-def _generate_formal_style(source_text: str, max_attempts: int = 3) -> str:
-    """source_text(선택된 원문 또는 채팅 입력)를 로컬 LLM에 보내 공문서체
-    문장으로 바꾼 결과를 반환한다. route_intent()와 달리 도구 호출(tools=)이
+def _generate_formal_style(source_text: str, max_attempts: int = 3, client=None) -> str | None:
+    """source_text(선택된 원문 또는 채팅 입력)를 홈서버 LLM에 보내 공문서체
+    문장으로 바꾼 결과를 반환한다. 서버에 연결할 수 없으면 None을 반환한다
+    (빈 응답 ""과 구분 — 호출자가 "서버 꺼짐"과 "모델이 빈 답"을 다르게
+    안내할 수 있어야 함, routing_graph._classify_via_llm과 같은 관례).
+
+    (2026-10-01, 서버 전환) 원래 노트북 로컬 Ollama의 qwen3.5:2b를
+    ollama.chat()으로 직접 불렀는데, 노트북에서 Ollama가 제거된 뒤(2026-09-17
+    홈서버 전환) 이 도구만 옛 경로에 남아 실사용에서 실패하던 것을 고침 —
+    이제 ollama_client.get_client()로 서버의 GENERATION_MODEL(qwen3.5:9b)을
+    쓴다. qwen3.5:9b는 사고형 모델이라 think=False를 주지 않으면 생각만 하다
+    빈 답으로 끝나는 게 실측 확인된 특성(llm_disambiguator 참고)이므로 끈다.
+    client 인자는 테스트에서 가짜 클라이언트를 끼우기 위한 것(기본 None이면
+    get_client()). route_intent()와 달리 도구 호출(tools=)이
     아니라 순수 텍스트 생성이므로 tools 파라미터 없이 호출한다.
 
     (F12 2단계, 사용자 요청으로 완화) 작은 로컬 모델(qwen3.5:2b)은 드물지
@@ -26,18 +37,25 @@ def _generate_formal_style(source_text: str, max_attempts: int = 3) -> str:
     이를 applied=False로 정직하게 알린다. 응답 품질(자연스러움) 자체의
     한계는 이 재시도로 해결되지 않는다 — 그건 로컬 모델 성능/하드웨어의
     문제로, 노트북 관련 논의에서 이미 별도로 다룬 사안이다."""
+    if client is None:
+        client = get_client()
     for attempt in range(1, max_attempts + 1):
-        response = ollama.chat(
-            model="qwen3.5:2b",
-            messages=[{
-                "role": "user",
-                "content": (
-                    "다음 문장을 대한민국 공공기관 공문서에 어울리는 격식있는 "
-                    "문체로 다듬어줘. 다듬은 문장만 출력하고 다른 설명은 붙이지 마:\n\n"
-                    f"{source_text}"
-                ),
-            }],
-        )
+        try:
+            response = client.chat(
+                model=GENERATION_MODEL,
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "다음 문장을 대한민국 공공기관 공문서에 어울리는 격식있는 "
+                        "문체로 다듬어줘. 다듬은 문장만 출력하고 다른 설명은 붙이지 마:\n\n"
+                        f"{source_text}"
+                    ),
+                }],
+                think=False,
+            )
+        except Exception:
+            # 서버 꺼짐/네트워크 단절 — 재시도해도 같은 결과라 바로 알린다.
+            return None
         # (F13) 이번 호출의 실제 처리속도를 기록해, 다음 호출 전 예상
         # 소요시간을 계산할 수 있게 한다(eval_count/eval_duration이 0
         # 이하인 비정상 응답은 record_call_speed가 자체적으로 걸러낸다).
@@ -48,7 +66,7 @@ def _generate_formal_style(source_text: str, max_attempts: int = 3) -> str:
     return ""
 
 
-def polish_to_formal_style(report: HwpReport, chat_input: str) -> dict:
+def polish_to_formal_style(report: HwpReport, chat_input: str, client=None) -> dict:
     """선택 여부에 따라 두 가지로 동작하는 공문서체 변환 도구.
 
     - 선택 있음(SelectionMode != 0): 선택된 원문을 다듬어서 그 자리에 교체
@@ -87,7 +105,9 @@ def polish_to_formal_style(report: HwpReport, chat_input: str) -> dict:
     else:
         source_text = chat_input
 
-    polished = _generate_formal_style(source_text)
+    polished = _generate_formal_style(source_text, client=client)
+    if polished is None:
+        return {"applied": False, "polished_text": "", "error": "server_unreachable"}
     if not polished.strip():
         # 빈 문자열로 insert_text()를 호출하면 아무 것도 삽입되지 않는
         # 무의미한 no-op이면서도 "성공"처럼 보일 수 있다 — 특히 원래 문서가
@@ -179,6 +199,86 @@ def _selftest_polish_inserts_new_text_when_nothing_selected():
         os.remove(test_path)
 
 
+class _FakeClient:
+    """서버 없이 _generate_formal_style의 재시도/실패 경로를 검증하기 위한
+    가짜 Ollama 클라이언트. replies의 항목을 차례로 돌려주고, 항목이
+    Exception이면 그걸 던진다(서버 꺼짐 흉내)."""
+
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.calls = []
+
+    def chat(self, **kwargs):
+        self.calls.append(kwargs)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return {"message": {"content": reply}, "eval_count": 10, "eval_duration": 10**9}
+
+
+class _FakeReportNoSelection:
+    """선택 없는 문서 흉내 — polish_to_formal_style이 LLM 결과를 어떻게
+    보고하는지만 볼 때 실제 한글(COM)을 띄우지 않기 위한 것."""
+
+    class _Hwp:
+        SelectionMode = 0
+
+        def insert_text(self, text):
+            self.inserted = text
+            return True
+
+    def __init__(self):
+        self.hwp = self._Hwp()
+
+
+def _selftest_generate_retries_empty_then_succeeds():
+    """빈 응답 두 번 뒤 정상 응답이 오면 그 결과를 쓰고, 서버 모델/think=False가
+    실제로 전달되는지 확인한다(서버 불필요)."""
+    fake = _FakeClient(["", "  ", "예산 집행 완료 및 추가 예산 필요"])
+    result = _generate_formal_style("예산 다 썼음", client=fake)
+    assert result == "예산 집행 완료 및 추가 예산 필요", result
+    assert len(fake.calls) == 3, len(fake.calls)
+    assert fake.calls[0]["model"] == GENERATION_MODEL, fake.calls[0]["model"]
+    assert fake.calls[0]["think"] is False, fake.calls[0]
+    print("_generate_formal_style(재시도 후 성공) 통과")
+
+
+def _selftest_generate_returns_none_when_server_unreachable():
+    """연결 예외가 나면 재시도하지 않고 None을 돌려주는지(빈 문자열과 구분)."""
+    fake = _FakeClient([ConnectionError("서버 꺼짐")])
+    result = _generate_formal_style("아무 문장", client=fake)
+    assert result is None, result
+    assert len(fake.calls) == 1, len(fake.calls)
+    print("_generate_formal_style(서버 미접속 → None) 통과")
+
+
+def _selftest_polish_reports_server_unreachable_without_touching_document():
+    """서버가 꺼져 있으면 문서를 건드리지 않고 error=server_unreachable로 알리는지."""
+    fake = _FakeClient([ConnectionError("서버 꺼짐")])
+    report = _FakeReportNoSelection()
+    result = polish_to_formal_style(report, "써줘", client=fake)
+    assert result == {"applied": False, "polished_text": "", "error": "server_unreachable"}, result
+    assert not hasattr(report.hwp, "inserted"), "서버 미접속인데 문서에 삽입함"
+    print("polish_to_formal_style(서버 미접속 보고) 통과")
+
+
+def _selftest_polish_all_empty_reports_failure_without_error_key():
+    """3회 모두 빈 응답이면 applied=False이되 error 키는 없어야 한다
+    (chat_assistant가 "빈 응답"과 "서버 꺼짐"을 다른 문구로 안내함)."""
+    fake = _FakeClient(["", "", ""])
+    report = _FakeReportNoSelection()
+    result = polish_to_formal_style(report, "써줘", client=fake)
+    assert result == {"applied": False, "polished_text": ""}, result
+    print("polish_to_formal_style(3회 빈 응답) 통과")
+
+
 if __name__ == "__main__":
+    # 서버·한글 없이 도는 것부터
+    _selftest_generate_retries_empty_then_succeeds()
+    _selftest_generate_returns_none_when_server_unreachable()
+    _selftest_polish_reports_server_unreachable_without_touching_document()
+    _selftest_polish_all_empty_reports_failure_without_error_key()
+    # 아래 둘은 홈서버가 켜져 있고 한글 COM을 쓸 수 있을 때만(다른 한글 창이
+    # 떠 있으면 실행하지 말 것 — hwp-report-tool 메모의 tasklist 확인 규칙)
     _selftest_polish_replaces_selected_text()
     _selftest_polish_inserts_new_text_when_nothing_selected()

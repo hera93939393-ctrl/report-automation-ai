@@ -778,6 +778,11 @@ class ChatAssistant(ctk.CTk):
                 result = polish_to_formal_style(self.report, text)
                 if result["applied"]:
                     self._log(f"다듬었어요 → {result['polished_text']}", role="success")
+                elif result.get("error") == "server_unreachable":
+                    # (2026-10-01) 라우팅과 달리 다듬기는 키워드 안전망이 없어
+                    # 서버가 꺼져 있으면 아예 못 한다 — "빈 응답"과 섞지 않고
+                    # 서버 확인을 직접 안내한다.
+                    self._log("서버에 연결할 수 없어서 다듬지 못했어요 — 서버가 켜져 있는지 확인해보세요.", role="error")
                 else:
                     # polish_tool.py 자체가 이미 "LLM 빈 응답"을 applied=False로
                     # 명시적으로 구분해서 돌려주고 있는데(작은 로컬 모델에서
@@ -882,7 +887,7 @@ def parse_ignore_index(text: str) -> int | None:
     키워드가 함께 있어야만 매치된다 - 이 조건이 없으면 "3번째로 가줘"
     (순수 이동 요청)까지 무시 요청으로 잘못 인식하게 된다. _on_submit()은
     반드시 이 함수를 parse_goto_index()보다 먼저 확인해야 한다 -
-    parse_goto_index()의 정규식(r'(\d+)번째')은 "2번째는 무시해"에도
+    parse_goto_index()의 정규식(r'(\\d+)번째')은 "2번째는 무시해"에도
     매치되므로, 순서를 바꾸면 무시 요청이 이동 요청으로 잘못 처리된다."""
     m = re.search(r'(\d+)번째.*(?:무시|괜찮)', text)
     return int(m.group(1)) if m else None
