@@ -75,6 +75,14 @@ _TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "ask_attachment",
+            "description": "첨부한 파일(회의결과, 엑셀, PDF 등)의 내용에 대해 질문하면 그 문서만 근거로 출처와 함께 답한다 (예: 첨부에서 2024년 건수 찾아줘, 회의결과에 예산 얼마라고 돼 있어?)",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "insert_chart",
             "description": "첨부된 원본자료(엑셀)를 막대/꺾은선/원형 그래프로 그려 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -113,6 +121,14 @@ _EDIT_SECTION_KEYWORDS = [
     "풀어 써", "풀어써", "바꿔 써",
 ]
 
+# (2026-10-01, PRD 16-5 ④) 첨부문서 질의응답 — "첨부/원본/회의결과/파일 + 에서/에
+# … 찾아/알려/뭐라고/얼마/몇" 꼴. 편집 키워드(반영해서 다시 써줘)가 있으면 편집이 우선.
+_ASK_ATTACHMENT_KEYWORDS = [
+    "첨부에서", "첨부 파일에서", "첨부파일에서", "첨부한 파일", "첨부 내용", "원본에서",
+    "회의결과에서", "회의결과에", "파일에서 찾아", "에서 찾아줘", "에 뭐라고", "에서 뭐라고",
+    "라고 돼 있", "라고 되어 있", "몇 건이", "얼마라고", "얼마였", "언제였", "찾아서 알려",
+]
+
 _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 
 
@@ -137,6 +153,8 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _EDIT_SECTION_KEYWORDS):
         return "edit_section"
+    if any(keyword in cleaned_message for keyword in _ASK_ATTACHMENT_KEYWORDS):
+        return "ask_attachment"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
@@ -287,6 +305,14 @@ def _selftest_route_by_keywords():
     assert _route_by_keywords("이 부분 공문서체로 고쳐줘") == "polish_to_formal_style"
     assert _route_by_keywords("이 부분 숫자 검증해줘") == "verify_numbers"
     print("route_by_keywords 통과 (구간 편집)")
+
+    # (2026-10-01) 첨부문서 질의응답
+    assert _route_by_keywords("첨부에서 2024년 서류심사 건수 찾아줘") == "ask_attachment"
+    assert _route_by_keywords("회의결과에 예산 얼마라고 돼 있어?") == "ask_attachment"
+    assert _route_by_keywords("재작년 건수 몇 건이었지?") == "ask_attachment"
+    assert _route_by_keywords("첨부 내용 반영해서 이 문단 다시 써줘") == "edit_section"
+    assert _route_by_keywords("첨부 원본이랑 숫자 검증해줘") == "verify_numbers"
+    print("route_by_keywords 통과 (첨부 질의응답)")
 
 
 if __name__ == "__main__":

@@ -283,6 +283,31 @@ class ChatAssistant(ctk.CTk):
             button.pack(side="left", fill="x", expand=True)
             buttons.append(button)
 
+    def _answer_from_attachments(self, question: str):
+        """(2026-10-01, PRD 16-5 ④) 첨부문서 즉석 질의응답 — 색인 없이 지금
+        첨부된 파일들의 텍스트만 보고 답하고, 근거가 된 [파일명 · 위치]를
+        같이 보여준다. 문서를 건드리지 않으므로 승인 카드 없이 바로 답한다."""
+        from attachment_qa_tool import ask_attachments
+
+        if not self.source_paths:
+            self._log("먼저 '+'로 첨부 파일을 올려주세요. 그 파일 내용만 근거로 답해드려요.")
+            return
+        result = self._run_tool_safely(ask_attachments, self.source_paths, question)
+        if result is None:
+            return
+        if not result["ok"]:
+            self._log(result["reason"], role="error")
+            return
+        self._log(result["answer"], role="assistant")
+        notes = []
+        if result["truncated"]:
+            notes.append("첨부가 길어 질문과 관련된 부분만 골라 읽었어요.")
+        if result["unreadable"]:
+            names = ", ".join(os.path.basename(p) for p, _ in result["unreadable"])
+            notes.append(f"읽지 못한 파일: {names}")
+        if notes:
+            self._log(" ".join(notes), role="assistant")
+
     def _show_section_edit_card(self, instruction: str):
         """(2026-10-01, PRD 16-5 ③) "구간 편집" — 커서가 있는 구간(또는 선택
         텍스트)을 지시대로 고친 제안을 서버 LLM에서 받아 채팅 카드에 전/후로
@@ -863,6 +888,8 @@ class ChatAssistant(ctk.CTk):
                     self._log("다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.", role="error")
             elif tool_name == "edit_section":
                 self._show_section_edit_card(text)
+            elif tool_name == "ask_attachment":
+                self._answer_from_attachments(text)
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
@@ -911,7 +938,8 @@ class ChatAssistant(ctk.CTk):
                 self._log(
                     "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
                     "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고, "
-                    "이 문단 내용을 고치고 싶으시면 '이 문단 …해줘'라고 "
+                    "이 문단 내용을 고치고 싶으시면 '이 문단 …해줘'라고, "
+                    "첨부 파일에서 찾고 싶으시면 '첨부에서 …찾아줘'라고 "
                     "한 번 더 말씀해주시겠어요?"
                 )
         except Exception as e:
