@@ -14,3 +14,4 @@ customtkinter
 pdfplumber
 ollama
 pyhwpx==1.7.2
+matplotlib==3.11.2

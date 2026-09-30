@@ -323,6 +323,42 @@ class ChatAssistant(ctk.CTk):
 
         self._draw_table_style_rows(card, choose)
 
+    def _show_chart_type_picker(self):
+        """"그래프 그려줘" 요청 시 채팅창 안에 뜨는 카드. 표/번호서식과 달리
+        "문서에서 선택한 텍스트로 만들기"는 없다(chart_tool.py 참고 — 자유
+        텍스트에는 그래프로 그릴 수치 구조가 없음) — 그래서 이 카드는
+        선택 여부와 무관하게 항상 첨부된 엑셀 원본자료를 대상으로 한다.
+        UI는 _show_numbering_style_picker()의 "선택 없음" 분기(표처럼 미니
+        모형을 그리지 않고 버튼만 나열하는 방식)를 그대로 따른다 — 막대/
+        꺾은선/원형 3종을 작은 위젯으로 미리 그리는 건 표의 2x2 격자보다
+        표현이 어려워(실제 matplotlib 렌더링과 위젯 모형이 다르게 보일
+        위험) 이번 라운드에서는 만들지 않는다."""
+        from chart_tool import CHART_TYPES, insert_chart_from_source
+
+        card = self._log("원본자료를 그래프로 삽입합니다. 종류를 선택하세요:", role="assistant")
+        buttons = []
+
+        def choose(chart_type, button):
+            for b in buttons:
+                if b is button:
+                    b.configure(text=f"✓ {b.cget('text')}", **_PICKER_BUTTON_CHOSEN)
+                else:
+                    b.configure(**_PICKER_BUTTON_UNCHOSEN)
+                b.configure(state="disabled")
+            result = self._run_tool_safely(insert_chart_from_source, self.report, self.source_paths, chart_type)
+            if result is None:
+                return
+            if result["inserted"]:
+                self._log(f"그래프를 삽입했어요 ({CHART_TYPES[chart_type]['label']})", role="success")
+            else:
+                self._log(f"그래프를 삽입하지 못했어요 - {result.get('reason', '알 수 없는 이유')}", role="error")
+
+        for chart_type, info in CHART_TYPES.items():
+            button = ctk.CTkButton(card, text=info["label"], height=28, **_PICKER_BUTTON)
+            button.configure(command=lambda k=chart_type, b=button: choose(k, b))
+            button.pack(pady=3, padx=8, fill="x")
+            buttons.append(button)
+
     def _show_numbering_style_picker(self):
         """"번호 매겨줘" 요청 시 채팅창 안에 뜨는 카드 — 두 가지로 갈린다.
 
@@ -751,6 +787,11 @@ class ChatAssistant(ctk.CTk):
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
                 self._show_numbering_style_picker()
+            elif tool_name == "insert_chart":
+                if not self.source_paths:
+                    self._log("그래프를 그리려면 먼저 원본자료를 '+'로 첨부해주세요.")
+                else:
+                    self._show_chart_type_picker()
             elif tool_name == "merge_weekly_reports":
                 if not self.source_paths:
                     self._log("먼저 취합할 주간업무보고 문서들을 '+'로 첨부해주세요.")

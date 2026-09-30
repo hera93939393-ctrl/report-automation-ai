@@ -64,6 +64,14 @@ _TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "insert_chart",
+            "description": "첨부된 원본자료(엑셀)를 막대/꺾은선/원형 그래프로 그려 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 
@@ -79,6 +87,8 @@ _POLISH_KEYWORDS = [
 
 _TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
 
+_CHART_KEYWORDS = ["그래프", "차트", "막대그래프", "꺾은선그래프", "원형그래프", "파이차트"]
+
 _NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식", "순번"]
 
 _WEEKLY_MERGE_KEYWORDS = ["옆 한글파일로", "주간보고 취합", "주간업무보고 취합", "취합해"]
@@ -91,9 +101,11 @@ _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 def _route_by_keywords(user_message: str) -> Optional[str]:
     """키워드 안전망만으로 도구를 판단한다(LLM 호출 없음, 순수 함수, 결정적).
     chat_assistant.py에 있던 동일 함수를 그대로 옮긴 것 — 우선순위(검증 >
-    공문서체 > 표 > 번호서식 > 주간보고취합 > 페이지맞춤)와 오탐 방지
-    denylist 처리는 변경 없음(검증이 항상 이기는 이유: 미탐지가 오탐지보다
-    위험하다는 판단, F11 12-6 성공기준)."""
+    공문서체 > 표 > 그래프 > 번호서식 > 주간보고취합 > 페이지맞춤)와 오탐
+    방지 denylist 처리는 변경 없음(검증이 항상 이기는 이유: 미탐지가
+    오탐지보다 위험하다는 판단, F11 12-6 성공기준). 그래프는 표 바로
+    다음 순위 — 둘 다 "엑셀 원본자료를 문서에 삽입"하는 성격이 같아서
+    나란히 두었다(2026-09-30, 그래프 도구 추가)."""
     cleaned_message = user_message
     for phrase in _FALSE_POSITIVE_DENYLIST:
         cleaned_message = cleaned_message.replace(phrase, "")
@@ -104,6 +116,8 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
         return "insert_table"
+    if any(keyword in cleaned_message for keyword in _CHART_KEYWORDS):
+        return "insert_chart"
     if any(keyword in cleaned_message for keyword in _NUMBERING_KEYWORDS):
         return "insert_numbering"
     if any(keyword in cleaned_message for keyword in _WEEKLY_MERGE_KEYWORDS):
@@ -227,6 +241,10 @@ def _selftest_route_by_keywords():
     table_numbering_tie = _route_by_keywords("표에 번호 매겨줘")
     assert table_numbering_tie == "insert_table", table_numbering_tie
     print("route_by_keywords 통과 (표/번호 동시 등장 시 표 우선):", table_numbering_tie)
+
+    chart_choice = _route_by_keywords("이 데이터로 그래프 그려줘")
+    assert chart_choice == "insert_chart", chart_choice
+    print("route_by_keywords 통과 (그래프 삽입):", chart_choice)
 
     weekly_choice = _route_by_keywords("옆 한글파일로 옮겨줘")
     assert weekly_choice == "merge_weekly_reports", weekly_choice
