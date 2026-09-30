@@ -35,6 +35,7 @@ import tempfile
 _PREVIEW_DIR = os.path.join(tempfile.gettempdir(), "_hwp_attachment_previews")
 _MAX_PREVIEWS = 5
 _PREVIEW_RESOLUTION = 150
+from hwp_session import new_hwp, open_document
 
 
 def generate_text_preview(path: str, max_lines: int = 5) -> str:
@@ -160,8 +161,10 @@ def _generate_hwp_preview(path: str, out_path: str, resolution: int = _PREVIEW_R
     from pyhwpx import Hwp
     hwp = None
     try:
-        hwp = Hwp(visible=False, new=True)
-        if not hwp.open(path):
+        # (2026-10-01) 새 프로세스 강제 + 보안모듈 등록 확인 + 무인 열기 옵션
+        # (forceopen, suspendpassword)을 hwp_session이 한 곳에서 맡는다.
+        hwp = new_hwp(visible=False)
+        if not open_document(hwp, path, unattended=True):
             return False
         return bool(hwp.create_page_image(out_path, pgno=1, resolution=resolution, format="gif"))
     except Exception:
@@ -218,6 +221,21 @@ def _prune_old_previews(keep: int = _MAX_PREVIEWS) -> None:
             pass
 
 
+def _remove_test_previews(source_path: str) -> None:
+    """self-test가 만든 미리보기만 지운다. (2026-10-01) 예전엔 미리보기 폴더의
+    *.gif를 전부 지웠는데, 이 폴더는 실행 중인 채팅창(다른 PID)이 사용자
+    첨부의 미리보기를 두는 곳이기도 해서, 채팅창이 열어둔 파일을 지우려다
+    PermissionError로 테스트 전체가 멈추고(실제 발생) 남의 세션 파일까지
+    지워버릴 수 있었다. 파일명이 '<원본 basename>_<pid>...gif' 규칙이므로
+    이 테스트의 원본 basename으로 시작하는 것만 지우고, 잠긴 파일은 건너뛴다."""
+    pattern = os.path.join(_PREVIEW_DIR, glob.escape(os.path.basename(source_path)) + "_*.gif")
+    for f in glob.glob(pattern):
+        try:
+            os.remove(f)
+        except PermissionError:
+            pass
+
+
 def _selftest_generate_hwp_preview_isolated_creates_small_file():
     """미리보기 이미지가 실제로 생성되고, gif+저해상도 조합 덕분에 충분히
     작은지(용량 관리 요구사항) 확인한다."""
@@ -240,8 +258,7 @@ def _selftest_generate_hwp_preview_isolated_creates_small_file():
         print("generate_hwp_preview_isolated 통과: 용량", size, "bytes")
     finally:
         os.remove(path)
-        for f in glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")):
-            os.remove(f)
+        _remove_test_previews(path)
 
 
 def _selftest_generate_hwp_preview_isolated_missing_file_returns_none():
@@ -268,8 +285,7 @@ def _selftest_generate_excel_preview_image_creates_small_file():
         print("generate_excel_preview_image(작은 파일) 통과: 용량", size, "bytes")
     finally:
         os.remove(path)
-        for f in glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")):
-            os.remove(f)
+        _remove_test_previews(path)
 
 
 def _selftest_generate_excel_preview_image_large_file_stays_fast_and_capped():
@@ -293,8 +309,7 @@ def _selftest_generate_excel_preview_image_large_file_stays_fast_and_capped():
         print(f"generate_excel_preview_image(1만 행) 통과: {elapsed:.2f}초")
     finally:
         os.remove(path)
-        for f in glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")):
-            os.remove(f)
+        _remove_test_previews(path)
 
 
 def _selftest_generate_text_preview_excel():
@@ -332,6 +347,11 @@ def _selftest_prune_old_previews_keeps_recent_n():
     """미리보기가 keep개보다 많이 쌓이면 오래된 것부터 지워 최근 keep개만
     남아야 한다."""
     os.makedirs(_PREVIEW_DIR, exist_ok=True)
+    # (2026-10-01) 이 폴더는 실행 중인 채팅창(다른 PID)의 미리보기도 두는 곳이라
+    # 비어 있다고 가정할 수 없다 — 그 파일들은 아래 테스트 파일(mtime을 1970년
+    # 근처로 강제)보다 항상 최신이라 keep 자리를 먼저 차지한다. 그 수만큼
+    # keep을 늘려 "테스트 파일 중 최근 5개만 남는다"는 검증을 그대로 유지한다.
+    foreign_count = len(glob.glob(os.path.join(_PREVIEW_DIR, "*.gif")))
     test_files = []
     for i in range(8):
         p = os.path.join(_PREVIEW_DIR, f"_test_prune_{i}.gif")
@@ -340,7 +360,7 @@ def _selftest_prune_old_previews_keeps_recent_n():
         os.utime(p, (i, i))  # 오래된 순서대로 mtime을 강제로 다르게 설정
         test_files.append(p)
     try:
-        _prune_old_previews(keep=5)
+        _prune_old_previews(keep=5 + foreign_count)
         remaining = sorted(glob.glob(os.path.join(_PREVIEW_DIR, "_test_prune_*.gif")))
         assert len(remaining) == 5, remaining
         # 가장 오래된 3개(_0,_1,_2)는 지워지고 최근 5개(_3~_7)만 남아야 함

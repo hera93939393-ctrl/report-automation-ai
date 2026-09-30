@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+from hwp_session import new_hwp, open_document
 
 
 def _is_bluish(rgb: tuple[int, int, int]) -> bool:
@@ -114,8 +115,10 @@ def read_weekly_content(path: str) -> dict:
     from pyhwpx import Hwp
     hwp = None
     try:
-        hwp = Hwp(visible=False, new=True)
-        if not hwp.open(path):
+        # (2026-10-01) 새 프로세스 강제 + 보안모듈 등록 확인 + 무인 열기 옵션
+        # (forceopen, suspendpassword)을 hwp_session이 한 곳에서 맡는다.
+        hwp = new_hwp(visible=False)
+        if not open_document(hwp, path, unattended=True):
             return {"this_week": [], "next_week": []}
         result = {}
         for key, keyword in (("this_week", "이번주"), ("next_week", "다음주")):

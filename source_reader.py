@@ -11,6 +11,7 @@ import openpyxl
 from verify_numbers import (extract_values, compute_column_sums,
                             _decimal_to_normalized_str, _YEAR_PATTERN,
                             _find_year, _normalize_digit_forms)
+from hwp_session import new_hwp, open_document
 
 
 def _header_cell_is_year(value) -> bool:
@@ -452,8 +453,10 @@ def read_hwp_source(path: str, default_year: int) -> list[dict]:
     from pyhwpx import Hwp
     hwp = None
     try:
-        hwp = Hwp(visible=False, new=True)
-        if not hwp.open(path):
+        # (2026-10-01) 새 프로세스 강제 + 보안모듈 등록 확인 + 무인 열기 옵션
+        # (forceopen, suspendpassword)을 hwp_session이 한 곳에서 맡는다.
+        hwp = new_hwp(visible=False)
+        if not open_document(hwp, path, unattended=True):
             return []
         text = hwp.GetTextFile("TEXT", "")
         if not text:

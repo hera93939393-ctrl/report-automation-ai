@@ -5,6 +5,8 @@ import time
 
 from pyhwpx import Hwp
 
+from hwp_session import new_hwp, open_document
+
 
 def _read_table_grids(hwp) -> list:
     """열려 있는 한글 인스턴스(hwp)에서 표 격자 목록을 읽는다.
@@ -81,24 +83,19 @@ class HwpReport:
     """
 
     def __init__(self, path: str):
-        # new=True로 반드시 새 한글 프로세스를 띄운다. pyhwpx의 Hwp()는 기본값
-        # (new=False)에서 이미 떠 있는 한/글 프로세스가 있으면 그 프로세스에
-        # 그대로 접속(재사용)해버리는데, 이는 클래스 docstring이 밝힌 설계
-        # 의도("COM 재연결 제약을 피한다")와 정반대로 동작한다. 특히 사용자가
-        # 따로 작업 중이던 한글 창을 자동화가 그대로 붙잡아버릴 위험이 있어
-        # new=True가 맞다.
+        # 반드시 새 한글 프로세스(new=True)를 띄운다 — 이미 떠 있는 사용자의
+        # 한글 창을 자동화가 붙잡아버리는 사고를 막기 위해서다. 이 원칙과
+        # 보안모듈 등록 확인을 hwp_session.new_hwp()가 한 곳에서 강제한다.
         #
-        # 별개로: 이 폴더(worktree 경로) 안의 파일을 hwp.open()으로 열 때,
-        # 한글이 자체 보안 모듈 경고("...접근하려는 시도(파일의 손상 또는
-        # 유출의 위험 등)가 있습니다")를 띄우며 무한 대기하는 현상이 실제로
-        # 재현되었다. new=True 여부와 무관하게 나타났고(즉 인스턴스 재사용
-        # 문제가 원인이 아님), "접근 허용"을 사람이 눌러주면 즉시 정상
-        # 진행되었다 — visible=True로 사용자가 직접 보게 만든 이 설계와
-        # 일치하는 동작이다. 코드로 완전히 억제하는 방법은 찾지 못했으므로
-        # (이 프로젝트 히스토리에 이미 기록된 COM 자동화 환경 불안정성의
-        # 연장선으로 보임), 무인 실행 시 이 대화상자가 뜨면 사람이 "접근
-        # 허용"을 눌러줘야 진행된다는 점을 알아두어야 한다.
-        self.hwp = Hwp(visible=True, new=True)  # 사용자가 직접 봐야 하므로 visible=True
+        # (2026-10-01 정정) 예전 주석은 "worktree 경로의 파일을 열 때 한글의
+        # 보안 경고('...접근하려는 시도(파일의 손상 또는 유출의 위험 등)가
+        # 있습니다')가 떠서 코드로 억제할 방법을 찾지 못했다"고 적었으나,
+        # 실측 결과 이 경고는 보안모듈(FilePathCheckerModule) 등록이 그 순간
+        # 실패했을 때 나오는 것이고, 등록이 되면(RegisterModule → True) 같은
+        # 경로도 대화상자 없이 즉시 열린다(hwp_session.py 모듈 docstring의
+        # 실측 기록 참고). pyhwpx는 등록 결과를 버리므로, 등록 실패를 조용히
+        # 지나치지 않고 stderr로 알리도록 new_hwp()가 확인한다.
+        self.hwp = new_hwp(visible=True)  # 사용자가 직접 봐야 하므로 visible=True
         # (2026-08-31 코드품질 리뷰 반영) pyhwpx의 Hwp.open()은 성공하면 True, 실패하면
         # False를 반환할 뿐 흔한 실사용자 실수(존재하지 않는 경로, 오타, 손상/형식오류
         # 파일)에 대해 반드시 예외를 던지지는 않는다. 반환값을 무시하면 문서가 실제로는
@@ -112,7 +109,9 @@ class HwpReport:
         # 지적했던 누수)는 여기서 self.hwp.quit()으로 닫아 정리한다 — quit()이 다시
         # 예외를 던지는 극단적 상황까지 감안해 원래의 open-실패 예외가 항상 사용자에게
         # 보이도록 try/except로 감싼다(quit() 실패로 원래 원인이 가려지지 않게).
-        if not self.hwp.open(path):
+        # forceopen:true — 읽기 전용으로 열어야 하는 경우의 대화상자를 띄우지
+        # 않는다. 암호 파일은 사람이 보는 창이므로 그대로 묻게 둔다(unattended=False).
+        if not open_document(self.hwp, path, unattended=False):
             try:
                 self.hwp.quit()
             except Exception:
