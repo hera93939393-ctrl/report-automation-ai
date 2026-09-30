@@ -283,6 +283,75 @@ class ChatAssistant(ctk.CTk):
             button.pack(side="left", fill="x", expand=True)
             buttons.append(button)
 
+    def _show_section_edit_card(self, instruction: str):
+        """(2026-10-01, PRD 16-5 ③) "구간 편집" — 커서가 있는 구간(또는 선택
+        텍스트)을 지시대로 고친 제안을 서버 LLM에서 받아 채팅 카드에 전/후로
+        보여주고, [적용]을 누르면 그때 문서에 쓴다. 제안 단계에서는 문서를
+        건드리지 않는다(PRD 16-3 "쓰기면 승인"). 적용 뒤에는 카드에 [되돌리기]가
+        남아 원문으로 복구할 수 있다(변경추적을 쓰지 않는 이유는
+        section_edit_tool.py 모듈 docstring의 실측 참고). 표/번호 스타일 카드와
+        같은 말풍선-임베드 방식(_log가 돌려준 프레임 안에 버튼)이다."""
+        from section_edit_tool import apply_section_edit, propose_section_edit, revert_section_edit
+
+        proposal = self._run_tool_safely(propose_section_edit, self.report, instruction)
+        if proposal is None:
+            return
+        if not proposal["ok"]:
+            self._log(proposal["reason"], role="error")
+            return
+
+        message = "\n".join([
+            f"'{proposal['title']}' 구간을 이렇게 바꿀게요.", "",
+            "[지금]", proposal["before"], "",
+            "[제안]", proposal["after"],
+        ])
+        card = self._log(message, role="assistant")
+        row = ctk.CTkFrame(card, fg_color="transparent")
+        row.pack(pady=(0, 6), padx=8, fill="x")
+        state = {"applied": None}
+
+        def finish(chosen, other):
+            chosen.configure(text=f"✓ {chosen.cget('text')}", **_PICKER_BUTTON_CHOSEN)
+            other.configure(**_PICKER_BUTTON_UNCHOSEN)
+            chosen.configure(state="disabled")
+            other.configure(state="disabled")
+
+        def on_apply():
+            finish(apply_btn, cancel_btn)
+            result = self._run_tool_safely(apply_section_edit, self.report, proposal)
+            if result is None:
+                return
+            if not result["applied"]:
+                self._log(f"적용하지 못했어요 - {result.get('reason', '알 수 없는 이유')}", role="error")
+                return
+            state["applied"] = result
+            self._log("문서에 반영했어요. 마음에 안 들면 아래 [되돌리기]를 누르세요.", role="success")
+            revert_btn = ctk.CTkButton(row, text="되돌리기", width=90, **_PICKER_BUTTON)
+            revert_btn.pack(side="left", padx=(6, 0))
+
+            def on_revert():
+                revert_btn.configure(state="disabled", **_PICKER_BUTTON_UNCHOSEN)
+                rv = self._run_tool_safely(revert_section_edit, self.report, state["applied"])
+                if rv is None:
+                    return
+                if rv["reverted"]:
+                    self._log("원래대로 되돌렸어요.", role="success")
+                else:
+                    self._log(f"되돌리지 못했어요 - {rv.get('reason', '알 수 없는 이유')}", role="error")
+
+            revert_btn.configure(command=on_revert)
+            self._section_edit_buttons = (apply_btn, cancel_btn, revert_btn)  # 테스트/디버그용 핸들
+
+        def on_cancel():
+            finish(cancel_btn, apply_btn)
+            self._log("적용하지 않았어요.", role="assistant")
+
+        apply_btn = ctk.CTkButton(row, text="적용", width=70, command=on_apply, **_PICKER_BUTTON)
+        apply_btn.pack(side="left")
+        cancel_btn = ctk.CTkButton(row, text="취소", width=70, command=on_cancel, **_PICKER_BUTTON)
+        cancel_btn.pack(side="left", padx=(6, 0))
+        self._section_edit_buttons = (apply_btn, cancel_btn, None)
+
     def _show_table_style_picker(self):
         """"표 만들어줘" 요청 시 채팅창 안에 스타일 선택 카드를 바로 추가한다.
         실제 한글 문서를 미리 그리지 않고, CustomTkinter 위젯으로 각 스타일의
@@ -792,6 +861,8 @@ class ChatAssistant(ctk.CTk):
                     # 실패했는데도 성공한 것처럼 보이는 오해를 준다. 도구의
                     # applied 계약을 그대로 반영해 정직하게 실패를 알린다.
                     self._log("다듬기에 실패했어요 (응답이 비어있었습니다). 다시 시도해주세요.", role="error")
+            elif tool_name == "edit_section":
+                self._show_section_edit_card(text)
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
@@ -839,7 +910,8 @@ class ChatAssistant(ctk.CTk):
                 self._pending_clarification = text
                 self._log(
                     "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
-                    "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고 "
+                    "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고, "
+                    "이 문단 내용을 고치고 싶으시면 '이 문단 …해줘'라고 "
                     "한 번 더 말씀해주시겠어요?"
                 )
         except Exception as e:

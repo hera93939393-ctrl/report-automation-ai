@@ -67,6 +67,14 @@ _TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "edit_section",
+            "description": "커서가 있는 구간(또는 선택한 문단)을 사용자의 지시대로 고쳐 쓴 제안을 만들어 보여주고, 승인하면 변경추적을 켠 채 문서에 반영한다 (줄이기/늘리기/보완/반영/요약/구체화 등 자유로운 편집)",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "insert_chart",
             "description": "첨부된 원본자료(엑셀)를 막대/꺾은선/원형 그래프로 그려 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -85,6 +93,8 @@ _POLISH_KEYWORDS = [
     "손봐줘", "매끄럽게", "격식있게",
 ]
 
+_POLISH_STRONG_KEYWORDS = ["공문서", "다듬어", "매끄럽게", "격식있게"]
+
 _TABLE_KEYWORDS = ["표", "테이블", "표로", "표 만들어"]
 
 _CHART_KEYWORDS = ["그래프", "차트", "막대그래프", "꺾은선그래프", "원형그래프", "파이차트"]
@@ -94,6 +104,14 @@ _NUMBERING_KEYWORDS = ["번호", "번호매겨", "번호 매겨", "번호서식"
 _WEEKLY_MERGE_KEYWORDS = ["옆 한글파일로", "주간보고 취합", "주간업무보고 취합", "취합해"]
 
 _FIT_TO_PAGE_KEYWORDS = ["한 페이지에 맞춰", "한페이지에 맞춰", "한 장에 맞춰", "페이지 맞춤", "쪽맞춤"]
+
+# (2026-10-01, PRD 16-5 ③) 구간 편집 — 공문서체 키워드(_POLISH_KEYWORDS)와
+# 겹치지 않는 "내용을 바꾸는" 표현들. 우선순위는 공문서체 다음(기존 동작 보존).
+_EDIT_SECTION_KEYWORDS = [
+    "줄여", "늘려", "보완", "반영", "추가해", "수정해", "다시 써", "다시써", "고쳐 써",
+    "고쳐써", "요약해", "구체적으로", "간결하게", "이 문단", "이 구간", "이 부분",
+    "풀어 써", "풀어써", "바꿔 써",
+]
 
 _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
 
@@ -112,6 +130,13 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
 
     if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
+    # (2026-10-01) 문체 자체를 지목하는 강한 표현(공문서체/다듬어…)은 polish가
+    # 먼저, "반영해서 다시 써줘"처럼 내용을 바꾸는 표현은 edit_section이 먼저,
+    # 그 밖의 일반 작성 표현(써줘/작성해/바꿔줘…)은 종전대로 polish.
+    if any(keyword in cleaned_message for keyword in _POLISH_STRONG_KEYWORDS):
+        return "polish_to_formal_style"
+    if any(keyword in cleaned_message for keyword in _EDIT_SECTION_KEYWORDS):
+        return "edit_section"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _TABLE_KEYWORDS):
@@ -253,6 +278,15 @@ def _selftest_route_by_keywords():
     fit_choice = _route_by_keywords("이거 한 페이지에 맞춰줘")
     assert fit_choice == "fit_to_one_page", fit_choice
     print("route_by_keywords 통과 (한 페이지 맞춤):", fit_choice)
+
+    # (2026-10-01) 구간 편집: 내용을 바꾸는 표현 → edit_section. 공문서체
+    # 키워드가 있으면 여전히 polish가 이김(기존 동작 보존), 검증도 여전히 최우선.
+    assert _route_by_keywords("이 문단 좀 줄여줘") == "edit_section"
+    assert _route_by_keywords("회의결과 내용을 반영해서 다시 써줘") == "edit_section"
+    assert _route_by_keywords("더 구체적으로 보완해줘") == "edit_section"
+    assert _route_by_keywords("이 부분 공문서체로 고쳐줘") == "polish_to_formal_style"
+    assert _route_by_keywords("이 부분 숫자 검증해줘") == "verify_numbers"
+    print("route_by_keywords 통과 (구간 편집)")
 
 
 if __name__ == "__main__":

@@ -148,13 +148,25 @@ def build_outline(paragraphs: list, table_paras: list) -> list:
     return sections
 
 
+def _restore_pos(hwp, pos):
+    """읽기 부품은 커서를 움직이면 안 된다(사용자가 둔 커서 구간을 뒤의 도구가
+    써야 함 — 2026-10-01 section_edit_tool 실측에서 read_outline이 커서를 문서
+    처음으로 옮겨 '커서 구간 없음'이 나던 버그). 표 안(list != 0) 위치도 그대로
+    되돌리되, 실패하면 문서 처음으로 둔다."""
+    try:
+        hwp.set_pos(*pos)
+    except Exception:
+        hwp.set_pos(0, 0, 0)
+
+
 def read_outline(report) -> dict:
-    """부품 1. 열려 있는 문서의 구간 목록을 돌려준다.
+    """부품 1. 열려 있는 문서의 구간 목록을 돌려준다. 커서 위치는 보존한다.
     반환: {"para_count": n, "sections": [...]} (build_outline 참고)."""
     hwp = report.hwp
+    pos = hwp.get_pos()
     paragraphs = _read_paragraphs(hwp)
     table_paras = _table_anchor_paras(hwp)
-    hwp.set_pos(0, 0, 0)
+    _restore_pos(hwp, pos)
     return {"para_count": len(paragraphs), "sections": build_outline(paragraphs, table_paras)}
 
 
@@ -193,9 +205,7 @@ def section_at_cursor(report, outline: dict = None):
     """커서가 있는 구간. 커서가 표 안(list != 0)이면 그 표 구간을 찾아준다."""
     hwp = report.hwp
     if outline is None:
-        pos = hwp.get_pos()
-        outline = read_outline(report)
-        hwp.set_pos(*pos)
+        outline = read_outline(report)  # 커서 보존
     lst, para, _ = hwp.get_pos()
     if lst != 0:
         # 표 안: 표 컨트롤의 본문 앵커로 환산
@@ -217,9 +227,10 @@ def read_section(report, section_id: str, outline: dict = None) -> dict:
     s = _find_section(outline, section_id)
     if s is None:
         return {"error": f"구간 {section_id}이(가) 없습니다"}
+    pos = hwp.get_pos()
     paragraphs = _read_paragraphs(hwp)
     table_paras = _table_anchor_paras(hwp)
-    hwp.set_pos(0, 0, 0)
+    _restore_pos(hwp, pos)
 
     if s["kind"] == "table":
         grid = _table_grid(hwp, s["table_index"])
@@ -406,9 +417,13 @@ def _selftest_live_read_outline_and_section():
         assert "가. 일정" in sec7["body"] and "3월 착수" in sec7["body"], sec7["body"]
         tbl = read_section(report, "s8", outline)
         assert tbl["tables"][0][1] == ["2024", "120"], tbl
-        # 커서를 문단 4에 두면 s2가 잡힌다
+        # 커서를 문단 4에 두면 s2가 잡힌다 — outline을 새로 읽어도 커서가 보존돼야 함
         report.hwp.set_pos(0, 4, 0)
         assert section_at_cursor(report, outline)["id"] == "s2"
+        assert section_at_cursor(report)["id"] == "s2"
+        assert report.hwp.get_pos()[:2] == (0, 4), report.hwp.get_pos()
+        read_section(report, "s7", None)
+        assert report.hwp.get_pos()[:2] == (0, 4), report.hwp.get_pos()
         print("read_outline/read_section/section_at_cursor(실제 한글) 통과")
         print(format_outline(outline))
     finally:
