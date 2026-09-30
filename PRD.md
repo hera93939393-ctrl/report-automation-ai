@@ -681,7 +681,7 @@ F11~F14는 "업무마다 도구 하나"(숫자검증·표삽입·주간보고취
 | ② | 보안모듈 확인 → `hwp_session.py` 공용 진입점 | ✅ 커밋 7f16c03 (pyhwpx가 이미 등록, 별도 DLL 불필요로 실측) |
 | ③ | 부품 1·2·3 제작, 기존 채팅에 "자유 편집" 도구로 노출 | ✅ 2026-10-01 야간(`feature/harness-step3-sections`): `doc_sections.py`(부품 1·2·3) + `section_edit_tool.py`(제안/적용/되돌리기) + 라우팅 `edit_section` + 채팅 승인 카드. 실측·한계는 `.tmp/implementation-plans/2026-10-01-step3-sections.md` |
 | ④ | 부품 4·6 정리 + 첨부문서 즉석 질의응답(RAG 없이) | ✅ 부품 4 `attachments.py`(hwp 격리/엑셀 전체 시트/PDF 쪽/텍스트를 "[파일 · 위치]" 규격으로) + `attachment_qa_tool.py`(첨부만 근거로 출처 붙여 답변, 예산 초과 시 질문 관련 부분 우선) + 라우팅 `ask_attachment` + 채팅 연결. 부품 6(polish 재포장)은 ⑥의 유사 문단 예시가 생길 때 함께 |
-| ⑤ | 루프 그래프 + 승인 카드 + 스레드 분리·스트리밍 | 확인: 9B 계획 JSON 일관성, interrupt↔Tk 연결 |
+| ⑤ | 루프 그래프 + 승인 카드 + 스레드 분리·스트리밍 | 준비됨: `agent_loop.py`(랭그래프 뼈대, interrupt→승인→재개·호출 상한·재계획을 가짜 LLM/도구로 검증, 채팅 미연결). 남은 확인: 9B 계획 JSON 일관성(`OllamaPlanner`), interrupt 대기 중 Tk 스레드 분리 |
 | ⑥ | 부품 5(아카이브 검색) + 사업 카드 + 동료 대화 모드 | |
 
 툴바 버튼→패널 연결, 평가셋은 ③~⑤ 사이에 끼워 넣는다.
