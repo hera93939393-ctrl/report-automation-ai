@@ -15,6 +15,7 @@ from privacy_guard import detect_pii_patterns
 from routing_graph import route_intent_verbose, _route_by_keywords
 from window_layout import position_windows
 import agent_loop
+import chat_handoff
 import loop_runner
 
 # (2026-10-01, PRD 16-5 ⑤) 단일 도구 라우팅에 안 걸린 요청은 랭그래프 루프
@@ -133,6 +134,58 @@ class ChatAssistant(ctk.CTk):
         self.input_box = ctk.CTkEntry(self.input_row, placeholder_text="예: 숫자 검증해줘")
         self.input_box.pack(side="left", fill="x", expand=True)
         self.input_box.bind("<Return>", self._on_submit)
+
+        # 한글 툴바 버튼(F10 매크로)이 선택 텍스트를 넘길 수 있게 이 창을 등록한다
+        # (chat_handoff.py, 툴바 연결 방식 2번). 창 핸들은 화면에 실제로 만들어진
+        # 뒤에야 유효하므로 update_idletasks() 후에 얻는다.
+        self.update_idletasks()
+        self._register_for_handoff()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(500, self._poll_handoff)
+
+    def _register_for_handoff(self):
+        try:
+            import win32gui
+            hwnd = win32gui.GetAncestor(self.winfo_id(), 2)  # GA_ROOT: Tk 안쪽 프레임이 아닌 바깥 창
+            chat_handoff.register_chat_window(hwnd)
+        except Exception as e:
+            self._log(f"(한글 툴바 버튼 연결을 준비하지 못했어요 - {e})", role="error")
+
+    def _poll_handoff(self):
+        """툴바 버튼이 넘긴 선택 텍스트가 있으면 입력창에 채운다. 바로 실행하지
+        않는다 — 사용자가 보고 요청 문구를 덧붙여 Enter를 누르게 한다."""
+        try:
+            payload = chat_handoff.take_inbox()
+            if payload is not None:
+                self._fill_from_handoff(payload)
+        finally:
+            self.after(500, self._poll_handoff)
+
+    def _fill_from_handoff(self, payload: dict):
+        text = payload.get("text", "")
+        self.deiconify()
+        self.lift()
+        if text and self.input_box.cget("state") != "normal":
+            self._log("지금 다른 작업 중이라 선택 내용을 못 받았어요. 끝난 뒤 버튼을 다시 눌러주세요.")
+            return
+        if text:
+            self.input_box.delete(0, "end")
+            self.input_box.insert(0, text)
+        self.input_box.focus_set()
+        # 방식 2번의 약점(두 창의 문서가 다를 수 있음)을 사용자가 알아채도록 알린다.
+        report_path = self.report.path if self.report is not None else ""
+        if not chat_handoff.same_document(payload.get("doc_path", ""), report_path):
+            self._log(
+                f"버튼을 누른 한글 문서({os.path.basename(payload['doc_path'])})와 채팅창이 연 문서"
+                f"({os.path.basename(report_path)})가 달라요. 고칠 때는 채팅창이 연 문서가 바뀌어요.",
+                role="error",
+            )
+        elif self.report is None:
+            self._log("선택한 내용을 받았어요. 문서를 고치려면 먼저 '보고서 파일 선택'으로 같은 문서를 열어주세요.")
+
+    def _on_close(self):
+        chat_handoff.unregister_chat_window()
+        self.destroy()
 
     def _choose_report(self):
         path = filedialog.askopenfilename(filetypes=[("한글 문서", "*.hwp *.hwpx")])

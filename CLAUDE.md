@@ -42,4 +42,4 @@
 
 ## 5. 현재 로드맵(PRD 16-5)
 ①②③④ 완료, ⑤(루프→채팅 연결) 서버 검증만 남음, ⑥ 1차(BM25 아카이브 검색) 완료 — 임베딩 하이브리드·사업 카드·동료 대화 모드는 서버 필요.
-브랜치 `feature/harness-step3-sections`(master 미병합). 결정 대기: 툴바 버튼 연결 방식(플랜 10절).
+브랜치 `feature/harness-step3-sections`(master 미병합). 툴바 버튼은 2번 방식으로 연결(`chat_handoff.py`) — 한글 쪽 매크로 등록은 사용자 수동.

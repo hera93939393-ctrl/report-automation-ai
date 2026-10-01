@@ -11,7 +11,7 @@
 // 1. 한글에서 [도구]-[매크로]-[매크로 실행] (또는 Alt+Shift+L)
 // 2. 대화상자 아래 [코드 편집] 버튼 클릭 -> 스크립트 편집창이 열림
 // 3. 이 파일의 내용 전체를 편집창에 붙여넣고 저장
-// 4. [매크로 실행] 목록에 AI문장변환/AI회의록/AI법령검색/AI검토 가 나타나면
+// 4. [매크로 실행] 목록에 AI문장변환/AI회의록/AI법령검색/AI검토/한글집사에게물어보기 가 나타나면
 //    각각 선택 후 원하는 단축키(Alt+Shift+1~4 등)를 지정
 // 5. (선택) [도구]-[사용자 설정]-[메뉴 및 도구 상자] 에서 "매크로" 항목을
 //    찾아 도구모음에 아이콘으로 추가하면 진짜 버튼처럼 쓸 수 있다.
@@ -56,6 +56,47 @@ function OnScriptMacro_AI법령검색()
 function OnScriptMacro_AI검토()
 {
 	RunAIBridge("review", false);
+}
+
+// 툴바 버튼 연결 방식 2번(2026-10-01 결정): 문서를 직접 고치지 않고, 한글집사
+// 채팅창을 앞으로 가져와 선택 텍스트를 입력창에 채워주기만 한다(chat_handoff.py).
+// 선택이 없어도 동작한다 - 그땐 채팅창만 앞으로 온다.
+function OnScriptMacro_한글집사에게물어보기()
+{
+	var selected = GetTextFile("TEXT", "saveblock");
+	if (!selected)
+		selected = "";
+
+	// 채팅창이 연 문서와 같은 문서인지 확인할 수 있게 현재 문서 경로도 넘긴다.
+	// (스크립트 매크로에서 Path 속성을 못 읽는 버전이면 빈 값 - 채팅창은 비교를 건너뛴다)
+	var docPath = "";
+	try { docPath = Path; } catch (e) { docPath = ""; }
+
+	var shell = new ActiveXObject("WScript.Shell");
+	var fso = new ActiveXObject("Scripting.FileSystemObject");
+	var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
+	var inPath = tempDir + "\\hwp_handoff_in.txt";
+	var outPath = tempDir + "\\hwp_handoff_out.txt";
+	if (fso.FileExists(outPath))
+		fso.DeleteFile(outPath);
+
+	var tsIn = fso.CreateTextFile(inPath, true, true);
+	tsIn.Write(selected);
+	tsIn.Close();
+
+	var cmd = '"' + PY_EXE + '" "' + PROJECT_DIR + '\\chat_handoff.py" "' + inPath + '" "' + outPath + '" "' + docPath + '"';
+	shell.Run(cmd, 0, true);   // 1초 안쪽으로 끝난다(LLM 호출 없음)
+
+	if (!fso.FileExists(outPath))
+	{
+		ShowPopup("한글집사 채팅창에 전달하지 못했습니다.\n(파이썬 경로를 확인하세요)", "한글집사", 0);
+		return;
+	}
+	var tsOut = fso.OpenTextFile(outPath, 1, false, -1);
+	var reason = tsOut.AtEndOfStream ? "" : tsOut.ReadAll();
+	tsOut.Close();
+	if (reason.length > 0)
+		ShowPopup(reason, "한글집사", 0);
 }
 
 

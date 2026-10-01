@@ -38,6 +38,7 @@ MODULES = {
     "archive_qa_tool": ("pure", [], 120),
     "attachment_qa_tool": ("pure", [], 120),
     "chat_assistant": ("pure", ["--selftest"], 120),
+    "chat_handoff": ("pure", ["--selftest"], 60),
     "window_layout": ("com", [], 120),
     "hwp_session": ("com", [], 180),
     "hwp_report": ("com", [], 600),
