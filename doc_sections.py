@@ -73,9 +73,16 @@ def _title_box_text(table_text: str):
     return f"{m.group(1)}. {m.group(2).strip()}"
 
 
+_DATE_LINE = re.compile(r"^(19|20)\d{2}\s*[.．]\s*(\d{1,2}\s*[.．]?\s*)*$")
+
+
 def level_of(text: str):
-    """문단 텍스트의 항목기호 단계(0이 최상위). 항목기호가 없으면 None."""
+    """문단 텍스트의 항목기호 단계(0이 최상위). 항목기호가 없으면 None.
+    (목업 실측) 표지의 "2026. 1." 같은 날짜 줄이 "1." 패턴에 걸려 제목이 되던
+    오탐을 막는다 — 연도로 시작하고 숫자·점만 이어지는 줄은 제목이 아니다."""
     stripped = text.lstrip()
+    if _DATE_LINE.match(stripped.strip()):
+        return None
     for level, pattern in enumerate(_LEVEL_PATTERNS):
         if pattern.match(stripped):
             return level
@@ -215,7 +222,7 @@ def format_outline(outline: dict) -> str:
     """모델/사람에게 보여줄 목차 문자열. 단계만큼 들여쓴다."""
     lines = []
     for s in outline["sections"]:
-        indent = "  " * (s["level"] or 0)
+        indent = "  " * min(s["level"] or 0, 4)  # 글머리 계열(9~12단계)이 지나치게 밀리지 않게
         span = ""
         if s["body_start"] is not None:
             span = f" (본문 문단 {s['body_start']}~{s['body_end']})"
@@ -311,6 +318,31 @@ def _insert_paragraphs(hwp, lines: list) -> None:
         hwp.insert_text(line)
 
 
+def _common_leading_ws(paragraphs: list) -> str:
+    """원문 문단들이 공통으로 가진 앞쪽 공백(들여쓰기)을 돌려준다. (목업 실측)
+    aT 보고서는 들여쓰기를 문단 서식이 아니라 앞쪽 공백 문자로 하는 경우가 있어,
+    구간을 교체할 때 이 공백을 다시 붙이지 않으면 들여쓰기가 사라진다."""
+    prefixes = []
+    for p in paragraphs:
+        if not p.strip():
+            continue
+        prefixes.append(p[:len(p) - len(p.lstrip(" \t　"))])
+    if not prefixes:
+        return ""
+    common = prefixes[0]
+    for pre in prefixes[1:]:
+        while not pre.startswith(common):
+            common = common[:-1]
+    return common
+
+
+def _apply_leading_ws(lines: list, prefix: str) -> list:
+    """새 줄들에 원문 들여쓰기를 붙인다(이미 공백으로 시작하는 줄은 그대로)."""
+    if not prefix:
+        return lines
+    return [ln if (not ln.strip() or ln[:1] in " \t　") else prefix + ln for ln in lines]
+
+
 def write_section(report, section_id: str, text: str, mode: str = "replace_body",
                   outline: dict = None) -> dict:
     """부품 3. 구간에 텍스트를 쓴다. 문서를 저장하지 않는다.
@@ -363,10 +395,14 @@ def write_section(report, section_id: str, text: str, mode: str = "replace_body"
             _insert_paragraphs(hwp, lines)
         else:
             before = "\n".join(paragraphs[start:end + 1])
+            if mode == "replace_body":
+                lines = _apply_leading_ws(lines, _common_leading_ws(paragraphs[start:end + 1]))
             hwp.select_text(start, 0, end, -1, 0)
             _insert_paragraphs(hwp, lines)
     elif mode == "append":
         before = "\n".join(paragraphs[body_start:body_end + 1]) if body_start is not None else ""
+        if body_start is not None:
+            lines = _apply_leading_ws(lines, _common_leading_ws(paragraphs[body_start:body_end + 1]))
         hwp.set_pos(0, section_end, -1)
         hwp.BreakPara()
         _insert_paragraphs(hwp, lines)
@@ -412,6 +448,11 @@ def _selftest_build_outline_pure():
     assert level_of("❍ 상시 모니터링 통한 지원") == 10
     assert _title_box_text("Ⅰ\r\n\r\n공급업체 관리 개요\r\n") == "Ⅰ. 공급업체 관리 개요"
     assert _title_box_text("구분\r\n건수\r\n2024\r\n120\r\n") is None
+    # 표지의 날짜 줄은 제목이 아니다 / 들여쓰기 공백 보존
+    assert level_of("2026. 1.") is None and level_of("2025. 12. 31.") is None and level_of("1. 추진 배경") == 1
+    assert _common_leading_ws([" 추진목적", " ❍ 상시 모니터링", "", "  세부"]) == " "
+    assert _common_leading_ws(["a", " b"]) == "" and _common_leading_ws([]) == ""
+    assert _apply_leading_ws(["새 문장", " 이미 들여쓴 줄", ""], " ") == [" 새 문장", " 이미 들여쓴 줄", ""]
     box = build_outline(["표지", "Ⅰ\r\n\r\n관리 개요\r\n", "추진목적", "❍ 상시 모니터링", "Ⅱ\r\n\r\n사전관리\r\n", "❍ 서류심사"], [1, 4])
     assert [(s["id"], s["kind"], s["level"], s["title"], s["body_start"], s["body_end"]) for s in box] == [
         ("s1", "heading", 0, "Ⅰ. 관리 개요", 2, 3),
