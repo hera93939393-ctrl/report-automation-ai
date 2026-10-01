@@ -43,6 +43,12 @@
    $env:LAW_API_OC = "발급받은OC값"
    ```
 
+### 0-1. (선택) kordoc — 한글 없이 .hwp/.hwpx 읽기
+첨부·아카이브 읽기는 [kordoc](https://github.com/chrisryugj/kordoc)(MIT, Node 20+)이 있으면 그걸 먼저 쓰고(쪽 단위, 병합 셀 표 보존, 3쪽 문서 약 0.7초), 없으면 한글 COM으로 읽는다. 홈서버처럼 한글이 없는 곳에서 과거 문서를 색인하려면 필요하다.
+```bash
+cd node_tools && npm install
+```
+
 ### 1. 서식 자동 채우기 (기존 v1)
 `계획안_작성도구.bat` 더블클릭 → 입력창에 내용 입력 → [한글파일 만들기] 클릭. 자세한 사용법은 [사용법.txt](./사용법.txt) 참고.
 

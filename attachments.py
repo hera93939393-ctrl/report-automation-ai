@@ -116,9 +116,61 @@ def _read_pdf(path: str) -> list:
     return parts
 
 
-def read_attachment(path: str, max_chars: int = _MAX_CHARS_DEFAULT) -> dict:
-    """부품 4. 첨부 파일 하나를 위치 표시가 붙은 텍스트로 읽는다."""
-    result = {"path": path, "kind": _kind_of(path), "parts": [], "text": "", "truncated": False, "error": None}
+_KORDOC_CLI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "node_tools", "node_modules", "kordoc", "dist", "cli.js")
+_KORDOC_TIMEOUT_SEC = 120
+
+
+def kordoc_available() -> bool:
+    """kordoc(Node, MIT)이 node_tools에 설치돼 있고 node를 찾을 수 있으면 True."""
+    import shutil
+    return os.path.exists(_KORDOC_CLI) and shutil.which("node") is not None
+
+
+def _read_hwp_with_kordoc(path: str) -> tuple:
+    """(2026-10-01 도입) kordoc으로 .hwp/.hwpx를 한글 없이 읽는다 — RAG용 청크
+    (`--format chunks`: id/type/breadcrumb/text/blockRange/page)를 쪽 단위로 묶어
+    parts로 만든다. 표는 HTML/파이프 표 그대로(병합 셀 보존). 목업 실측: 3쪽
+    문서 5초(한글 COM 격리 읽기 9.5초), 표·❍ 글머리·위첨자 보존.
+    반환: (parts, error)"""
+    import shutil, tempfile
+    out_dir = tempfile.mkdtemp(prefix="_kordoc_")
+    out_path = os.path.join(out_dir, "out.json")
+    try:
+        try:
+            proc = subprocess.run(
+                [shutil.which("node"), _KORDOC_CLI, "--silent", "--no-images", "--format", "chunks",
+                 "-o", out_path, path],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=_KORDOC_TIMEOUT_SEC, cwd=os.path.dirname(_KORDOC_CLI),
+            )
+        except subprocess.TimeoutExpired:
+            return [], "kordoc 읽기가 시간 안에 끝나지 않았습니다"
+        except Exception as e:
+            return [], f"kordoc 실행 실패: {e}"
+        if proc.returncode != 0 or not os.path.exists(out_path):
+            tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-1:] or ["알 수 없는 오류"]
+            return [], f"kordoc 읽기 실패: {tail[0][:200]}"
+        with open(out_path, encoding="utf-8") as f:
+            data = json.load(f)
+        chunks = data if isinstance(data, list) else data.get("chunks", [])
+        by_page = {}
+        for c in chunks:
+            text = (c.get("text") or "").strip()
+            if not text:
+                continue
+            by_page.setdefault(c.get("page") or 0, []).append(text)
+        parts = [{"label": f"{page}페이지" if page else "본문", "text": "\n".join(texts)}
+                 for page, texts in sorted(by_page.items())]
+        return parts, None
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
+
+
+def read_attachment(path: str, max_chars: int = _MAX_CHARS_DEFAULT, reader: str = "auto") -> dict:
+    """부품 4. 첨부 파일 하나를 위치 표시가 붙은 텍스트로 읽는다.
+    reader: "auto"(kordoc이 있으면 kordoc, 없으면 한글 COM) | "kordoc" | "hwp"(한글 COM 강제)."""
+    result = {"path": path, "kind": _kind_of(path), "parts": [], "text": "", "truncated": False, "error": None,
+              "reader": None}
     if not os.path.exists(path):
         result["error"] = "파일이 없습니다"
         return result
@@ -127,12 +179,24 @@ def read_attachment(path: str, max_chars: int = _MAX_CHARS_DEFAULT) -> dict:
         return result
     try:
         if result["kind"] == "hwp":
-            text, err = _read_hwp_isolated(path)
+            use_kordoc = reader == "kordoc" or (reader == "auto" and kordoc_available())
+            if use_kordoc:
+                parts, err = _read_hwp_with_kordoc(path)
+                result["reader"] = "kordoc"
+                if err and reader == "auto":
+                    # kordoc이 못 읽는 파일(암호·DRM 등)은 한글 COM으로 한 번 더
+                    text, err = _read_hwp_isolated(path)
+                    result["reader"] = "hwp"
+                    parts = [{"label": "본문", "text": text.replace("\r\n", "\n").strip()}] if text else []
+            else:
+                text, err = _read_hwp_isolated(path)
+                result["reader"] = "hwp"
+                text = text.replace("\r\n", "\n").strip()
+                parts = [{"label": "본문", "text": text}] if text else []
             if err:
                 result["error"] = err
                 return result
-            text = text.replace("\r\n", "\n").strip()
-            result["parts"] = [{"label": "본문", "text": text}] if text else []
+            result["parts"] = [p for p in parts if p["text"]]
         elif result["kind"] == "xlsx":
             result["parts"] = _read_xlsx(path)
         elif result["kind"] == "pdf":
@@ -253,10 +317,13 @@ def _selftest_hwp_isolated_reads_body_without_touching_live_instance():
     live = new_hwp(visible=False)
     try:
         live.insert_text("살아있는 문서")
-        r = read_attachment(path)
+        r = read_attachment(path)  # auto: kordoc이 있으면 kordoc(쪽 단위 라벨), 없으면 한글 COM
         assert r["kind"] == "hwp" and r["error"] is None, r
-        assert r["parts"][0]["label"] == "본문" and "현장점검은 3월에 착수한다." in r["parts"][0]["text"], r["parts"]
-        assert "[_test_attachments_회의결과.hwp · 본문]" in r["text"]
+        assert r["reader"] in ("kordoc", "hwp") and r["parts"][0]["label"] in ("본문", "1페이지"), r
+        assert "현장점검은 3월에 착수한다." in r["text"] and "[_test_attachments_회의결과.hwp · " in r["text"], r["text"][:200]
+        r = read_attachment(path, reader="hwp")  # 한글 COM 경로는 항상 검증
+        assert r["reader"] == "hwp" and r["parts"][0]["label"] == "본문", r
+        assert "현장점검은 3월에 착수한다." in r["parts"][0]["text"], r["parts"]
         assert live.get_selected_text() is not None  # COM 연결 생존 확인
         live.SelectAll()
         assert "살아있는 문서" in (live.get_selected_text() or "")

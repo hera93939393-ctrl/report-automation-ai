@@ -102,3 +102,14 @@ eport-verify-agent`의 `eval/` 방식)로 확장. LLM이 끼는 시나리오는 
 - `run_selftests.py --pure` 11/11 통과, `--com` 14/14 통과(세션 재시작으로 두 번에 나눠 실행). server 분류(polish_tool)는 서버 꺼져 있어 SKIP.
 - `verify_tool`의 두 테스트(`_selftest_run_verification_llm_rescues_paraphrased_row`, `_…_llm_falls_back_to_ambiguous_when_unclear`)는 실제 서버 LLM이 있어야 의미가 있어, 서버가 꺼져 있으면 **건너뜀**으로 바꿈(결과의 `llm_skipped_for_server`로 판정). 서버를 켜고 다시 돌리면 본검증이 된다.
 - **간헐 실패 1건 관찰**: `_selftest_run_verification_connects_by_label_and_marks_ambiguous_gray`가 세 번 중 한 번 "총 0건 확인"(문서 텍스트가 비어 읽힘)으로 실패했고, 그대로 재실행하면 통과. 코드 변경과 무관(첫 실행 통과). 원인 후보: pyhwpx `Hwp.__del__`이 무조건 `CoUninitialize()`를 부르는데 verify_tool의 테스트들은 사이에 대기 없이 연달아 새 인스턴스를 만든다(hwp_report.py는 같은 이유로 테스트 사이 2초 대기). 다음에 또 보이면 verify_tool `__main__`에도 테스트 간 `time.sleep(2)`를 넣고, 픽스처의 setup/HwpReport 수명을 점검할 것. "실사용에서 걸린 건 평가셋행" 규칙상 재현 조건이 잡히면 전용 테스트로 고정.
+
+## 12. kordoc 도입 + 목업 문서 실측 (2026-10-01 오후, 사용자 제공 목업 "…관리결과(3장)_3.hwp")
+
+- 목업은 개인정보 패턴(전화·주민번호·이메일) 0건 확인 후 읽음(업체명·담당자명 정제 여부는 사용자 확인 요청).
+- **kordoc 4.18.0(MIT, Node 20+)을 `node_tools/`에 설치**(`cd node_tools && npm install`). `attachments.read_attachment(reader="auto")`가 .hwp/.hwpx를 kordoc `--format chunks`로 읽어 쪽 단위 parts로 만든다(실패 시 한글 COM으로 자동 재시도, `reader="hwp"`로 강제 가능). 실측: 3쪽 목업 0.7초(한글 COM 격리 9.5초), 병합 셀 표 HTML 보존, ❍ 글머리·위첨자 보존. 이로써 **아카이브 색인이 한글 없는 서버에서도 가능**해졌다(archive_index는 read_attachment를 그대로 씀).
+- kordoc의 제목 인식(breadcrumb)은 이 문서 유형에서 약함("2026. 1."만 제목으로 봄) → 구간 인식은 우리 `doc_sections`가 계속 담당. 다만 아래 실측으로 규칙을 보강:
+  - aT 보고서는 장 제목에 **로마숫자(Ⅰ. Ⅱ. …)**, 글머리에 **❍**, 주석에 `*`/`**`를 쓴다. `_LEVEL_PATTERNS`에 로마숫자를 0단계로 추가(편람 단계는 1부터로 밀림), ❍◯을 ○ 계열에 추가.
+  - 장 제목이 "Ⅰ │ │ 공급업체 관리 개요" 같은 **1행 제목 상자(표)**로 들어가는 패턴 → `_title_box_text()`로 로마숫자 제목 상자를 표가 아니라 0단계 제목으로 인식(셀 3개 이하일 때만).
+  - "추진목적/관리체계" 같이 기호 없는 소제목(굵은 글씨)은 텍스트만으로는 못 잡음 → 후보: parashape(굵기·크기)로 판정(미착수).
+- 회귀: doc_sections·attachments COM 통과, pure 전체 통과.
+- 보류: `.gitignore`에 `node_tools/node_modules/`를 넣는 변경을 사용자가 거부함 — 커밋 시 의존성 폴더가 올라가지 않도록 `git add`는 파일 단위로만. 사용자 결정 필요.

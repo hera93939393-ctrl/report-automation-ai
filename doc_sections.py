@@ -37,6 +37,9 @@ import re
 # 섞어 쓰는 문서가 많아, 편람 8단계 뒤에 낮은 단계로 이어 붙였다 — 완벽한
 # 규칙은 아니고 "같은 기호끼리는 같은 단계"라는 최소한의 보장만 한다.
 _LEVEL_PATTERNS = [
+    # (2026-10-01, 목업 문서 실측) aT 보고서는 장 제목에 로마숫자(Ⅰ. Ⅱ. …)를 쓴다.
+    # 편람 8단계보다 상위라 맨 앞에 둔다("Ⅰ. 공급업체 관리 개요", "Ⅰ 개요" 둘 다).
+    re.compile(r"^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫ]\s*[.．]?\s"),  # Ⅰ.
     re.compile(r"^\d+\.\s"),          # 1.
     re.compile(r"^[가-힣]\.\s"),       # 가.
     re.compile(r"^\d+\)\s"),          # 1)
@@ -46,10 +49,28 @@ _LEVEL_PATTERNS = [
     re.compile(r"^[①-⑳]\s?"),         # ①
     re.compile(r"^[㉮-㉻]\s?"),        # ㉮
     re.compile(r"^[□■]\s?"),          # □
-    re.compile(r"^[○◦]\s?"),          # ○
+    re.compile(r"^[○◦❍◯]\s?"),        # ○ (❍는 aT 보고서의 둥근 글머리, 목업 실측)
     re.compile(r"^[-–—]\s"),          # -
     re.compile(r"^[·•ㆍ]\s?"),        # ·
 ]
+
+
+_ROMAN_TITLE = re.compile(r"^([ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫ])\s*[.．]?\s*(\S.*)$")
+
+
+def _title_box_text(table_text: str):
+    """표 문단의 셀 텍스트("Ⅰ\\r\\n\\r\\n공급업체 관리 개요\\r\\n")가 로마숫자 장
+    제목 상자면 "Ⅰ. 공급업체 관리 개요"를, 아니면 None을 돌려준다. 셀이 3개 이하
+    (번호 칸·여백 칸·제목 칸)일 때만 제목 상자로 인정한다 — 진짜 표를 제목으로
+    오인하지 않기 위해."""
+    cells = [c.strip() for c in table_text.replace("\r\n", "\n").split("\n") if c.strip()]
+    if not cells or len(cells) > 3:
+        return None
+    joined = " ".join(cells)
+    m = _ROMAN_TITLE.match(joined)
+    if not m:
+        return None
+    return f"{m.group(1)}. {m.group(2).strip()}"
 
 
 def level_of(text: str):
@@ -107,6 +128,13 @@ def build_outline(paragraphs: list, table_paras: list) -> list:
     levels = [None] * n
     for i, text in enumerate(paragraphs):
         if i in table_index_by_para:
+            # (2026-10-01, 목업 문서 실측) aT 보고서의 장 제목은 "Ⅰ │ │ 공급업체 관리
+            # 개요"처럼 1행짜리 제목 상자(표)로 들어간다. 셀을 이어 붙인 문장이
+            # 로마숫자 제목이면 표가 아니라 최상위 제목으로 본다.
+            title = _title_box_text(text)
+            if title is not None:
+                levels[i] = 0
+                is_heading[i] = True
             continue
         lv = level_of(text)
         levels[i] = lv
@@ -115,6 +143,19 @@ def build_outline(paragraphs: list, table_paras: list) -> list:
     any_heading = any(is_heading)
     sections = []
     for i, text in enumerate(paragraphs):
+        if i in table_index_by_para and is_heading[i]:
+            end = n - 1
+            for j in range(i + 1, n):
+                if is_heading[j] and levels[j] is not None and levels[j] <= 0:
+                    end = j - 1
+                    break
+            body_start, body_end = (i + 1, end) if end >= i + 1 else (None, None)
+            sections.append({
+                "id": f"s{i}", "kind": "heading", "level": 0, "para": i,
+                "title": _title_box_text(text), "body_start": body_start, "body_end": body_end,
+                "table_index": table_index_by_para[i], "preview": None,
+            })
+            continue
         if i in table_index_by_para:
             first_row = text.replace("\r\n", "\n").split("\n")
             first_row = [c for c in first_row if c][:4]
@@ -350,12 +391,12 @@ def _selftest_build_outline_pure():
     sections = build_outline(paras, [8])
     ids = [(s["id"], s["kind"], s["level"], s["body_start"], s["body_end"]) for s in sections]
     assert ids == [
-        ("s1", "heading", 0, 2, 6),      # 1. 추진 배경: 가.~규정 제3조
-        ("s2", "heading", 1, 3, 4),      # 가. 목적: 두 문단
-        ("s5", "heading", 1, 6, 6),      # 나. 근거
-        ("s7", "heading", 0, 8, 10),     # 2. 추진 계획: 표 + 가. 일정 + 3월 착수
+        ("s1", "heading", 1, 2, 6),      # 1. 추진 배경: 가.~규정 제3조 (0단계는 로마숫자)
+        ("s2", "heading", 2, 3, 4),      # 가. 목적: 두 문단
+        ("s5", "heading", 2, 6, 6),      # 나. 근거
+        ("s7", "heading", 1, 8, 10),     # 2. 추진 계획: 표 + 가. 일정 + 3월 착수
         ("s8", "table", None, None, None),
-        ("s9", "heading", 1, 10, 10),
+        ("s9", "heading", 2, 10, 10),
     ], ids
     assert sections[4]["title"].startswith("[표] 구분 | 건수"), sections[4]["title"]
     # 제목 문단 자체가 문서 제목(항목기호 없음)이면 구간으로 나열되지 않는다
@@ -363,9 +404,21 @@ def _selftest_build_outline_pure():
     # 폴백: 항목기호가 전혀 없으면 문단 하나하나가 구간
     plain = build_outline(["첫 문단", "", "둘째 문단"], [])
     assert [(s["id"], s["kind"], s["body_start"]) for s in plain] == [("s0", "paragraph", None), ("s2", "paragraph", None)], plain
-    # 글머리 기호 계열
-    assert level_of("□ 추진 방향") == 8 and level_of("○ 세부 과제") == 9 and level_of("- 일정") == 10
-    assert level_of("(1) 세부") == 4 and level_of("① 항목") == 6 and level_of("일반 문장.") is None
+    # 글머리 기호 계열(로마숫자가 0번 단계로 앞에 들어가 편람 단계는 1부터)
+    assert level_of("□ 추진 방향") == 9 and level_of("○ 세부 과제") == 10 and level_of("- 일정") == 11
+    assert level_of("(1) 세부") == 5 and level_of("① 항목") == 7 and level_of("일반 문장.") is None
+    # (목업 실측) 로마숫자 장 제목, ❍ 글머리, 제목 상자 표
+    assert level_of("Ⅰ. 공급업체 관리 개요") == 0 and level_of("Ⅲ 상시관리") == 0
+    assert level_of("❍ 상시 모니터링 통한 지원") == 10
+    assert _title_box_text("Ⅰ\r\n\r\n공급업체 관리 개요\r\n") == "Ⅰ. 공급업체 관리 개요"
+    assert _title_box_text("구분\r\n건수\r\n2024\r\n120\r\n") is None
+    box = build_outline(["표지", "Ⅰ\r\n\r\n관리 개요\r\n", "추진목적", "❍ 상시 모니터링", "Ⅱ\r\n\r\n사전관리\r\n", "❍ 서류심사"], [1, 4])
+    assert [(s["id"], s["kind"], s["level"], s["title"], s["body_start"], s["body_end"]) for s in box] == [
+        ("s1", "heading", 0, "Ⅰ. 관리 개요", 2, 3),
+        ("s3", "heading", 10, "❍ 상시 모니터링", None, None),
+        ("s4", "heading", 0, "Ⅱ. 사전관리", 5, 5),
+        ("s5", "heading", 10, "❍ 서류심사", None, None),
+    ], box
     # section_at_para: 겹치면 가장 깊은 구간
     outline = {"sections": sections}
     assert section_at_para(outline, 4)["id"] == "s2"
