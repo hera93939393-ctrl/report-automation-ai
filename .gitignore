@@ -30,3 +30,6 @@ archive_index.sqlite
 
 # 회귀 실행기(run_selftests.py) 로그
 .tmp/selftest-runs/
+
+# kordoc 등 Node 라이브러리 다운로드 폴더(코드 아님, cd node_tools && npm install 로 재설치)
+node_tools/node_modules/
