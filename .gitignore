@@ -33,3 +33,6 @@ archive_index.sqlite
 
 # kordoc 등 Node 라이브러리 다운로드 폴더(코드 아님, cd node_tools && npm install 로 재설치)
 node_tools/node_modules/
+
+# 사용자 제공 목업 문서(수치·업체명·담당자 정제본). 기관 내부 문서 구조라 저장소에는 올리지 않음
+_목업/
