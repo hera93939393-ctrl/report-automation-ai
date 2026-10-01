@@ -53,6 +53,7 @@ MODULES = {
     "fit_to_page_tool": ("com", [], 600),
     "weekly_report_tool": ("com", [], 600),
     "verify_tool": ("com", [], 900),
+    "eval_mock": ("com", [], 300),  # _목업/ 문서가 없으면 스스로 건너뜀(PASS)
     "polish_tool": ("server", [], 300),
 }
 

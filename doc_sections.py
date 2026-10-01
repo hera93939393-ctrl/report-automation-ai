@@ -294,7 +294,7 @@ def read_section(report, section_id: str, outline: dict = None) -> dict:
                 body_paras.append(_grid_to_text(grid))
             else:
                 body_paras.append(paragraphs[i])
-    return {"id": s["id"], "title": paragraphs[s["para"]], "body": "\n".join(body_paras),
+    return {"id": s["id"], "title": paragraphs[s["para"]].strip(), "body": "\n".join(body_paras),
             "paragraphs": body_paras, "tables": tables}
 
 
