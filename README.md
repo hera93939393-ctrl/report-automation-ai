@@ -22,6 +22,7 @@
 | F10 | 한글 안의 진짜 매크로/버튼으로 바로 쓰기 (클립보드 없이 문서에 직접 삽입) | [hwp_macro_ai.js](./hwp_macro_ai.js), [macro_bridge.py](./macro_bridge.py) | ✅ 실제 한글에서 F1 매크로 동작 확인(F7은 동작하나 LLM 정확도 한계 있음) — [PRD 참고](./PRD.md#f10) |
 | 구간 편집 | 커서 구간/선택 문단을 자연어 지시대로 고친 제안 → 카드에서 적용·되돌리기 (하네스 재설계 ③, [PRD 16절](./PRD.md#16-하네스-재설계--범용-부품--루프--레시피-2026-10-01-브레인스토밍-확정)) | [doc_sections.py](./doc_sections.py), [section_edit_tool.py](./section_edit_tool.py) | ✅ 구현·self-test 통과, 실제 모델 실사용 확인 전 |
 | 첨부 질의응답 | 첨부한 회의결과·엑셀·PDF 내용만 근거로 출처([파일 · 위치])와 함께 답변 (하네스 재설계 ④) | [attachments.py](./attachments.py), [attachment_qa_tool.py](./attachment_qa_tool.py) | ✅ 구현·self-test 통과, 실제 모델 실사용 확인 전 |
+| 루프(복합 요청) | 단일 도구에 안 걸리는 요청은 계획→도구 조립→점검→승인 카드의 랭그래프 루프로 처리 (하네스 재설계 ⑤) | [agent_loop.py](./agent_loop.py), [loop_runner.py](./loop_runner.py) | ✅ 가짜 모델로 통합 검증, 실제 모델 계획 품질 확인 전 |
 | F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | [verify_numbers.py](./verify_numbers.py), [source_reader.py](./source_reader.py), [hwp_report.py](./hwp_report.py), [verify_tool.py](./verify_tool.py), [chat_assistant.py](./chat_assistant.py) | ✅ 구현 완료 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
 
 ## 실행 방법

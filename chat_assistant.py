@@ -14,6 +14,13 @@ from ignore_list import record_ignored_value
 from privacy_guard import detect_pii_patterns
 from routing_graph import route_intent_verbose, _route_by_keywords
 from window_layout import position_windows
+import agent_loop
+import loop_runner
+
+# (2026-10-01, PRD 16-5 ⑤) 단일 도구 라우팅에 안 걸린 요청은 랭그래프 루프
+# (agent_loop + loop_runner)가 맡는다. 계획자(planner)는 서버 LLM이 기본이고,
+# 테스트는 이 팩토리를 가짜로 바꿔 끼운다.
+LOOP_PLANNER_FACTORY = lambda: agent_loop.OllamaPlanner()  # noqa: E731
 
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("blue")
@@ -86,6 +93,12 @@ class ChatAssistant(ctk.CTk):
         self._pending_clarification = None  # str | None — 되묻기 대상이었던 원문
         self._hover_popup = None  # ctk.CTkToplevel | None — 미리보기 확대창(클릭으로 열고 닫음)
         self._last_mismatch_items: list[str] = []  # list[str] - 마지막 숫자검증에서 빨갛게 표시된 항목들(span 순서)
+        # (⑤) 루프 실행용: 작업 스레드 → 메인 스레드(COM/Tk) 다리와 현재 세션
+        self._bridge = loop_runner.MainThreadBridge()
+        self._loop_session = None
+        self._loop_active = False
+        self._loop_progress_label = None
+        self.after(50, self._pump_bridge)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
         # UI라, 채팅 안의 스타일 선택 버튼(그 순간 골라야 하는 것)과 같은
@@ -931,9 +944,14 @@ class ChatAssistant(ctk.CTk):
                         self._log(f"{method_label} 1페이지로 맞췄어요.", role="success")
                     else:
                         self._log("행간/자간/글자크기를 다 줄여봐도 1페이지에 안 들어가요. 내용을 좀 줄여주세요.", role="error")
+            elif server_reachable:
+                # (⑤) 단일 도구에 안 걸리면 루프에 맡긴다 — 계획을 세워 부품을
+                # 조립하고, 쓰기는 승인 카드를 거친다. 작업 스레드에서 돌므로
+                # 여기서는 바로 돌아가고(busy 유지), 완료/승인 콜백이 뒤를 잇는다.
+                self._start_loop(text)
             else:
-                # PRD 13-4 "애매하면 되묻기": 실패로 끝내지 않고 다음 입력에서
-                # 원문과 합쳐 재판단하도록 원문을 기억해둔다.
+                # PRD 13-4 "애매하면 되묻기": 서버가 꺼져 루프를 못 돌릴 때만
+                # 남는 경로 — 다음 입력에서 원문과 합쳐 재판단하도록 기억해둔다.
                 self._pending_clarification = text
                 self._log(
                     "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
@@ -945,8 +963,93 @@ class ChatAssistant(ctk.CTk):
         except Exception as e:
             self._log(f"오류가 발생했습니다 - {e}", role="error")
         finally:
-            self._busy = False
-            self.input_box.configure(state="normal")
+            if not self._loop_active:
+                self._busy = False
+                self.input_box.configure(state="normal")
+
+    # ------------------------------------------------------------ (⑤) 루프 연결
+    def _pump_bridge(self):
+        """작업 스레드가 메인 스레드에 맡긴 일(COM 호출, UI 갱신)을 주기적으로 처리."""
+        try:
+            self._bridge.pump()
+        finally:
+            self.after(50, self._pump_bridge)
+
+    def _finish_loop(self):
+        self._loop_active = False
+        self._loop_session = None
+        self._loop_progress_label = None
+        self._busy = False
+        self.input_box.configure(state="normal")
+
+    def _set_progress(self, text: str):
+        if self._loop_progress_label is not None:
+            try:
+                self._loop_progress_label.configure(text=text)
+                self.update_idletasks()
+                return
+            except Exception:
+                pass
+        bubble = self._log(text, role="assistant")
+        self._loop_progress_label = bubble.winfo_children()[0]
+
+    def _start_loop(self, text: str):
+        """단일 도구 라우팅에 안 걸린 요청을 랭그래프 루프로 처리한다(PRD 16-3).
+        LLM·그래프는 작업 스레드, 한글 COM과 UI는 _bridge를 통해 메인 스레드."""
+        tools = loop_runner.build_tools(self.report, self.source_paths, self._bridge)
+        provider = loop_runner.build_context_provider(self.report, self.source_paths, self._bridge)
+        apply = loop_runner.build_apply_write(self.report, self._bridge)
+        graph = agent_loop.build_graph(LOOP_PLANNER_FACTORY(), tools, provider, apply_write=apply)
+        self._loop_active = True
+        self._busy = True
+        self.input_box.configure(state="disabled")
+        self._loop_progress_label = None
+        self._set_progress("계획을 세우는 중…")
+        self._loop_session = loop_runner.LoopSession(
+            graph, self._bridge,
+            on_progress=self._set_progress,
+            on_needs_approval=self._show_loop_approval_card,
+            on_done=self._on_loop_done,
+            on_error=self._on_loop_error,
+        )
+        self._loop_session.start(text)
+
+    def _on_loop_done(self, answer: str):
+        self._set_progress("완료")
+        self._log(answer or "요청을 처리했어요.", role="assistant")
+        self._finish_loop()
+
+    def _on_loop_error(self, message: str):
+        self._set_progress("중단됨")
+        self._log(f"처리 중 오류가 났어요 - {message.splitlines()[0]}", role="error")
+        self._finish_loop()
+
+    def _show_loop_approval_card(self, payload: dict):
+        """루프가 쓰기 승인에서 멈췄을 때의 카드. [적용]/[취소]가 그래프를 같은
+        자리에서 재개한다(승인 전엔 문서가 바뀌지 않음, 16-6)."""
+        lines = [f"'{payload.get('title', '')}' 구간을 이렇게 바꾸려고 해요.", "",
+                 "[지금]", payload.get("before", ""), "", "[제안]", payload.get("after", "")]
+        if payload.get("unverified_numbers"):
+            lines += ["", "⚠ 근거를 못 찾은 숫자: " + ", ".join(payload["unverified_numbers"])]
+        card = self._log("\n".join(lines), role="assistant")
+        row = ctk.CTkFrame(card, fg_color="transparent")
+        row.pack(pady=(0, 6), padx=8, fill="x")
+        session = self._loop_session
+
+        def decide(approved, chosen, other):
+            chosen.configure(text=f"✓ {chosen.cget('text')}", **_PICKER_BUTTON_CHOSEN)
+            other.configure(**_PICKER_BUTTON_UNCHOSEN)
+            chosen.configure(state="disabled"); other.configure(state="disabled")
+            self._loop_progress_label = None
+            self._set_progress("반영하는 중…" if approved else "건너뛰는 중…")
+            session.resume(approved)
+
+        apply_btn = ctk.CTkButton(row, text="적용", width=70, **_PICKER_BUTTON)
+        cancel_btn = ctk.CTkButton(row, text="취소", width=70, **_PICKER_BUTTON)
+        apply_btn.configure(command=lambda: decide(True, apply_btn, cancel_btn))
+        cancel_btn.configure(command=lambda: decide(False, cancel_btn, apply_btn))
+        apply_btn.pack(side="left"); cancel_btn.pack(side="left", padx=(6, 0))
+        self._loop_approval_buttons = (apply_btn, cancel_btn)
 
 
 def _selftest_build_preview_message_routes_by_extension():

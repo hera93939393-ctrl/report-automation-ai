@@ -59,3 +59,11 @@ PRD 16-3 그래프를 랭그래프 1.2로 그대로 구현한 뼈대. planner/to
 - 분기 함수는 순수 판정만(상태 변경 금지), 안내문은 answer 노드가 붙임(랭그래프 관례).
 - `OllamaPlanner`(계획: `format="json"`으로 `{"steps": [...]}`, 도구 선택: 정식 tool-calling, think=False)는 **서버 켠 뒤 검증 대상** — 요청문 10개로 계획 JSON 일관성·도구호출 성공률을 재고, 흔들리면 레시피 기반 고정 계획으로 대체(16-3 설계대로).
 - 채팅 연결 시 할 일: 승인 카드에서 `resume()` 호출, LLM/그래프 실행은 스레드로, HWP 도구 호출은 메인 스레드(COM 아파트)로 마샬링 — 이 부분이 남은 사전 확인 항목.
+
+## 7. ⑤단계 — 루프를 채팅에 연결 (서버 꺼진 상태에서 할 수 있는 부분 완료)
+
+- `loop_runner.py`: `MainThreadBridge`(작업 스레드→메인 스레드 큐, Tk `after(50)`로 pump; 메인 스레드에서 부르면 즉시 실행해 교착 방지), `build_tools`(read_outline/read_section/write_section(제안만)/read_attachment/polish — 한글 호출은 전부 bridge.run), `build_context_provider`(선택 텍스트·커서 구간·목차·첨부 목록), `build_apply_write`, `LoopSession`(stream_mode="updates"로 노드별 진행 문구, `__interrupt__` 청크 → 승인 콜백, `resume()`은 `Command(resume=)`).
+- `chat_assistant.py`: 라우팅에 안 걸린 요청은 서버가 켜져 있으면 `_start_loop()`로(꺼져 있으면 종전 되묻기). 진행 말풍선 한 개를 계속 갱신, 승인 카드 `_show_loop_approval_card`([적용][취소] → resume), 완료/오류 시 입력창 복구. `LOOP_PLANNER_FACTORY`로 계획자 교체 가능(테스트는 가짜).
+- 검증: loop_runner self-test 2건(다리, 세션) + 통합 스모크(숨김 Tk + 실제 한글 + 가짜 계획자: 계획자는 작업 스레드에서, COM은 메인 스레드에서 실행됨을 확인 / 승인→반영→완료 답변 / 취소 + 근거 없는 숫자 경고 / 계획자 예외 → 복구) 통과.
+- 설계상 선택: 토큰 스트리밍 대신 "계획: A → B", "도구 실행: read_section" 같은 노드 진행 문구로 '멈춘 게 아님'을 보여준다. 토큰 스트리밍은 polish 같은 단일 생성 호출에만 의미가 있어 후순위.
+- 서버 켠 뒤 확인: `OllamaPlanner.plan`(format=json)이 `{"steps": [...]}`를 일관되게 내는지 요청문 10개로, `choose`의 도구호출 성공률(F11 때 2b는 33%였음 — 9b는 라우팅에서 이미 정식 지원 확인). 흔들리면 16-3대로 레시피 기반 고정 계획으로 전환.

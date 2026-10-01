@@ -75,15 +75,16 @@ def build_graph(planner, tools: dict, context_provider, apply_write=None):
                 "replans": state.get("replans", 0), "answer": "", "notes": []}
 
     def plan(state: LoopState) -> dict:
+        notes = list(state.get("notes", []))
         try:
             steps = planner.plan(state["user_message"], state["context"])
         except Exception as e:
             steps = []
-            state.setdefault("notes", []).append(f"계획 실패: {e}")
+            notes.append(f"계획 실패: {e}")  # 상태를 직접 고치지 않고 갱신값으로 돌려준다
         steps = [s for s in (steps or []) if isinstance(s, str) and s.strip()][:MAX_STEPS]
         if not steps:
             steps = [state["user_message"]]  # 계획을 못 세우면 요청 자체를 한 단계로
-        return {"plan": steps, "step_idx": 0}
+        return {"plan": steps, "step_idx": 0, "notes": notes}
 
     def act(state: LoopState) -> dict:
         step = state["plan"][state["step_idx"]]
