@@ -1181,6 +1181,13 @@ def _selftest_run_verification_llm_rescues_paraphrased_row():
 
         # 2) 켠 상태 — 의미로 진짜 출처 행을 찾아 파랑으로 고쳐져야 한다.
         after = run_verification(report, source_paths=[test_dir], default_year=2025)
+        if after.get("llm_skipped_for_server", 0) > 0 and after["llm_calls"] == 0:
+            # (2026-10-01) 이 테스트만 실제 홈서버 LLM이 필요하다. 서버가 꺼져
+            # 있으면(필요할 때만 켜는 운영 전제) 실패가 아니라 건너뜀으로
+            # 알린다 — run_selftests.py --com 이 서버 없이도 녹색이어야 다른
+            # 회귀를 가릴 수 없다. 서버를 켜고 다시 돌리면 아래 본검증이 돈다.
+            print("run_verification(LLM 문맥판단 구출) 건너뜀 — 서버 연결 안 됨(서버 켜고 재실행)")
+            return
         assert after["llm_calls"] > 0, ("LLM이 한 번도 불리지 않았다 — 재검토 "
                                         f"조건이 안 걸린 것으로 보인다: {after}")
         assert report.get_char_colors("83") == [(0, 0, 255)], (
@@ -1280,6 +1287,11 @@ def _selftest_run_verification_llm_falls_back_to_ambiguous_when_unclear():
     try:
         report = HwpReport(report_path)
         result = run_verification(report, source_paths=[test_dir], default_year=2026)
+        if result.get("llm_skipped_for_server", 0) > 0 and result["llm_calls"] == 0:
+            # (2026-10-01) 실제 서버 LLM이 필요한 테스트 — 서버가 꺼져 있으면
+            # 건너뜀(위 _selftest_run_verification_llm_rescues_paraphrased_row와 동일)
+            print("run_verification(LLM 불명확 → 회색 유지) 건너뜀 — 서버 연결 안 됨(서버 켜고 재실행)")
+            return
         assert result["llm_calls"] > 0, (
             f"재검토 조건(값이 같은 대안 존재)에 걸렸어야 한다: {result}")
         assert report.get_char_colors("45") == [(128, 128, 128)], (
