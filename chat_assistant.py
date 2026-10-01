@@ -321,6 +321,41 @@ class ChatAssistant(ctk.CTk):
         if notes:
             self._log(" ".join(notes), role="assistant")
 
+    # (2026-10-01, PRD 16-5 ⑥ 1차) 과거 문서 아카이브 질의응답 — 색인(증분)과
+    # 검색·LLM 호출을 작업 스레드에서 돌리고, 진행 문구와 결과는 _bridge로 메인
+    # 스레드에 돌려준다(새 .hwp가 많으면 색인에 파일당 수 초가 걸리므로).
+    ARCHIVE_QA_FACTORY = None  # 테스트에서 ask_archive 대체 함수를 끼우는 자리
+
+    def _answer_from_archive(self, question: str):
+        from archive_qa_tool import ask_archive
+        ask = self.ARCHIVE_QA_FACTORY or ask_archive
+        self._loop_active = True  # 입력창 잠금 유지(_on_submit의 finally가 풀지 않게)
+        self._busy = True
+        self.input_box.configure(state="disabled")
+        self._loop_progress_label = None
+        self._set_progress("과거 문서를 찾는 중…")
+
+        def work():
+            try:
+                result = ask(question, progress=lambda t: self._bridge.post(self._set_progress, t))
+            except Exception as e:  # noqa: BLE001
+                result = {"ok": False, "error": "exception", "reason": f"오류가 발생했습니다 - {e}"}
+            self._bridge.post(done, result)
+
+        def done(result):
+            if not result["ok"]:
+                self._set_progress("찾지 못함")
+                self._log(result["reason"], role="error")
+            else:
+                self._set_progress("완료")
+                self._log(result["answer"], role="assistant")
+                files = sorted({r["file"] for r in result["results"]})
+                self._log("찾아본 문서: " + ", ".join(files), role="assistant")
+            self._finish_loop()
+
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
     def _show_section_edit_card(self, instruction: str):
         """(2026-10-01, PRD 16-5 ③) "구간 편집" — 커서가 있는 구간(또는 선택
         텍스트)을 지시대로 고친 제안을 서버 LLM에서 받아 채팅 카드에 전/후로
@@ -903,6 +938,8 @@ class ChatAssistant(ctk.CTk):
                 self._show_section_edit_card(text)
             elif tool_name == "ask_attachment":
                 self._answer_from_attachments(text)
+            elif tool_name == "ask_archive":
+                self._answer_from_archive(text)
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":
@@ -957,7 +994,8 @@ class ChatAssistant(ctk.CTk):
                     "무슨 뜻인지 잘 모르겠어요. 숫자 검증을 원하시면 "
                     "'검증'이라고, 문장을 다듬고 싶으시면 '공문서체'라고, "
                     "이 문단 내용을 고치고 싶으시면 '이 문단 …해줘'라고, "
-                    "첨부 파일에서 찾고 싶으시면 '첨부에서 …찾아줘'라고 "
+                    "첨부 파일에서 찾고 싶으시면 '첨부에서 …찾아줘'라고, "
+                    "예전 보고서에서 찾고 싶으시면 '작년/2024년 … 찾아줘'라고 "
                     "한 번 더 말씀해주시겠어요?"
                 )
         except Exception as e:

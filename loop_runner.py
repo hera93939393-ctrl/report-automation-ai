@@ -124,7 +124,20 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
             raise ConnectionError("서버에 연결할 수 없습니다")
         return {"text": polished}
 
+    def tool_search_archive(query: str, year: int = None):
+        from archive_index import load_folders, reindex, search_archive
+        folders = load_folders()
+        if not folders:
+            raise ValueError("과거 문서 폴더가 등록되지 않았습니다(python archive_index.py --add-folder)")
+        reindex(folders)
+        results = search_archive(query, k=6, year=year)
+        return {"results": [{"file": r["file"], "label": r["label"], "text": r["text"], "year": r["year"]} for r in results],
+                "citations": [f"{r['file']} · {r['label']}" for r in results]}
+
     return {
+        "search_archive": {"fn": tool_search_archive, "write": False,
+                           "desc": "과거 보고서 아카이브에서 질문과 관련된 부분을 찾는다(파일명·위치·원문). year로 연도를 좁힐 수 있다",
+                           "params": {"type": "object", "properties": {"query": {"type": "string"}, "year": {"type": "integer"}}, "required": ["query"]}},
         "read_outline": {"fn": tool_read_outline, "write": False,
                          "desc": "지금 열려 있는 문서의 구간 목록(id, 제목, 단계)을 읽는다",
                          "params": {"type": "object", "properties": {}}},

@@ -83,6 +83,14 @@ _TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "ask_archive",
+            "description": "과거에 작성한 보고서 폴더(아카이브)에서 관련 내용을 찾아 출처와 함께 답한다 (예: 재작년 서류심사 건수 몇 건이었지, 작년 현장점검 계획에서 일정 찾아줘)",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "insert_chart",
             "description": "첨부된 원본자료(엑셀)를 막대/꺾은선/원형 그래프로 그려 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -129,7 +137,16 @@ _ASK_ATTACHMENT_KEYWORDS = [
     "라고 돼 있", "라고 되어 있", "몇 건이", "얼마라고", "얼마였", "언제였", "찾아서 알려",
 ]
 
-_FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서"]
+# (2026-10-01, PRD 16-5 ⑥) 과거 문서 아카이브 — 시점을 가리키는 말이 있으면 아카이브.
+# 단, "첨부"가 명시되면 첨부 QA가 우선(아래 _route_by_keywords 참고).
+_ASK_ARCHIVE_KEYWORDS = [
+    "작년", "재작년", "지난해", "예전에", "예전 ", "과거 문서", "과거 보고서", "옛날",
+    "년 파일에서", "년도 파일", "년 문서에서", "년도 문서", "년 보고서에서", "그때", "당시",
+]
+
+# "현장점검"/"정기점검"은 aT 업무에서 사업명으로 흔히 쓰여, 검증 키워드 "점검"에
+# 잘못 걸리면 아카이브/편집 요청이 전부 숫자검증으로 가 버린다(2026-10-01 실측).
+_FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서", "현장점검", "정기점검"]
 
 
 def _route_by_keywords(user_message: str) -> Optional[str]:
@@ -153,6 +170,8 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
         return "polish_to_formal_style"
     if any(keyword in cleaned_message for keyword in _EDIT_SECTION_KEYWORDS):
         return "edit_section"
+    if "첨부" not in cleaned_message and any(keyword in cleaned_message for keyword in _ASK_ARCHIVE_KEYWORDS):
+        return "ask_archive"
     if any(keyword in cleaned_message for keyword in _ASK_ATTACHMENT_KEYWORDS):
         return "ask_attachment"
     if any(keyword in cleaned_message for keyword in _POLISH_KEYWORDS):
@@ -309,10 +328,18 @@ def _selftest_route_by_keywords():
     # (2026-10-01) 첨부문서 질의응답
     assert _route_by_keywords("첨부에서 2024년 서류심사 건수 찾아줘") == "ask_attachment"
     assert _route_by_keywords("회의결과에 예산 얼마라고 돼 있어?") == "ask_attachment"
-    assert _route_by_keywords("재작년 건수 몇 건이었지?") == "ask_attachment"
+    assert _route_by_keywords("건수 몇 건이었지?") == "ask_attachment"  # 시점 표현이 없으면 첨부
     assert _route_by_keywords("첨부 내용 반영해서 이 문단 다시 써줘") == "edit_section"
     assert _route_by_keywords("첨부 원본이랑 숫자 검증해줘") == "verify_numbers"
     print("route_by_keywords 통과 (첨부 질의응답)")
+
+    # (2026-10-01) 과거 문서 아카이브 — 시점 표현 → ask_archive, "첨부" 명시 시 첨부 우선
+    assert _route_by_keywords("재작년 서류심사 건수 몇 건이었지?") == "ask_archive"
+    assert _route_by_keywords("2024년 파일에서 현장점검 일정 찾아줘") == "ask_archive"
+    assert _route_by_keywords("작년 계획서 틀 그대로 쓰고 싶은데 예전에 어떻게 썼더라") == "ask_archive"
+    assert _route_by_keywords("첨부에서 작년 건수 찾아줘") == "ask_attachment"
+    assert _route_by_keywords("작년 내용 반영해서 이 문단 다시 써줘") == "edit_section"
+    print("route_by_keywords 통과 (아카이브 질의응답)")
 
 
 if __name__ == "__main__":

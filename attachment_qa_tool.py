@@ -87,9 +87,18 @@ def ask_attachments(source_paths: list, question: str, client=None) -> dict:
         detail = "; ".join(f"{os.path.basename(p)}: {e}" for p, e in unreadable) or "읽을 수 있는 내용이 없습니다"
         return {"ok": False, "error": "unreadable", "reason": f"첨부에서 읽은 내용이 없어요 — {detail}"}
 
+    r = answer_from_context(context, question, client=client)
+    if not r["ok"]:
+        return r
+    return {"ok": True, "answer": r["answer"], "used": used, "truncated": truncated, "unreadable": unreadable}
+
+
+def answer_from_context(context: str, question: str, client=None, heading: str = "첨부 문서") -> dict:
+    """[머리말이 붙은 문서 텍스트] + 질문 → 출처 인용 답변. 첨부 QA와 아카이브
+    QA(archive_qa_tool)가 같은 규칙(출처 강제·없으면 없다고·num_ctx 명시)을 쓴다."""
     if client is None:
         client = get_client()
-    user_prompt = f"[첨부 문서]\n{context}\n\n[질문]\n{question}"
+    user_prompt = f"[{heading}]\n{context}\n\n[질문]\n{question}"
     answer = ""
     for _ in range(3):
         try:
@@ -108,7 +117,7 @@ def ask_attachments(source_paths: list, question: str, client=None) -> dict:
             break
     if not answer:
         return {"ok": False, "error": "empty_response", "reason": "모델 응답이 비어 있었어요. 다시 시도해주세요."}
-    return {"ok": True, "answer": answer, "used": used, "truncated": truncated, "unreadable": unreadable}
+    return {"ok": True, "answer": answer}
 
 
 # ---------------------------------------------------------------- self-tests

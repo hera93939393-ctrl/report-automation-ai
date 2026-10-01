@@ -23,6 +23,7 @@
 | 구간 편집 | 커서 구간/선택 문단을 자연어 지시대로 고친 제안 → 카드에서 적용·되돌리기 (하네스 재설계 ③, [PRD 16절](./PRD.md#16-하네스-재설계--범용-부품--루프--레시피-2026-10-01-브레인스토밍-확정)) | [doc_sections.py](./doc_sections.py), [section_edit_tool.py](./section_edit_tool.py) | ✅ 구현·self-test 통과, 실제 모델 실사용 확인 전 |
 | 첨부 질의응답 | 첨부한 회의결과·엑셀·PDF 내용만 근거로 출처([파일 · 위치])와 함께 답변 (하네스 재설계 ④) | [attachments.py](./attachments.py), [attachment_qa_tool.py](./attachment_qa_tool.py) | ✅ 구현·self-test 통과, 실제 모델 실사용 확인 전 |
 | 루프(복합 요청) | 단일 도구에 안 걸리는 요청은 계획→도구 조립→점검→승인 카드의 랭그래프 루프로 처리 (하네스 재설계 ⑤) | [agent_loop.py](./agent_loop.py), [loop_runner.py](./loop_runner.py) | ✅ 가짜 모델로 통합 검증, 실제 모델 계획 품질 확인 전 |
+| 과거 문서 검색 | 등록한 폴더의 과거 보고서를 색인해(`python archive_index.py --add-folder 경로`) "재작년 서류심사 건수?" 같은 질문에 출처와 함께 답변 (하네스 재설계 ⑥ 1차, 임베딩 없이 BM25) | [archive_index.py](./archive_index.py), [archive_qa_tool.py](./archive_qa_tool.py) | ✅ 구현·self-test 통과, 실제 모델 확인 전 |
 | F11 | 채팅창(자연어) + 원본데이터 대비 숫자·날짜·시간·전화번호 검증 | [verify_numbers.py](./verify_numbers.py), [source_reader.py](./source_reader.py), [hwp_report.py](./hwp_report.py), [verify_tool.py](./verify_tool.py), [chat_assistant.py](./chat_assistant.py) | ✅ 구현 완료 — [PRD 참고](./PRD.md#12-f11--채팅-인터페이스--숫자검증-신규-브레인스토밍-확정) |
 
 ## 실행 방법
