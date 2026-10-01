@@ -126,7 +126,11 @@ def build_graph(planner, tools: dict, context_provider, apply_write=None):
         if entry["choice"].get("tool") in tools and tools[entry["choice"]["tool"]].get("write"):
             proposal = result.get("proposal")
             if proposal:
-                sources = [proposal.get("before", ""), json.dumps(state["context"], ensure_ascii=False)]
+                # source_text: 제안문의 내용이 원본에서 그대로 옮겨온 것일 때
+                # (예: 주간보고 취합 — 파란 문단을 베껴 붙임) 그 원본 텍스트.
+                # 이게 없으면 옮겨온 숫자가 전부 "근거 없음"으로 오탐된다(U4).
+                sources = [proposal.get("before", ""), proposal.get("source_text", ""),
+                           json.dumps(state["context"], ensure_ascii=False)]
                 sources += [json.dumps(h.get("result", {}), ensure_ascii=False) for h in state["history"][:-1]]
                 unknown = check_numbers(proposal.get("after", ""), sources)
                 proposal = dict(proposal)
@@ -142,9 +146,15 @@ def build_graph(planner, tools: dict, context_provider, apply_write=None):
 
     def approve(state: LoopState) -> dict:
         proposal = state["pending_write"]
-        decision = interrupt({"type": "approve_write", "title": proposal.get("title", ""),
-                              "before": proposal.get("before", ""), "after": proposal.get("after", ""),
-                              "unverified_numbers": proposal.get("unverified_numbers", [])})
+        # (U4) 제안 종류(kind: section/chart/weekly …)마다 카드에 보여줄 필드가
+        # 달라, 몇 개만 골라 담지 않고 제안 전체를 그대로 넘긴다(outline만
+        # 제외 — 구간 목록 전체라 payload가 쓸데없이 커짐). title/before/after/
+        # unverified_numbers는 어떤 종류든 항상 들어 있도록 기본값을 채운다.
+        payload = {k: v for k, v in proposal.items() if k != "outline"}
+        payload["type"] = "approve_write"
+        for key, default in (("title", ""), ("before", ""), ("after", ""), ("unverified_numbers", [])):
+            payload.setdefault(key, default)
+        decision = interrupt(payload)
         history = list(state["history"])
         entry = dict(history[-1])
         if decision and decision.get("approved"):
@@ -422,6 +432,50 @@ def _selftest_failures_trigger_replan_then_stop():
     print("루프: 같은 도구 2회 실패 → 재계획 1회 → 되묻기 종료 통과")
 
 
+def _selftest_kinded_proposal_payload_passthrough():
+    """(2026-10-02 U4) 종류 있는 제안(chart/weekly): ① 제안의 모든 필드가
+    interrupt payload에 그대로 실리는지(카드가 kind별로 그리려면 필요),
+    ② source_text에 있는 숫자는 "근거 없음"으로 오탐하지 않는지,
+    ③ 승인 시 apply 콜백이 제안 전체(kind 포함)를 받는지."""
+    applied_box = {}
+
+    def propose_chart():
+        return {"proposal": {"kind": "chart", "title": "막대그래프 삽입",
+                             "preview_png": "C:/tmp/차트.png", "chart_label": "막대그래프"}}
+
+    def propose_weekly():
+        return {"proposal": {"kind": "weekly", "title": "주간보고 취합",
+                             "after": "이번주: 보고 120건 처리", "source_text": "이번주: 보고 120건 처리",
+                             "items": [{"path": "a.hwp"}]}}
+
+    tools = {
+        "insert_chart": {"fn": propose_chart, "desc": "그래프 제안", "write": True},
+        "merge_weekly": {"fn": propose_weekly, "desc": "취합 제안", "write": True},
+    }
+
+    def apply(proposal):
+        applied_box[proposal["kind"]] = proposal
+        return {"applied": True}
+
+    planner = FakePlanner(["그래프를 넣는다", "주간보고를 취합한다"],
+                          [{"tool": "insert_chart", "args": {}}, {"tool": "merge_weekly", "args": {}}])
+    graph = build_graph(planner, tools, lambda: {}, apply_write=apply)
+    r = run(graph, "그래프 넣고 주간보고 취합해줘", "t6")
+    assert r["status"] == "needs_approval", r
+    p = r["payload"]
+    assert p["kind"] == "chart" and p["preview_png"] == "C:/tmp/차트.png", p
+    assert p["before"] == "" and p["after"] == "" and p["unverified_numbers"] == [], p  # 기본값 채움
+    r = resume(graph, "t6", approved=True)
+    assert r["status"] == "needs_approval", r
+    p = r["payload"]
+    assert p["kind"] == "weekly" and p["items"] == [{"path": "a.hwp"}], p
+    assert p["unverified_numbers"] == [], p  # 120은 source_text에 있으므로 오탐 아님
+    r = resume(graph, "t6", approved=True)
+    assert r["status"] == "done" and "2건을 문서에 반영했어요" in r["answer"], r
+    assert applied_box["chart"]["preview_png"] == "C:/tmp/차트.png" and applied_box["weekly"]["items"], applied_box
+    print("루프: kind별 제안 payload 전달 · source_text 숫자 인정 · apply 위임 통과")
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
@@ -429,5 +483,6 @@ if __name__ == "__main__":
     _selftest_reject_keeps_document_and_flags_unknown_numbers()
     _selftest_answer_tool_ends_loop_and_call_cap()
     _selftest_failures_trigger_replan_then_stop()
+    _selftest_kinded_proposal_payload_passthrough()
     print("확인 필요(서버 켠 뒤): OllamaPlanner.plan의 JSON 일관성(요청문 10개), choose의 도구호출 성공률, "
           "그리고 채팅 앱 연결 시 interrupt 대기 중 Tk 이벤트 루프와의 스레드 분리.")

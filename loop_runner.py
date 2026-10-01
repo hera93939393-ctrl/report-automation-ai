@@ -138,6 +138,46 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
         return {"text": result["summary"],
                 "citations": [f"원본자료 {os.path.basename(p)}" for p in source_paths]}
 
+    def tool_insert_chart(chart_type: str = "bar"):
+        """(2026-10-02 U4) 그래프는 텍스트 전후비교가 성립하지 않는 쓰기라,
+        먼저 PNG만 그려 proposal에 담고(문서 무변경) 승인 카드가 이미지를
+        보여준 뒤 build_apply_write가 삽입한다. 그리기는 matplotlib(Agg)지만
+        pyplot 전역 상태가 스레드 안전하지 않아 단일 도구 경로(메인 스레드)와
+        겹치지 않도록 bridge.run으로 메인 스레드에서 그린다."""
+        from chart_tool import CHART_TYPES, render_chart_png
+        from table_tool import _first_excel_source
+        if chart_type not in CHART_TYPES:
+            raise ValueError(f"알 수 없는 그래프 종류: {chart_type} (bar|line|pie)")
+        excel_path = _first_excel_source(source_paths)
+        if excel_path is None:
+            raise ValueError("원본자료 중 엑셀 파일이 없습니다('+'로 첨부한 뒤 다시 요청)")
+        png_path = bridge.run(render_chart_png, excel_path, chart_type)
+        label = CHART_TYPES[chart_type]["label"]
+        return {"proposal": {"kind": "chart", "title": f"{label} 삽입",
+                             "preview_png": png_path, "chart_label": label,
+                             "source_file": os.path.basename(excel_path)}}
+
+    def tool_merge_weekly():
+        """(2026-10-02 U4) 주간보고 취합도 제안→승인 2단계로: 추출(별도
+        프로세스, 스레드 안전)만 먼저 하고, 옮겨질 파란 문단 목록을 카드로
+        보여준 뒤 승인되면 build_apply_write가 칸에 붙인다. after/source_text에
+        같은 내용을 담아 점검 노드가 옮겨온 숫자를 "근거 없음"으로 오탐하지
+        않게 한다(agent_loop.check 참고)."""
+        from weekly_report_tool import collect_weekly_contents
+        collected = collect_weekly_contents(source_paths)
+        if not collected["items"]:
+            raise ValueError("첨부한 주간업무보고에서 파란색(이번주/다음주) 내용을 찾지 못했습니다")
+        preview_lines = []
+        for it in collected["items"]:
+            preview_lines.append(f"[{os.path.basename(it['path'])}]")
+            preview_lines += [f"  이번주: {ln}" for ln in it["this_week"]]
+            preview_lines += [f"  다음주: {ln}" for ln in it["next_week"]]
+        preview = "\n".join(preview_lines)
+        return {"proposal": {"kind": "weekly", "title": "주간보고 취합",
+                             "after": preview, "source_text": preview,
+                             "items": collected["items"],
+                             "no_content_files": [os.path.basename(p) for p in collected["no_content_files"]]}}
+
     def tool_search_archive(query: str, year: int = None):
         from archive_index import load_folders, reindex, search_archive
         folders = load_folders()
@@ -170,6 +210,12 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
         "verify_numbers": {"fn": tool_verify_numbers, "write": False,
                            "desc": "보고서의 금액·날짜·시간·전화번호를 첨부 원본자료와 대조해 요약을 돌려준다(본문은 안 바꾸고 글자색·근거 메모만 표시, 수십 초 걸림)",
                            "params": {"type": "object", "properties": {}}},
+        "insert_chart": {"fn": tool_insert_chart, "write": True,
+                         "desc": "첨부 엑셀 데이터로 그래프를 그려 커서 위치에 삽입하는 제안을 만든다(미리보기 승인 뒤 반영). chart_type: bar(막대)|line(꺾은선)|pie(원형)",
+                         "params": {"type": "object", "properties": {"chart_type": {"type": "string", "enum": ["bar", "line", "pie"]}}}},
+        "merge_weekly_reports": {"fn": tool_merge_weekly, "write": True,
+                                 "desc": "첨부한 주간업무보고(.hwp)들의 파란색 내용을 이 문서의 이번주/다음주 칸으로 취합하는 제안을 만든다(목록 승인 뒤 반영)",
+                                 "params": {"type": "object", "properties": {}}},
     }
 
 
@@ -192,7 +238,26 @@ def build_context_provider(report, source_paths: list, bridge: MainThreadBridge)
 
 
 def build_apply_write(report, bridge: MainThreadBridge):
+    """승인된 제안을 종류(kind)별로 반영한다(U4에서 분기 확장). 모두 한글
+    COM 접근이라 bridge.run으로 메인 스레드에서 실행."""
     def apply(proposal: dict) -> dict:
+        kind = proposal.get("kind", "section")
+        if kind == "chart":
+            from chart_tool import insert_chart_png
+            png_path = proposal["preview_png"]
+            try:
+                bridge.run(insert_chart_png, report, png_path)
+                return {"applied": True}
+            finally:
+                # 삽입이 끝나면 임시 PNG는 지운다. 거부된 제안의 PNG는 임시
+                # 폴더에 남지만(여기까지 안 옴) OS 정리에 맡긴다 — 승인 카드가
+                # 이미지를 메모리에 올린 뒤라 표시가 깨지지 않는다.
+                if os.path.exists(png_path):
+                    os.remove(png_path)
+        if kind == "weekly":
+            from weekly_report_tool import apply_weekly_contents
+            result = bridge.run(apply_weekly_contents, report, proposal["items"])
+            return {"applied": True, "merged_files": result["merged_files"]}
         def do():
             return write_section(report, proposal["section_id"], proposal["after"], proposal.get("mode", "replace_body"))
         result = bridge.run(do)
@@ -439,7 +504,7 @@ def _selftest_build_tools_registry_shape():
     bridge = MainThreadBridge()
     tools = build_tools(report=None, source_paths=[], bridge=bridge)
     expected = {"search_archive", "read_outline", "read_section", "write_section",
-                "read_attachment", "polish", "verify_numbers"}
+                "read_attachment", "polish", "verify_numbers", "insert_chart", "merge_weekly_reports"}
     assert set(tools) == expected, set(tools)
     for name, spec in tools.items():
         assert callable(spec["fn"]) and isinstance(spec["write"], bool) and spec["desc"], name
@@ -447,13 +512,24 @@ def _selftest_build_tools_registry_shape():
         for req in spec["params"].get("required", []):
             assert req in spec["params"]["properties"], (name, req)
     assert tools["write_section"]["write"] is True
+    assert tools["insert_chart"]["write"] is True and tools["merge_weekly_reports"]["write"] is True
     assert tools["verify_numbers"]["write"] is False  # 색 표시는 남지만 본문 무변경·멱등이라 승인 불요(단일 도구 경로와 동일)
     try:
         tools["verify_numbers"]["fn"]()  # 원본자료 없이 부르면 명확한 안내로 실패해야 한다
         raise AssertionError("원본자료 없음이 예외로 보고되지 않음")
     except ValueError as e:
         assert "원본자료" in str(e), e
-    print("build_tools(레지스트리 구조·verify 원본자료 가드) 통과")
+    try:
+        tools["insert_chart"]["fn"](chart_type="bar")  # 엑셀 없는 원본자료 가드
+        raise AssertionError("엑셀 없음이 예외로 보고되지 않음")
+    except ValueError as e:
+        assert "엑셀" in str(e), e
+    try:
+        tools["merge_weekly_reports"]["fn"]()  # 파란 내용 없음 가드
+        raise AssertionError("취합할 내용 없음이 예외로 보고되지 않음")
+    except ValueError as e:
+        assert "파란색" in str(e), e
+    print("build_tools(레지스트리 구조·입력 없음 가드 3종) 통과")
 
 
 if __name__ == "__main__":

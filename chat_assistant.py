@@ -1216,12 +1216,40 @@ class ChatAssistant(ctk.CTk):
 
     def _show_loop_approval_card(self, payload: dict):
         """루프가 쓰기 승인에서 멈췄을 때의 카드. [적용]/[취소]가 그래프를 같은
-        자리에서 재개한다(승인 전엔 문서가 바뀌지 않음, 16-6)."""
-        lines = [f"'{payload.get('title', '')}' 구간을 이렇게 바꾸려고 해요.", "",
-                 "[지금]", payload.get("before", ""), "", "[제안]", payload.get("after", "")]
+        자리에서 재개한다(승인 전엔 문서가 바뀌지 않음, 16-6).
+
+        (2026-10-02 U4) 제안 종류(kind)별로 보여주는 내용이 다르다 —
+        section(기본): 전/후 텍스트 비교, chart: 그래프 이미지 미리보기
+        (텍스트 비교가 성립 안 함), weekly: 옮겨질 파란 문단 목록."""
+        kind = payload.get("kind", "section")
+        if kind == "chart":
+            lines = [f"{payload.get('chart_label', '그래프')}를 이렇게 삽입하려고 해요 "
+                     f"(원본: {payload.get('source_file', '')}).",
+                     "[적용]을 누르는 시점의 커서 위치에 들어가요 — 넣을 자리에 커서를 두고 눌러주세요."]
+        elif kind == "weekly":
+            lines = ["주간보고의 파란색 내용을 이번주/다음주 칸으로 이렇게 옮기려고 해요.", "",
+                     payload.get("after", "")]
+            if payload.get("no_content_files"):
+                lines += ["", "파란색 내용이 없어 건너뜀: " + ", ".join(payload["no_content_files"])]
+        else:
+            lines = [f"'{payload.get('title', '')}' 구간을 이렇게 바꾸려고 해요.", "",
+                     "[지금]", payload.get("before", ""), "", "[제안]", payload.get("after", "")]
         if payload.get("unverified_numbers"):
             lines += ["", "⚠ 근거를 못 찾은 숫자: " + ", ".join(payload["unverified_numbers"])]
         card = self._log("\n".join(lines), role="assistant")
+        if kind == "chart" and payload.get("preview_png") and os.path.exists(payload["preview_png"]):
+            # 첨부 썸네일(_show_preview)과 같은 방식 — 폭 280px에 맞춰 축소
+            try:
+                pil_image = Image.open(payload["preview_png"])
+                width, height = pil_image.size
+                max_width = 280
+                if width > max_width:
+                    height = int(height * max_width / width)
+                    width = max_width
+                image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(width, height))
+                ctk.CTkLabel(card, text="", image=image).pack(padx=8, pady=(0, 6))
+            except Exception:  # noqa: BLE001 — 미리보기 실패가 승인 자체를 막지 않게
+                self._log("(그래프 미리보기를 그리지 못했어요 — 적용하면 문서에서 확인할 수 있어요)", role="assistant")
         row = ctk.CTkFrame(card, fg_color="transparent")
         row.pack(pady=(0, 6), padx=8, fill="x")
         session = self._loop_session

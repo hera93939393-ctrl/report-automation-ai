@@ -220,9 +220,26 @@ def merge_weekly_reports(report, source_paths: list[str]) -> dict:
     - no_content_files: .hwp/.hwpx이지만 파란색 내용이 하나도 없던 파일
     - skipped_files: 애초에 .hwp/.hwpx가 아니어서(폴더 포함) 건드리지 않은 경로
     """
-    hwp_paths = [p for p in source_paths if os.path.isfile(p) and p.lower().endswith((".hwp", ".hwpx"))]
-    merged_files, no_content_files = [], []
+    collected = collect_weekly_contents(source_paths)
+    apply_weekly_contents(report, collected["items"])
+    return {
+        "merged_files": [it["path"] for it in collected["items"]],
+        "no_content_files": collected["no_content_files"],
+        "skipped_files": collected["skipped_files"],
+    }
 
+
+def collect_weekly_contents(source_paths: list[str]) -> dict:
+    """merge_weekly_reports의 '읽기 절반'(2026-10-02 U4에서 분리) — 소스들의
+    파란색 내용을 추출만 하고 대상 문서는 건드리지 않는다. 루프의 승인
+    카드가 "무엇이 옮겨지는지"를 먼저 보여주려면 이 경계가 필요하다.
+    읽기는 별도 프로세스(read_weekly_content_isolated)라 작업 스레드에서
+    불러도 이 앱의 한글 COM과 충돌하지 않는다.
+
+    반환: {"items": [{"path", "this_week", "next_week"}],
+           "no_content_files": [...], "skipped_files": [...]}"""
+    hwp_paths = [p for p in source_paths if os.path.isfile(p) and p.lower().endswith((".hwp", ".hwpx"))]
+    items, no_content_files = [], []
     for path in hwp_paths:
         content = read_weekly_content_isolated(path)
         this_week = content.get("this_week", [])
@@ -230,15 +247,21 @@ def merge_weekly_reports(report, source_paths: list[str]) -> dict:
         if not this_week and not next_week:
             no_content_files.append(path)
             continue
-        _append_lines_to_data_cell(report.hwp, "이번주", this_week)
-        _append_lines_to_data_cell(report.hwp, "다음주", next_week)
-        merged_files.append(path)
-
+        items.append({"path": path, "this_week": this_week, "next_week": next_week})
     return {
-        "merged_files": merged_files,
+        "items": items,
         "no_content_files": no_content_files,
         "skipped_files": [p for p in source_paths if p not in hwp_paths],
     }
+
+
+def apply_weekly_contents(report, items: list[dict]) -> dict:
+    """merge_weekly_reports의 '쓰기 절반' — 추출해 둔 내용을 대상 문서의
+    이번주/다음주 칸에 이어붙인다(한글 COM 접근, 메인 스레드에서 부를 것)."""
+    for it in items:
+        _append_lines_to_data_cell(report.hwp, "이번주", it.get("this_week", []))
+        _append_lines_to_data_cell(report.hwp, "다음주", it.get("next_week", []))
+    return {"applied": True, "merged_files": [it["path"] for it in items]}
 
 
 def _selftest_read_weekly_content_extracts_only_blue_lines():

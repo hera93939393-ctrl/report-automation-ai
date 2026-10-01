@@ -52,22 +52,19 @@ def insert_chart_from_source(report: HwpReport, source_paths: list[str], chart_t
     return {"inserted": True, "chart_type": chart_type, "source_file": excel_path}
 
 
-def build_chart(report: HwpReport, data, chart_type: str) -> None:
-    """data(엑셀 경로 또는 DataFrame)의 첫 열을 라벨(x축/파이 조각 이름)로,
-    나머지 숫자 열을 값으로 삼아 그래프 이미지를 그려 커서 위치에 삽입한다.
+def render_chart_png(data, chart_type: str) -> str:
+    """data(엑셀 경로 또는 DataFrame)로 그래프 이미지를 임시 PNG 파일로 그려
+    경로를 돌려준다 — 문서는 건드리지 않는다. 파일 소유권은 호출자에게 있다
+    (삽입이든 폐기든 호출자가 지울 책임).
+
+    (2026-10-02 U4) build_chart에서 분리 — 루프의 승인 카드가 "그림을 먼저
+    보여주고, 승인된 뒤에만 삽입"하려면 그리기와 삽입 사이에 사람이 들어갈
+    틈이 필요하다(텍스트 전후비교가 성립하지 않는 쓰기의 대표 사례).
 
     원형그래프는 조각이 하나의 값 계열이어야 뜻이 통하므로(여러 계열을
     파이 하나에 같이 그리면 비율이 뒤섞여 의미가 없어짐), 숫자 열이
     여러 개여도 첫 번째 숫자 열만 쓴다 - 막대/꺾은선은 여러 계열을 그대로
-    다 그린다(df.plot이 알아서 계열별 막대/선을 나눠 그림).
-
-    표(table_tool.build_table)와 달리 선택 텍스트 방지용 Cancel() 가드가
-    필요 없다 - insert_picture()는 표 생성(create_table)과 달리 선택된
-    콘텐츠가 있어도 크래시하는 사례가 report.hwp.insert_picture() 자체
-    문서(및 pyhwpx 소스)에 보고돼있지 않고, 그림은 표처럼 선택 영역을
-    대체하는 게 아니라 캐럿 위치에 글자처럼(treat_as_char=True) 끼워
-    넣는 것이라 표의 위험(TableCreate HAction 실패)과 애초에 다른
-    코드경로다."""
+    다 그린다(df.plot이 알아서 계열별 막대/선을 나눠 그림)."""
     if isinstance(data, str):
         df = pd.read_excel(data) if data.lower().endswith((".xls", ".xlsx")) else pd.read_csv(data)
     else:
@@ -90,10 +87,30 @@ def build_chart(report: HwpReport, data, chart_type: str) -> None:
 
     fd, png_path = tempfile.mkstemp(suffix=".png", prefix="chart_")
     os.close(fd)
+    fig.savefig(png_path)
+    plt.close(fig)
+    return png_path
+
+
+def insert_chart_png(report: HwpReport, png_path: str) -> None:
+    """그려둔 그래프 PNG를 커서 위치에 삽입한다(render_chart_png의 삽입 절반).
+
+    표(table_tool.build_table)와 달리 선택 텍스트 방지용 Cancel() 가드가
+    필요 없다 - insert_picture()는 표 생성(create_table)과 달리 선택된
+    콘텐츠가 있어도 크래시하는 사례가 report.hwp.insert_picture() 자체
+    문서(및 pyhwpx 소스)에 보고돼있지 않고, 그림은 표처럼 선택 영역을
+    대체하는 게 아니라 캐럿 위치에 글자처럼(treat_as_char=True) 끼워
+    넣는 것이라 표의 위험(TableCreate HAction 실패)과 애초에 다른
+    코드경로다."""
+    report.hwp.insert_picture(png_path, treat_as_char=True, sizeoption=0)
+
+
+def build_chart(report: HwpReport, data, chart_type: str) -> None:
+    """그리기(render_chart_png)와 삽입(insert_chart_png)을 한 번에 — 채팅의
+    단일 도구 경로(스타일 카드에서 종류를 고른 직후 바로 삽입)가 쓴다."""
+    png_path = render_chart_png(data, chart_type)
     try:
-        fig.savefig(png_path)
-        plt.close(fig)
-        report.hwp.insert_picture(png_path, treat_as_char=True, sizeoption=0)
+        insert_chart_png(report, png_path)
     finally:
         if os.path.exists(png_path):
             os.remove(png_path)
