@@ -201,22 +201,46 @@ class LoopSession:
         on_needs_approval(payload)        쓰기 승인 필요 (payload: title/before/after/unverified_numbers)
         on_done(answer_text)              완료
         on_error(message)                 예외
+        on_cancelled()                    사용자 중단으로 끝남 (없으면 on_error로 대신 알림)
     """
     _counter = 0
 
-    def __init__(self, graph, bridge: MainThreadBridge, on_progress, on_needs_approval, on_done, on_error):
+    def __init__(self, graph, bridge: MainThreadBridge, on_progress, on_needs_approval, on_done, on_error,
+                 on_cancelled=None):
         LoopSession._counter += 1
         self.graph = graph
         self.bridge = bridge
         self.config = {"configurable": {"thread_id": f"chat-{LoopSession._counter}"}}
         self.on_progress, self.on_needs_approval, self.on_done, self.on_error = (
             on_progress, on_needs_approval, on_done, on_error)
+        self.on_cancelled = on_cancelled
         self.thread = None
+        self.cancelled = False
+        self._awaiting_approval = False
+
+    def cancel(self):
+        """(U2) 중단 요청. LLM·도구 호출을 중간에 끊을 수는 없으므로, 돌고 있는
+        단계는 끝까지 간 뒤 다음 노드 경계에서 멈춘다. 승인 카드를 기다리는
+        중이면(작업 스레드가 이미 끝난 상태라 경계 검사가 없음) 여기서 바로
+        끝났다고 알린다."""
+        self.cancelled = True
+        if self._awaiting_approval:
+            self._awaiting_approval = False
+            self._notify_cancelled()
+
+    def _notify_cancelled(self):
+        if self.on_cancelled is not None:
+            self.bridge.post(self.on_cancelled)
+        else:
+            self.bridge.post(self.on_error, "사용자가 중단했습니다")
 
     def start(self, user_message: str):
         self._launch({"user_message": user_message})
 
     def resume(self, approved: bool):
+        if self.cancelled:
+            return  # 중단 뒤 늦게 눌린 승인 버튼 방어(버튼 비활성화가 1차 방어)
+        self._awaiting_approval = False
         self._launch(Command(resume={"approved": approved}))
 
     def _launch(self, graph_input):
@@ -225,10 +249,19 @@ class LoopSession:
 
     def _run(self, graph_input):
         try:
+            if self.cancelled:  # 시작/재개 전에 이미 중단된 경우
+                self._notify_cancelled()
+                return
             state_snapshot = None
             for chunk in self.graph.stream(graph_input, self.config, stream_mode="updates"):
+                if self.cancelled:
+                    # 노드 경계 중단 — 체크포인터에 상태가 남지만 세션을 다시
+                    # 쓰지 않으므로(요청당 새 thread_id) 정리는 불필요.
+                    self._notify_cancelled()
+                    return
                 if "__interrupt__" in chunk:
                     payload = chunk["__interrupt__"][0].value
+                    self._awaiting_approval = True
                     self.bridge.post(self.on_needs_approval, payload)
                     return
                 for node, update in chunk.items():
@@ -247,11 +280,15 @@ class LoopSession:
                             tool = hist[-1].get("choice", {}).get("tool", "")
                             label = f"도구 실행: {tool}" + (" (실패)" if hist[-1].get("error") else "")
                     self.bridge.post(self.on_progress, label)
+            if self.cancelled:  # 마지막 노드 처리 중 눌린 중단
+                self._notify_cancelled()
+                return
             final = self.graph.get_state(self.config)
             if final.next:
                 # 멈췄는데 interrupt 청크를 못 받은 경우(방어) — 상태에서 직접 꺼낸다
                 for task in final.tasks:
                     if task.interrupts:
+                        self._awaiting_approval = True
                         self.bridge.post(self.on_needs_approval, task.interrupts[0].value)
                         return
             self.bridge.post(self.on_done, final.values.get("answer", ""))
@@ -327,8 +364,60 @@ def _selftest_session_streams_progress_interrupts_and_resumes():
     print("LoopSession(진행 알림 → 승인 대기 → 재개 → 완료) 통과")
 
 
+def _selftest_session_cancel():
+    """(U2) 중단 경로 3가지: ① 시작 전 중단 → 아무것도 실행 안 하고 cancelled
+    알림 ② 승인 카드 대기 중 중단 → 즉시 cancelled 알림 ③ 중단 뒤 늦게 눌린
+    resume은 무시(문서가 바뀌지 않음)."""
+    def make_session(events):
+        doc = {"s2": "원문"}
+        tools, apply = agent_loop._fake_tools(doc)
+        planner = agent_loop.FakePlanner(
+            ["구간을 읽는다", "구간을 고친다"],
+            [{"tool": "read_section", "args": {"section_id": "s2"}},
+             {"tool": "write_section", "args": {"section_id": "s2", "text": "수정문"}}])
+        bridge = MainThreadBridge()
+        graph = agent_loop.build_graph(planner, tools, lambda: {}, apply_write=apply)
+        session = LoopSession(graph, bridge,
+                              on_progress=lambda t: events.append(("progress", t)),
+                              on_needs_approval=lambda p: events.append(("approve", p)),
+                              on_done=lambda a: events.append(("done", a)),
+                              on_error=lambda m: events.append(("error", m)),
+                              on_cancelled=lambda: events.append(("cancelled", None)))
+        return session, bridge, doc
+
+    def wait(session, bridge):
+        while session.thread.is_alive() or bridge.pump():
+            bridge.pump()
+            session.thread.join(timeout=0.01)
+        bridge.pump()
+
+    # ① 시작 전 중단 — 노드가 하나도 돌지 않고 cancelled만 온다
+    events = []
+    session, bridge, doc = make_session(events)
+    session.cancel()
+    session.start("고쳐줘")
+    wait(session, bridge)
+    assert [k for k, _ in events] == ["cancelled"] and doc["s2"] == "원문", events
+
+    # ② 승인 대기 중 중단 → ③ 그 뒤의 resume은 무시
+    events = []
+    session, bridge, doc = make_session(events)
+    session.start("고쳐줘")
+    wait(session, bridge)
+    assert events[-1][0] == "approve", events
+    session.cancel()  # 메인 스레드라 post가 즉시 실행됨
+    assert events[-1][0] == "cancelled", events
+    session.resume(approved=True)  # 중단 뒤 승인 — 무시돼야 함
+    if session.thread is not None and session.thread.is_alive():
+        wait(session, bridge)
+    bridge.pump()
+    assert doc["s2"] == "원문" and events[-1][0] == "cancelled", (doc, events)
+    print("LoopSession.cancel(시작 전·승인 대기 중·중단 뒤 resume 무시) 통과")
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
     _selftest_bridge_runs_on_main_thread_and_propagates_errors()
     _selftest_session_streams_progress_interrupts_and_resumes()
+    _selftest_session_cancel()

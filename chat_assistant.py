@@ -99,6 +99,7 @@ class ChatAssistant(ctk.CTk):
         self._loop_session = None
         self._loop_active = False
         self._loop_progress_label = None
+        self._loop_cancel_button = None  # (U2) 루프 진행 말풍선의 [중단] 버튼
         self.after(50, self._pump_bridge)
 
         # (2026-09-03, 세 번째 디자인 피드백) 이 버튼은 항상 떠 있는 상시
@@ -352,27 +353,50 @@ class ChatAssistant(ctk.CTk):
     def _answer_from_attachments(self, question: str):
         """(2026-10-01, PRD 16-5 ④) 첨부문서 즉석 질의응답 — 색인 없이 지금
         첨부된 파일들의 텍스트만 보고 답하고, 근거가 된 [파일명 · 위치]를
-        같이 보여준다. 문서를 건드리지 않으므로 승인 카드 없이 바로 답한다."""
+        같이 보여준다. 문서를 건드리지 않으므로 승인 카드 없이 바로 답한다.
+
+        (2026-10-02 U1) LLM 호출이 수십 초씩 걸려 메인 스레드에서 돌리면 창이
+        그대로 멈춘다 — _answer_from_archive와 같은 패턴으로 작업 스레드에서
+        돌리고 결과만 _bridge로 받는다. ask_attachments의 첨부 읽기는
+        kordoc/별도 프로세스 격리라 이 채팅창의 한글 COM을 만지지 않으므로
+        스레드에서 안전하다(attachments.py 참고)."""
         from attachment_qa_tool import ask_attachments
 
         if not self.source_paths:
             self._log("먼저 '+'로 첨부 파일을 올려주세요. 그 파일 내용만 근거로 답해드려요.")
             return
-        result = self._run_tool_safely(ask_attachments, self.source_paths, question)
-        if result is None:
-            return
-        if not result["ok"]:
-            self._log(result["reason"], role="error")
-            return
-        self._log(result["answer"], role="assistant")
-        notes = []
-        if result["truncated"]:
-            notes.append("첨부가 길어 질문과 관련된 부분만 골라 읽었어요.")
-        if result["unreadable"]:
-            names = ", ".join(os.path.basename(p) for p, _ in result["unreadable"])
-            notes.append(f"읽지 못한 파일: {names}")
-        if notes:
-            self._log(" ".join(notes), role="assistant")
+        self._loop_active = True  # 입력창 잠금 유지(_on_submit의 finally가 풀지 않게)
+        self._busy = True
+        self.input_box.configure(state="disabled")
+        self._loop_progress_label = None
+        self._set_progress("첨부 파일에서 찾는 중…")
+
+        def work():
+            try:
+                result = ask_attachments(self.source_paths, question)
+            except Exception as e:  # noqa: BLE001
+                result = {"ok": False, "reason": f"오류가 발생했습니다 - {e}"}
+            self._bridge.post(done, result)
+
+        def done(result):
+            if not result["ok"]:
+                self._set_progress("실패")
+                self._log(result["reason"], role="error")
+            else:
+                self._set_progress("완료")
+                self._log(result["answer"], role="assistant")
+                notes = []
+                if result["truncated"]:
+                    notes.append("첨부가 길어 질문과 관련된 부분만 골라 읽었어요.")
+                if result["unreadable"]:
+                    names = ", ".join(os.path.basename(p) for p, _ in result["unreadable"])
+                    notes.append(f"읽지 못한 파일: {names}")
+                if notes:
+                    self._log(" ".join(notes), role="assistant")
+            self._finish_loop()
+
+        import threading
+        threading.Thread(target=work, daemon=True).start()
 
     # (2026-10-01, PRD 16-5 ⑥ 1차) 과거 문서 아카이브 질의응답 — 색인(증분)과
     # 검색·LLM 호출을 작업 스레드에서 돌리고, 진행 문구와 결과는 _bridge로 메인
@@ -416,15 +440,52 @@ class ChatAssistant(ctk.CTk):
         건드리지 않는다(PRD 16-3 "쓰기면 승인"). 적용 뒤에는 카드에 [되돌리기]가
         남아 원문으로 복구할 수 있다(변경추적을 쓰지 않는 이유는
         section_edit_tool.py 모듈 docstring의 실측 참고). 표/번호 스타일 카드와
-        같은 말풍선-임베드 방식(_log가 돌려준 프레임 안에 버튼)이다."""
-        from section_edit_tool import apply_section_edit, propose_section_edit, revert_section_edit
+        같은 말풍선-임베드 방식(_log가 돌려준 프레임 안에 버튼)이다.
 
-        proposal = self._run_tool_safely(propose_section_edit, self.report, instruction)
-        if proposal is None:
+        (2026-10-02 U1) 제안 생성의 LLM 호출이 수십 초씩 걸려 메인 스레드에서
+        돌리면 창이 멈춘다 — 한글 COM을 만지는 대상 확정(resolve_target)만
+        메인 스레드에서 먼저 끝내고, 남은 LLM 호출(propose_section_edit에
+        target을 넘기면 COM 접근이 없음)은 작업 스레드에서 돌린다. 카드의
+        [적용]/[되돌리기]는 버튼 클릭 시점에 메인 스레드에서 실행되므로
+        원래대로 _run_tool_safely를 그대로 쓴다."""
+        from section_edit_tool import apply_section_edit, propose_section_edit, resolve_target, revert_section_edit
+
+        target = self._run_tool_safely(resolve_target, self.report)
+        if target is None:
             return
-        if not proposal["ok"]:
-            self._log(proposal["reason"], role="error")
+        if target["kind"] is None:
+            self._log(target["reason"], role="error")
             return
+
+        self._loop_active = True  # 입력창 잠금 유지(_on_submit의 finally가 풀지 않게)
+        self._busy = True
+        self.input_box.configure(state="disabled")
+        self._loop_progress_label = None
+        self._set_progress(f"'{target['title']}' 고칠 제안을 만드는 중…")
+
+        def work():
+            try:
+                proposal = propose_section_edit(self.report, instruction, target=target)
+            except Exception as e:  # noqa: BLE001
+                proposal = {"ok": False, "error": "exception", "reason": f"오류가 발생했습니다 - {e}"}
+            self._bridge.post(done, proposal)
+
+        def done(proposal):
+            self._set_progress("제안 완료" if proposal["ok"] else "실패")
+            self._finish_loop()  # 카드의 버튼은 입력창과 독립이라 여기서 바로 잠금 해제
+            if not proposal["ok"]:
+                self._log(proposal["reason"], role="error")
+                return
+            self._show_section_edit_proposal_card(proposal)
+
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_section_edit_proposal_card(self, proposal: dict):
+        """완성된 제안을 전/후 비교 카드로 보여준다(메인 스레드). 버튼 콜백의
+        apply/revert는 한글 COM을 만지지만 클릭 시점에 메인 스레드에서 돌므로
+        그대로 안전하다."""
+        from section_edit_tool import apply_section_edit, revert_section_edit
 
         message = "\n".join([
             f"'{proposal['title']}' 구간을 이렇게 바꿀게요.", "",
@@ -1070,6 +1131,12 @@ class ChatAssistant(ctk.CTk):
         self._loop_active = False
         self._loop_session = None
         self._loop_progress_label = None
+        if self._loop_cancel_button is not None:
+            try:
+                self._loop_cancel_button.configure(state="disabled")
+            except Exception:  # noqa: BLE001 — 말풍선이 이미 지워진 경우 등
+                pass
+            self._loop_cancel_button = None
         self._busy = False
         self.input_box.configure(state="normal")
 
@@ -1102,8 +1169,40 @@ class ChatAssistant(ctk.CTk):
             on_needs_approval=self._show_loop_approval_card,
             on_done=self._on_loop_done,
             on_error=self._on_loop_error,
+            on_cancelled=self._on_loop_cancelled,
         )
+        self._add_loop_cancel_button()
         self._loop_session.start(text)
+
+    def _add_loop_cancel_button(self):
+        """(2026-10-02 U2) 진행 말풍선에 [중단] 버튼을 단다 — 루프는 최악의 경우
+        도구 12회 × LLM 대기라 몇 분씩 걸릴 수 있는데, 그동안 입력창이 잠겨
+        사용자가 멈출 방법이 없었다. 누르면 돌고 있는 단계가 끝나는 다음 노드
+        경계에서 멈춘다(LLM 호출 자체를 중간에 끊을 수는 없음 —
+        loop_runner.LoopSession.cancel 참고)."""
+        bubble = self._loop_progress_label.master
+        btn = ctk.CTkButton(bubble, text="중단", width=56, **_PICKER_BUTTON)
+
+        def on_cancel():
+            btn.configure(state="disabled", **_PICKER_BUTTON_UNCHOSEN)
+            if self._loop_session is not None:
+                self._set_progress("중단하는 중… (진행 중인 단계가 끝나면 멈춰요)")
+                self._loop_session.cancel()
+
+        btn.configure(command=on_cancel)
+        btn.pack(pady=(0, 6), padx=8, anchor="w")
+        self._loop_cancel_button = btn
+
+    def _on_loop_cancelled(self):
+        self._set_progress("중단됨")
+        # 승인 카드를 기다리던 중의 중단이면 카드 버튼도 눌리지 않게 잠근다
+        for b in getattr(self, "_loop_approval_buttons", ()) or ():
+            try:
+                b.configure(state="disabled")
+            except Exception:  # noqa: BLE001
+                pass
+        self._log("요청을 중단했어요.", role="assistant")
+        self._finish_loop()
 
     def _on_loop_done(self, answer: str):
         self._set_progress("완료")

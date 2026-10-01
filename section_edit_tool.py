@@ -92,11 +92,18 @@ def _ask_llm(instruction: str, title: str, before: str, client=None, max_attempt
     return ""
 
 
-def propose_section_edit(report, instruction: str, client=None, outline: dict = None) -> dict:
+def propose_section_edit(report, instruction: str, client=None, outline: dict = None, target: dict = None) -> dict:
     """제안만 만들고 문서는 건드리지 않는다.
     반환: {"ok": True, "kind", "section_id"?, "title", "before", "after", "outline"?}
-        또는 {"ok": False, "error": "server_unreachable"|"empty_response"|"no_target"|"no_change", "reason": str}."""
-    target = resolve_target(report, outline)
+        또는 {"ok": False, "error": "server_unreachable"|"empty_response"|"no_target"|"no_change", "reason": str}.
+
+    target을 주면 대상 확정(resolve_target)을 건너뛴다 — resolve_target은 한글
+    COM을 만지므로 메인 스레드에서만 안전한데, 그 뒤의 LLM 호출은 수십 초씩
+    걸려 채팅창을 멈추게 한다. 그래서 채팅 UI가 COM 접근은 메인 스레드에서
+    끝내 target으로 넘기고, 이 함수(남은 부분은 LLM 호출뿐)는 작업 스레드에서
+    돌린다(2026-10-01 U1, loop_runner.py의 스레드 분리 원칙과 동일)."""
+    if target is None:
+        target = resolve_target(report, outline)
     if target["kind"] is None:
         return {"ok": False, "error": "no_target", "reason": target["reason"]}
     after = _ask_llm(instruction, target["title"], target["before"], client=client)
