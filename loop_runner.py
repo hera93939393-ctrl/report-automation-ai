@@ -124,6 +124,20 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
             raise ConnectionError("서버에 연결할 수 없습니다")
         return {"text": polished}
 
+    def tool_verify_numbers():
+        """(2026-10-02 U3) 기존 결정적 도구를 루프에서도 쓸 수 있게 등록 —
+        "회의결과 반영하고 숫자도 검증해줘"처럼 단일 라우팅에 안 걸리는 복합
+        요청에서 플래너가 부를 수 있다. 문서 본문은 안 바꾸지만 글자색·근거
+        메모 표시는 남긴다(단일 도구 경로와 동일, 매 호출 색 리셋이라 멱등).
+        그래프삽입·주간취합은 미리보기 승인 카드(U4)가 생기기 전까지 루프에
+        등록하지 않는다 — 둘은 승인 없이 문서를 직접 바꾸기 때문."""
+        from verify_tool import run_verification
+        if not source_paths:
+            raise ValueError("원본자료가 첨부되지 않았습니다('+'로 첨부한 뒤 다시 요청)")
+        result = bridge.run(run_verification, report, source_paths, 2026)
+        return {"text": result["summary"],
+                "citations": [f"원본자료 {os.path.basename(p)}" for p in source_paths]}
+
     def tool_search_archive(query: str, year: int = None):
         from archive_index import load_folders, reindex, search_archive
         folders = load_folders()
@@ -153,6 +167,9 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
         "polish": {"fn": tool_polish, "write": False,
                    "desc": "문장을 공문서 개조식 문체로 다듬어 돌려준다(문서는 바꾸지 않음)",
                    "params": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}},
+        "verify_numbers": {"fn": tool_verify_numbers, "write": False,
+                           "desc": "보고서의 금액·날짜·시간·전화번호를 첨부 원본자료와 대조해 요약을 돌려준다(본문은 안 바꾸고 글자색·근거 메모만 표시, 수십 초 걸림)",
+                           "params": {"type": "object", "properties": {}}},
     }
 
 
@@ -415,9 +432,34 @@ def _selftest_session_cancel():
     print("LoopSession.cancel(시작 전·승인 대기 중·중단 뒤 resume 무시) 통과")
 
 
+def _selftest_build_tools_registry_shape():
+    """(U3) 레지스트리 계약 검증: 이름 목록, write 플래그, params가 플래너의
+    정식 tool-calling에 넘길 수 있는 JSON 스키마 모양인지 — 실제 도구 실행은
+    com/server 분류 테스트 몫이고 여기서는 구조와 가드만 본다."""
+    bridge = MainThreadBridge()
+    tools = build_tools(report=None, source_paths=[], bridge=bridge)
+    expected = {"search_archive", "read_outline", "read_section", "write_section",
+                "read_attachment", "polish", "verify_numbers"}
+    assert set(tools) == expected, set(tools)
+    for name, spec in tools.items():
+        assert callable(spec["fn"]) and isinstance(spec["write"], bool) and spec["desc"], name
+        assert spec["params"].get("type") == "object", name
+        for req in spec["params"].get("required", []):
+            assert req in spec["params"]["properties"], (name, req)
+    assert tools["write_section"]["write"] is True
+    assert tools["verify_numbers"]["write"] is False  # 색 표시는 남지만 본문 무변경·멱등이라 승인 불요(단일 도구 경로와 동일)
+    try:
+        tools["verify_numbers"]["fn"]()  # 원본자료 없이 부르면 명확한 안내로 실패해야 한다
+        raise AssertionError("원본자료 없음이 예외로 보고되지 않음")
+    except ValueError as e:
+        assert "원본자료" in str(e), e
+    print("build_tools(레지스트리 구조·verify 원본자료 가드) 통과")
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
     _selftest_bridge_runs_on_main_thread_and_propagates_errors()
     _selftest_session_streams_progress_interrupts_and_resumes()
     _selftest_session_cancel()
+    _selftest_build_tools_registry_shape()
