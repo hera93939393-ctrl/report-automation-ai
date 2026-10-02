@@ -1154,10 +1154,12 @@ class ChatAssistant(ctk.CTk):
     def _start_loop(self, text: str):
         """단일 도구 라우팅에 안 걸린 요청을 랭그래프 루프로 처리한다(PRD 16-3).
         LLM·그래프는 작업 스레드, 한글 COM과 UI는 _bridge를 통해 메인 스레드."""
+        from recipes import match_recipe  # (T6) 결정적 레시피 매칭 — 계획 힌트·폴백
         tools = loop_runner.build_tools(self.report, self.source_paths, self._bridge)
         provider = loop_runner.build_context_provider(self.report, self.source_paths, self._bridge)
         apply = loop_runner.build_apply_write(self.report, self._bridge)
-        graph = agent_loop.build_graph(LOOP_PLANNER_FACTORY(), tools, provider, apply_write=apply)
+        graph = agent_loop.build_graph(LOOP_PLANNER_FACTORY(), tools, provider, apply_write=apply,
+                                       recipe_matcher=match_recipe)
         self._loop_active = True
         self._busy = True
         self.input_box.configure(state="disabled")

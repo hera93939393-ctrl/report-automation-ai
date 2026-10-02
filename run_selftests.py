@@ -33,6 +33,7 @@ MODULES = {
     "speed_tracker": ("pure", [], 60),
     "routing_graph": ("pure", [], 60),
     "agent_loop": ("pure", [], 120),
+    "recipes": ("pure", [], 60),
     "loop_runner": ("pure", [], 120),
     "archive_index": ("pure", [], 120),
     "archive_qa_tool": ("pure", [], 120),

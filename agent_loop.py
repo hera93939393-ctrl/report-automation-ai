@@ -65,14 +65,31 @@ def check_numbers(after: str, allowed_sources: list) -> list:
     return sorted(n for n in _numbers_in(after) if n not in allowed)
 
 
-def build_graph(planner, tools: dict, context_provider, apply_write=None):
+def build_graph(planner, tools: dict, context_provider, apply_write=None, recipe_matcher=None):
     """planner/tools/context_provider를 주입해 컴파일된 그래프를 돌려준다.
-    apply_write(proposal)->dict 는 승인된 쓰기를 실제로 반영하는 콜백."""
+    apply_write(proposal)->dict 는 승인된 쓰기를 실제로 반영하는 콜백.
+    recipe_matcher(user_message)->dict|None 은 요청에 맞는 레시피 지침문을
+    찾는 결정적 함수(recipes.match_recipe) — 매칭되면 문맥에 실려 계획
+    프롬프트의 힌트가 되고, LLM 계획이 실패하면 고정 단계 폴백이 된다
+    (PRD 16-3 "9B가 흔들리면 레시피 기반 고정 목록으로 대체", 2026-10-02 T6)."""
 
     def gather_context(state: LoopState) -> dict:
-        return {"context": context_provider() or {}, "step_idx": 0, "tool_calls_made": 0,
+        context = context_provider() or {}
+        if recipe_matcher is not None:
+            try:
+                recipe = recipe_matcher(state["user_message"])
+            except Exception:  # noqa: BLE001 — 레시피 로딩 실패가 루프를 막지 않게
+                recipe = None
+            if recipe:
+                context["recipe"] = {"name": recipe["name"], "steps": recipe["steps"],
+                                     "guidance": recipe.get("guidance", [])}
+        return {"context": context, "step_idx": 0, "tool_calls_made": 0,
                 "history": [], "pending_write": None, "citations": [], "failures": {},
                 "replans": state.get("replans", 0), "answer": "", "notes": []}
+
+    def _recipe_steps(state: LoopState) -> list:
+        recipe = (state.get("context") or {}).get("recipe") or {}
+        return [s for s in recipe.get("steps", []) if isinstance(s, str) and s.strip()][:MAX_STEPS]
 
     def plan(state: LoopState) -> dict:
         notes = list(state.get("notes", []))
@@ -83,7 +100,11 @@ def build_graph(planner, tools: dict, context_provider, apply_write=None):
             notes.append(f"계획 실패: {e}")  # 상태를 직접 고치지 않고 갱신값으로 돌려준다
         steps = [s for s in (steps or []) if isinstance(s, str) and s.strip()][:MAX_STEPS]
         if not steps:
-            steps = [state["user_message"]]  # 계획을 못 세우면 요청 자체를 한 단계로
+            steps = _recipe_steps(state)  # LLM 계획 실패 → 레시피 고정 단계로 폴백
+            if steps:
+                notes.append(f"레시피 '{state['context']['recipe']['name']}'의 단계를 사용합니다.")
+        if not steps:
+            steps = [state["user_message"]]  # 레시피도 없으면 요청 자체를 한 단계로
         return {"plan": steps, "step_idx": 0, "notes": notes}
 
     def act(state: LoopState) -> dict:
@@ -476,6 +497,38 @@ def _selftest_kinded_proposal_payload_passthrough():
     print("루프: kind별 제안 payload 전달 · source_text 숫자 인정 · apply 위임 통과")
 
 
+def _selftest_recipe_context_and_plan_fallback():
+    """(2026-10-02 T6) 레시피 연결 2경로: ① 매칭된 레시피가 문맥(context)에
+    실려 계획 프롬프트의 힌트가 되는지 ② LLM 계획이 실패하면 레시피의 고정
+    단계로 폴백하고 그 사실을 답변 노트에 남기는지 ③ 레시피가 안 맞으면
+    기존대로 요청 자체가 한 단계가 되는지."""
+    class FailingPlanner(FakePlanner):
+        def plan(self, user_message, context):
+            self.plan_calls += 1
+            self.seen_context = context
+            raise RuntimeError("9B 흔들림")
+
+    recipe = {"name": "틀 유지 초안", "triggers": ["틀 유지"],
+              "steps": ["구간 목록을 읽는다", "답한다"], "guidance": ["제목 유지"]}
+    matcher = lambda msg: recipe if "틀 유지" in msg else None  # noqa: E731
+
+    tools, apply = _fake_tools({"s1": "x"})
+    planner = FailingPlanner([], [{"tool": "read_section", "args": {"section_id": "s1"}},
+                                  {"tool": "answer", "text": "끝"}])
+    graph = build_graph(planner, tools, lambda: {}, apply_write=apply, recipe_matcher=matcher)
+    r = run(graph, "작년 틀 유지해서 만들어줘", "t7")
+    assert r["status"] == "done", r
+    assert planner.seen_context.get("recipe", {}).get("name") == "틀 유지 초안", planner.seen_context
+    assert r["state"]["plan"] == ["구간 목록을 읽는다", "답한다"], r["state"]["plan"]
+    assert "레시피 '틀 유지 초안'의 단계를 사용합니다." in r["answer"], r["answer"]
+
+    planner = FailingPlanner([], [{"tool": "answer", "text": "끝"}])
+    graph = build_graph(planner, tools, lambda: {}, apply_write=apply, recipe_matcher=matcher)
+    r = run(graph, "아무 요청", "t8")  # 레시피 미매칭 → 요청 자체가 한 단계
+    assert r["state"]["plan"] == ["아무 요청"], r["state"]["plan"]
+    print("루프: 레시피 문맥 주입 · 계획 실패 시 레시피 폴백 · 미매칭 기존 동작 통과")
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
@@ -484,5 +537,6 @@ if __name__ == "__main__":
     _selftest_answer_tool_ends_loop_and_call_cap()
     _selftest_failures_trigger_replan_then_stop()
     _selftest_kinded_proposal_payload_passthrough()
+    _selftest_recipe_context_and_plan_fallback()
     print("확인 필요(서버 켠 뒤): OllamaPlanner.plan의 JSON 일관성(요청문 10개), choose의 도구호출 성공률, "
           "그리고 채팅 앱 연결 시 interrupt 대기 중 Tk 이벤트 루프와의 스레드 분리.")
