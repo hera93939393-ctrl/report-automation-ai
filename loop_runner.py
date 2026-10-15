@@ -116,10 +116,12 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
             citations += [f"{os.path.basename(d['path'])} · {p['label']}" for p in d["parts"]]
         return {"text": "\n\n".join(texts)[:20000], "citations": citations}
 
-    def tool_polish(text: str):
-        from polish_tool import _generate_formal_style
+    def tool_polish(text: str, hint: str = ""):
+        from polish_tool import _generate_formal_style, _similar_archive_examples
         client = llm_client_factory() if llm_client_factory else None
-        polished = _generate_formal_style(text, client=client)
+        # (T5) 부품 6 스펙: 힌트 전달 + 아카이브 유사 문단을 문체 예시로 동봉
+        polished = _generate_formal_style(text, client=client, hint=hint,
+                                          examples=_similar_archive_examples(text))
         if polished is None:
             raise ConnectionError("서버에 연결할 수 없습니다")
         return {"text": polished}
@@ -205,8 +207,8 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
                             "desc": "첨부 파일(회의결과·엑셀·PDF) 내용을 읽는다. name으로 파일명 일부를 줄 수 있다",
                             "params": {"type": "object", "properties": {"name": {"type": "string"}}}},
         "polish": {"fn": tool_polish, "write": False,
-                   "desc": "문장을 공문서 개조식 문체로 다듬어 돌려준다(문서는 바꾸지 않음)",
-                   "params": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}},
+                   "desc": "문장을 공문서 개조식 문체로 다듬어 돌려준다(문서는 바꾸지 않음). hint로 다듬는 방향을 줄 수 있다(예: 두 문장으로 줄여서)",
+                   "params": {"type": "object", "properties": {"text": {"type": "string"}, "hint": {"type": "string"}}, "required": ["text"]}},
         "verify_numbers": {"fn": tool_verify_numbers, "write": False,
                            "desc": "보고서의 금액·날짜·시간·전화번호를 첨부 원본자료와 대조해 요약을 돌려준다(본문은 안 바꾸고 글자색·근거 메모만 표시, 수십 초 걸림)",
                            "params": {"type": "object", "properties": {}}},

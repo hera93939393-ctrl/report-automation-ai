@@ -1,5 +1,13 @@
 """polish_tool.py — 선택된 문장을 공문서체로 다듬거나, 채팅 입력을 새 공문서체
-문장으로 만들어 커서 위치에 삽입하는 도구. verify_tool.py와 나란한 두 번째 도구."""
+문장으로 만들어 커서 위치에 삽입하는 도구. verify_tool.py와 나란한 두 번째 도구.
+
+(2026-10-02 T5, 부품 6 재포장) PRD 16-2의 부품 6 스펙("편람 규칙 + 유사 문단
+예시 동봉")에 맞게 프롬프트를 확장했다: ① 개조식 규칙(_STYLE_RULES — 레거시
+ai_writer.INSTRUCTION의 실전 규칙을 흡수) ② 과거 보고서 아카이브에서 찾은
+유사 문단을 문체 예시로 동봉(_similar_archive_examples, 로컬 BM25라 서버
+불필요) ③ 루프/호출자가 주는 힌트(hint) 전달. 프롬프트가 길어져 num_ctx를
+명시한다(attachment_qa_tool과 같은 이유). 예시 동봉의 품질(소형 모델이
+예시를 베끼지 않는지)은 서버를 켠 뒤 실측 확인 대상."""
 import os
 import tempfile
 
@@ -7,8 +15,51 @@ from hwp_report import HwpReport
 from ollama_client import GENERATION_MODEL, get_client
 from speed_tracker import record_call_speed
 
+# 공문서 개조식 핵심 규칙 — 레거시 ai_writer.INSTRUCTION(실사용 검증된 F1
+# 프롬프트)에서 흡수. 편람 세부 조항 전체가 아니라 소형 모델이 지킬 수 있는
+# 핵심만 추린다(컨텍스트 예산·지시 과다 방지).
+_STYLE_RULES = (
+    "공문서 개조식 규칙: "
+    "① 완전한 문장 종결어미(-습니다, -합니다)를 쓰지 말고 명사형이나 '-함', '-음', '-예정'으로 끝낼 것 "
+    "② 하나의 목적/이유에 속한 짧은 요소들은 항목을 나누지 말고 '및'으로 이어 한 줄로 쓸 것 "
+    "③ 일정/장소/대상처럼 서로 다른 항목일 때만 '- '로 줄을 나눌 것 "
+    "④ 마크다운·특수기호를 쓰지 말 것 "
+    "⑤ 원문에 없는 사실·수치를 지어내지 말 것"
+)
 
-def _generate_formal_style(source_text: str, max_attempts: int = 3, client=None) -> str | None:
+
+def _similar_archive_examples(text: str, k: int = 2) -> list[str]:
+    """과거 보고서 아카이브(로컬 BM25 색인)에서 비슷한 문단을 찾아 문체 예시로
+    쓴다 — 부품 6 스펙의 "유사 문단 예시 동봉"(T5). 색인을 새로 만들지는
+    않는다(reindex는 파일당 수 초라 다듬기 도구 안에서 돌리면 안 됨) — 이미
+    만들어진 DB만 검색하고, 폴더 미등록·DB 없음·오류는 전부 빈 리스트
+    (예시 없이도 다듬기는 그대로 동작한다)."""
+    try:
+        from archive_index import DB_PATH, search_archive
+        if not os.path.exists(DB_PATH):
+            return []
+        return [r["text"][:300] for r in search_archive(text, k=k)]
+    except Exception:  # noqa: BLE001 — 예시는 부가 기능, 실패가 다듬기를 막지 않게
+        return []
+
+
+def _build_polish_prompt(source_text: str, hint: str = "", examples: list = None) -> str:
+    """규칙 + (있으면) 유사 문단 예시 + (있으면) 힌트 + 원문으로 프롬프트를
+    조립한다. 예시에는 "문체만 참고" 경고를 반드시 붙인다 — 소형 모델이 예시
+    문장을 그대로 베끼는 현상을 막기 위한 지시(실측 확인은 서버 켠 뒤)."""
+    parts = [_STYLE_RULES, ""]
+    if examples:
+        parts.append("[문체 예시 — 과거 보고서에서 가져옴. 말투와 형식만 참고하고, 예시의 내용·수치·기관명은 절대 결과에 옮기지 말 것]")
+        parts += [f"예시 {i}: {ex}" for i, ex in enumerate(examples, start=1)]
+        parts.append("")
+    if hint:
+        parts += [f"[요청 사항]\n{hint}", ""]
+    parts += ["다음 문장을 위 규칙에 맞는 공문서 개조식 문체로 다듬어줘. 다듬은 문장만 출력하고 다른 설명은 붙이지 마:", "", source_text]
+    return "\n".join(parts)
+
+
+def _generate_formal_style(source_text: str, max_attempts: int = 3, client=None,
+                           hint: str = "", examples: list = None) -> str | None:
     """source_text(선택된 원문 또는 채팅 입력)를 홈서버 LLM에 보내 공문서체
     문장으로 바꾼 결과를 반환한다. 서버에 연결할 수 없으면 None을 반환한다
     (빈 응답 ""과 구분 — 호출자가 "서버 꺼짐"과 "모델이 빈 답"을 다르게
@@ -39,19 +90,16 @@ def _generate_formal_style(source_text: str, max_attempts: int = 3, client=None)
     문제로, 노트북 관련 논의에서 이미 별도로 다룬 사안이다."""
     if client is None:
         client = get_client()
+    prompt = _build_polish_prompt(source_text, hint=hint, examples=examples)
     for attempt in range(1, max_attempts + 1):
         try:
             response = client.chat(
                 model=GENERATION_MODEL,
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        "다음 문장을 대한민국 공공기관 공문서에 어울리는 격식있는 "
-                        "문체로 다듬어줘. 다듬은 문장만 출력하고 다른 설명은 붙이지 마:\n\n"
-                        f"{source_text}"
-                    ),
-                }],
+                messages=[{"role": "user", "content": prompt}],
                 think=False,
+                # 규칙+예시로 프롬프트가 길어질 수 있어 명시(attachment_qa_tool과
+                # 같은 이유 — Ollama 기본 num_ctx가 더 작으면 앞부분이 잘린다).
+                options={"num_ctx": 8192},
             )
         except Exception:
             # 서버 꺼짐/네트워크 단절 — 재시도해도 같은 결과라 바로 알린다.
@@ -105,7 +153,9 @@ def polish_to_formal_style(report: HwpReport, chat_input: str, client=None) -> d
     else:
         source_text = chat_input
 
-    polished = _generate_formal_style(source_text, client=client)
+    # (T5) 아카이브 색인이 있으면 유사 문단을 문체 예시로 동봉(없으면 빈 리스트)
+    polished = _generate_formal_style(source_text, client=client,
+                                      examples=_similar_archive_examples(source_text))
     if polished is None:
         return {"applied": False, "polished_text": "", "error": "server_unreachable"}
     if not polished.strip():
@@ -272,8 +322,49 @@ def _selftest_polish_all_empty_reports_failure_without_error_key():
     print("polish_to_formal_style(3회 빈 응답) 통과")
 
 
+def _selftest_build_polish_prompt():
+    """(T5) 프롬프트 조립: 규칙은 항상, 예시는 "문체만 참고" 경고와 함께,
+    힌트는 요청 사항으로 들어가는지. 예시·힌트가 없으면 그 구획 자체가 없는지."""
+    p = _build_polish_prompt("예산 다 썼음")
+    assert _STYLE_RULES in p and "예산 다 썼음" in p, p
+    assert "문체 예시" not in p and "요청 사항" not in p, p
+    p = _build_polish_prompt("예산 다 썼음", hint="한 문장으로", examples=["○ 예산 집행 완료 및 추가 확보 추진"])
+    assert "예시 1: ○ 예산 집행 완료" in p and "절대 결과에 옮기지 말 것" in p, p
+    assert "[요청 사항]\n한 문장으로" in p, p
+    assert p.index(_STYLE_RULES) < p.index("예시 1") < p.index("예산 다 썼음"), "순서: 규칙 → 예시 → 원문"
+    print("_build_polish_prompt(규칙·예시 경고·힌트) 통과")
+
+
+def _selftest_generate_passes_prompt_and_num_ctx():
+    """(T5) 조립된 프롬프트와 num_ctx가 실제 chat 호출에 들어가는지."""
+    fake = _FakeClient(["다듬은 결과"])
+    result = _generate_formal_style("원문", client=fake, hint="짧게", examples=["예시문"])
+    assert result == "다듬은 결과", result
+    sent = fake.calls[0]["messages"][0]["content"]
+    assert _STYLE_RULES in sent and "예시 1: 예시문" in sent and "[요청 사항]\n짧게" in sent, sent
+    assert fake.calls[0]["options"]["num_ctx"] == 8192, fake.calls[0]
+    print("_generate_formal_style(프롬프트 조립·num_ctx 전달) 통과")
+
+
+def _selftest_similar_archive_examples_safe_without_db():
+    """(T5) 색인 DB가 없으면 빈 리스트 — 예시 기능이 다듬기를 막지 않는다.
+    _similar_archive_examples는 DB_PATH를 호출 시점에 from-import로 읽으므로
+    모듈 속성을 잠시 없는 경로로 바꿔 "DB 없음" 분기를 확정적으로 태운다."""
+    import archive_index
+    saved = archive_index.DB_PATH
+    try:
+        archive_index.DB_PATH = os.path.join(tempfile.gettempdir(), "_없는_색인.db")
+        assert _similar_archive_examples("아무 문장") == []
+    finally:
+        archive_index.DB_PATH = saved
+    print("_similar_archive_examples(DB 없음 안전) 통과")
+
+
 if __name__ == "__main__":
     # 서버·한글 없이 도는 것부터
+    _selftest_build_polish_prompt()
+    _selftest_generate_passes_prompt_and_num_ctx()
+    _selftest_similar_archive_examples_safe_without_db()
     _selftest_generate_retries_empty_then_succeeds()
     _selftest_generate_returns_none_when_server_unreachable()
     _selftest_polish_reports_server_unreachable_without_touching_document()
