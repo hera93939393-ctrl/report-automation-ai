@@ -190,7 +190,44 @@ def build_tools(report, source_paths: list, bridge: MainThreadBridge, llm_client
         return {"results": [{"file": r["file"], "label": r["label"], "text": r["text"], "year": r["year"]} for r in results],
                 "citations": [f"{r['file']} · {r['label']}" for r in results]}
 
+    def _law_client():
+        from law_mcp_client import LawMcpClient
+        return LawMcpClient()
+
+    def tool_law_search(query: str):
+        """(2026-10-16) 법령명·키워드로 현행 법령을 찾는다(airealty-lawmcp statute_find).
+        키워드만 나간다(law_mcp_client 관문이 100자·개인정보 검사)."""
+        r = _law_client().find_statute(query, size=5)
+        items = [{"name": it.get("name"), "kind": it.get("kind"), "effectiveDate": it.get("effectiveDate"),
+                  "department": it.get("department"), "link": it.get("link")} for it in r.get("items", [])]
+        return {"items": items, "citations": [f"국가법령정보센터 · {it['name']}" for it in items if it.get("name")]}
+
+    def tool_law_article(name: str, articles: list):
+        """조문 원문(현행)을 가져온다(airealty-lawmcp article_get)."""
+        r = _law_client().get_articles(name, articles)
+        return {"result": r, "citations": [f"국가법령정보센터 · 「{name}」 {a}" for a in articles]}
+
+    def tool_check_law_citations():
+        """열린 문서의 법령 인용을 확인한다. 문서 텍스트는 메인 스레드(COM)에서 읽고
+        인용만 로컬로 뽑아 보낸다 — 본문은 나가지 않는다."""
+        from law_mcp_client import audit_document_citations, format_audit
+        text = bridge.run(report.get_text)
+        out = audit_document_citations(text, client=_law_client())
+        if not out["citations"]:
+            return {"summary": "문서에서 법령 인용을 찾지 못했습니다", "lines": []}
+        f = format_audit(out["result"])
+        return {"summary": f["summary"], "lines": f["lines"], "bad_count": f["bad_count"]}
+
     return {
+        "law_search": {"fn": tool_law_search, "write": False,
+                       "desc": "법령명·키워드로 현행 법령을 찾는다(법령명·시행일·소관부처·링크). 문서 본문이 아니라 짧은 키워드만 넣는다",
+                       "params": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+        "law_article": {"fn": tool_law_article, "write": False,
+                        "desc": "법령의 조문 원문(현행)을 가져온다. name=법령명, articles=[\"제4조\"] 형식",
+                        "params": {"type": "object", "properties": {"name": {"type": "string"}, "articles": {"type": "array", "items": {"type": "string"}}}, "required": ["name", "articles"]}},
+        "check_law_citations": {"fn": tool_check_law_citations, "write": False,
+                                "desc": "지금 열린 문서 속 법령 인용(「○○법」 제N조)이 실제로 있는 조문인지·현행인지 확인한다",
+                                "params": {"type": "object", "properties": {}}},
         "search_archive": {"fn": tool_search_archive, "write": False,
                            "desc": "과거 보고서 아카이브에서 질문과 관련된 부분을 찾는다(파일명·위치·원문). year로 연도를 좁힐 수 있다",
                            "params": {"type": "object", "properties": {"query": {"type": "string"}, "year": {"type": "integer"}}, "required": ["query"]}},
@@ -506,7 +543,9 @@ def _selftest_build_tools_registry_shape():
     bridge = MainThreadBridge()
     tools = build_tools(report=None, source_paths=[], bridge=bridge)
     expected = {"search_archive", "read_outline", "read_section", "write_section",
-                "read_attachment", "polish", "verify_numbers", "insert_chart", "merge_weekly_reports"}
+                "read_attachment", "polish", "verify_numbers", "insert_chart", "merge_weekly_reports",
+                # (2026-10-16) 법령 MCP(airealty-lawmcp) — 전부 읽기 전용
+                "law_search", "law_article", "check_law_citations"}
     assert set(tools) == expected, set(tools)
     for name, spec in tools.items():
         assert callable(spec["fn"]) and isinstance(spec["write"], bool) and spec["desc"], name

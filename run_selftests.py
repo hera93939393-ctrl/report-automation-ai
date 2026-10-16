@@ -39,6 +39,7 @@ MODULES = {
     "archive_qa_tool": ("pure", [], 120),
     "attachment_qa_tool": ("pure", [], 120),
     "chat_assistant": ("pure", ["--selftest"], 120),
+    "law_mcp_client": ("pure", [], 60),  # 가짜 전송만(실서버 확인은 python law_mcp_client.py --live)
     "chat_handoff": ("pure", ["--selftest"], 60),
     "window_layout": ("com", [], 120),
     "hwp_session": ("com", [], 180),
