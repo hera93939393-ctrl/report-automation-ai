@@ -29,11 +29,7 @@
 - 모델·호스트는 `ollama_client.py` 한 곳에만(`SERVER_HOST`, `ROUTING_MODEL`, `GENERATION_MODEL`). 호출부에 모델명을 직접 쓰지 않는다.
 - `qwen3.5:9b`는 사고형 모델이라 짧은 답/도구호출/구조화 출력에는 `think=False`를 반드시 준다(안 주면 빈 답).
 - 서버(홈서버, Tailscale 사설망)가 꺼져 있을 수 있다. 연결 실패는 빈 응답과 **구분해서** 보고한다(`error="server_unreachable"`).
-- 외부 클라우드 AI(OpenAI/Claude API 등)를 프로그램 런타임에 붙이지 않는다. 외부 통신은 법령 조회 두 가지뿐:
-  ① F5 `law_search.py`(법제처 직접, 검색 키워드만) ② `law_mcp_client.py`(airealty-lawmcp 호스팅 서버, 2026-10-16 사용자 결정).
-  ②는 개인 개발자 서버를 거치므로 `check_outbound()` 관문을 절대 우회하지 않는다 — 허용된 조회 도구만,
-  `text`/`claim`(문서 본문) 금지, 값 100자 이하, 개인정보 패턴 차단. 인용 검증은 `extract_citations()`로
-  「법령명」+조문만 로컬에서 뽑아 보낸다. 새 법령 기능도 반드시 이 클라이언트를 거칠 것. 토큰은 `law_mcp_token.txt`(gitignore).
+- 외부 클라우드 AI(OpenAI/Claude API 등)를 프로그램 런타임에 붙이지 않는다. 유일한 외부 통신은 법령 검색 키워드뿐.
 - 새 LLM 기능은 가짜 클라이언트(`_FakeClient`)로 self-test를 쓰고, 실제 모델 품질은 사용자가 서버를 켠 뒤 확인한다.
 
 ## 4. 코드·테스트 관례

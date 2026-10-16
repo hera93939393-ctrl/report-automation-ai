@@ -350,56 +350,6 @@ class ChatAssistant(ctk.CTk):
             button.pack(side="left", fill="x", expand=True)
             buttons.append(button)
 
-    LAW_CLIENT_FACTORY = None  # 테스트에서 가짜 법령 클라이언트를 끼우는 자리
-
-    def _check_law_citations(self):
-        """(2026-10-16) 문서 속 법령 인용 확인 — 열린 문서의 텍스트는 메인 스레드에서
-        읽고(한글 COM), 인용(「법령명」+조문)만 노트북에서 뽑아 작업 스레드에서 법령
-        서버(airealty-lawmcp)에 보낸다. 본문은 보내지 않는다(law_mcp_client의 관문이
-        코드로 강제). 서버 LLM(Ollama)이 꺼져 있어도 동작한다."""
-        from law_mcp_client import LawMcpClient, LawMcpError, extract_citations, format_audit
-
-        text = self.report.get_text() if self.report else ""
-        citations = extract_citations(text)
-        if not citations:
-            self._log("문서에서 「법령명」 제N조 형태의 법령 인용을 찾지 못했어요.")
-            return
-        self._loop_active = True  # 입력창 잠금 유지(_on_submit의 finally가 풀지 않게)
-        self._busy = True
-        self.input_box.configure(state="disabled")
-        self._loop_progress_label = None
-        self._set_progress(f"법령 인용 {len(citations)}건을 확인하는 중…")
-        factory = self.LAW_CLIENT_FACTORY or LawMcpClient
-
-        def work():
-            try:
-                audit = factory().audit_citations(citations[:100])
-                result = {"ok": True, "formatted": format_audit(audit)}
-            except LawMcpError as e:
-                result = {"ok": False, "reason": {
-                    "unreachable": "법령 서버에 연결할 수 없어요(인터넷 연결을 확인해보세요).",
-                    "auth": "법령 서버 인증에 실패했어요(토큰 확인이 필요해요).",
-                    "blocked": f"보안 규칙에 걸려 보내지 않았어요 - {e}",
-                }.get(e.kind, f"법령 확인 중 오류가 났어요 - {e}")}
-            except Exception as e:  # noqa: BLE001
-                result = {"ok": False, "reason": f"법령 확인 중 오류가 났어요 - {e}"}
-            self._bridge.post(done, result)
-
-        def done(result):
-            if not result["ok"]:
-                self._set_progress("실패")
-                self._log(result["reason"], role="error")
-            else:
-                f = result["formatted"]
-                self._set_progress("완료")
-                self._log(f["summary"] + "\n" + "\n".join(f["lines"]),
-                          role="error" if f["bad_count"] else "success")
-                self._log("(법령 서버에는 법령명과 조문 번호만 보냈어요. 문서 본문은 보내지 않았어요.)")
-            self._finish_loop()
-
-        import threading
-        threading.Thread(target=work, daemon=True).start()
-
     def _answer_from_attachments(self, question: str):
         """(2026-10-01, PRD 16-5 ④) 첨부문서 즉석 질의응답 — 색인 없이 지금
         첨부된 파일들의 텍스트만 보고 답하고, 근거가 된 [파일명 · 위치]를
@@ -1104,8 +1054,6 @@ class ChatAssistant(ctk.CTk):
                 self._answer_from_attachments(text)
             elif tool_name == "ask_archive":
                 self._answer_from_archive(text)
-            elif tool_name == "check_law_citations":
-                self._check_law_citations()
             elif tool_name == "insert_table":
                 self._show_table_style_picker()
             elif tool_name == "insert_numbering":

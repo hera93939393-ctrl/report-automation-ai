@@ -14,7 +14,6 @@
 | F3 | 음성 인식(STT) | [stt.py](./stt.py) | ✅ |
 | F4 | 매뉴얼 이미지 검색 (임베딩) | [image_search.py](./image_search.py) | ✅ |
 | F5 | 법령 검색 (국가법령정보센터 API) | [law_search.py](./law_search.py) | ✅ |
-| 법령 인용 확인 | 채팅에서 "근거 법령 확인해줘" → 열린 문서 속 「법령명」 제N조가 실제 조문인지·현행인지 확인(없는 조문이면 유효 범위 안내). 루프에서 법령 검색·조문 원문 조회도 사용 | [law_mcp_client.py](./law_mcp_client.py) | ✅ 실서버 연결 확인 |
 | F6 | 엑셀 값 추출 → 문장화 | [excel_extractor.py](./excel_extractor.py) | ✅ |
 | F7 | 최종 검토(항목번호·계산·맞춤법) | [format_checker.py](./format_checker.py), [ai_writer.py](./ai_writer.py) | ✅ |
 | F8 | 홍보 포스터 이미지 생성 | [poster_generator.py](./poster_generator.py) | ✅ |
@@ -145,7 +144,5 @@ python chat_assistant.py
 ## 개인정보 처리 방침
 
 - 모든 AI 처리는 노트북에서 완전히 로컬로 실행되며, 문서 내용을 외부로 전송하지 않는다.
-- 외부 통신은 법령 조회뿐이며, 문서 원본은 전송하지 않는다.
-  - 법령 검색(F5): 국가법령정보센터에 검색 키워드만 전송.
-  - 법령 인용 확인·조문 조회: [airealty-lawmcp](https://github.com/conoc612-a11y/airealty-lawmcp) 호스팅 서버에 법령명·조문 번호 같은 짧은 키워드만 전송. 문서에서 인용(「법령명」 제N조)만 노트북에서 뽑아 보내며, 본문·100자 넘는 값·개인정보 패턴은 코드가 차단한다([law_mcp_client.py](./law_mcp_client.py)의 `check_outbound`).
+- 유일한 외부 통신은 법령 검색(F5)의 검색 키워드 전송뿐이며, 문서 원본은 전송하지 않는다.
 - 실제 업무 문서(개인정보 포함 가능)는 이 저장소에 포함하지 않는다.

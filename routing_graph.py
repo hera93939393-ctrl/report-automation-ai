@@ -91,14 +91,6 @@ _TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "check_law_citations",
-            "description": "지금 열린 문서 속 법령 인용(「○○법」 제N조)이 실제로 있는 조문인지, 현행인지 법령 서버로 확인한다 (예: 근거 법령 맞는지 확인해줘, 인용한 조문 확인)",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "insert_chart",
             "description": "첨부된 원본자료(엑셀)를 막대/꺾은선/원형 그래프로 그려 지금 열려있는 한글 문서의 커서 위치에 삽입한다",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -156,12 +148,6 @@ _ASK_ARCHIVE_KEYWORDS = [
 # 잘못 걸리면 아카이브/편집 요청이 전부 숫자검증으로 가 버린다(2026-10-01 실측).
 _FALSE_POSITIVE_DENYLIST = ["체크카드", "선택 확인", "확인서", "현장점검", "정기점검"]
 
-# (2026-10-16) 문서 속 법령 인용 확인(airealty-lawmcp citation_audit, law_mcp_client)
-_LAW_CITATION_KEYWORDS = [
-    "법령 인용", "인용 법령", "인용한 법령", "인용된 법령", "근거 법령", "근거법령", "관련 법령 확인",
-    "법령 확인", "법령확인", "조문 확인", "조문확인", "인용한 조문", "인용 조문", "법조문", "법령 검토",
-]
-
 
 def _route_by_keywords(user_message: str) -> Optional[str]:
     """키워드 안전망만으로 도구를 판단한다(LLM 호출 없음, 순수 함수, 결정적).
@@ -175,10 +161,6 @@ def _route_by_keywords(user_message: str) -> Optional[str]:
     for phrase in _FALSE_POSITIVE_DENYLIST:
         cleaned_message = cleaned_message.replace(phrase, "")
 
-    # (2026-10-16) 법령 인용 확인 — "확인/검토"가 들어가 검증 키워드에 먼저 걸리므로
-    # 그보다 앞에서 판정한다. 법령을 명시하는 구체적 표현만 쓴다(일반 "확인"은 그대로 검증).
-    if any(keyword in cleaned_message for keyword in _LAW_CITATION_KEYWORDS):
-        return "check_law_citations"
     if any(keyword in cleaned_message for keyword in _VERIFY_KEYWORDS):
         return "verify_numbers"
     # (2026-10-01) 문체 자체를 지목하는 강한 표현(공문서체/다듬어…)은 polish가
@@ -358,13 +340,6 @@ def _selftest_route_by_keywords():
     assert _route_by_keywords("첨부에서 작년 건수 찾아줘") == "ask_attachment"
     assert _route_by_keywords("작년 내용 반영해서 이 문단 다시 써줘") == "edit_section"
     print("route_by_keywords 통과 (아카이브 질의응답)")
-
-    # (2026-10-16) 법령 인용 확인 — 검증 키워드("확인")보다 먼저, 법령을 명시할 때만
-    assert _route_by_keywords("근거 법령 맞는지 확인해줘") == "check_law_citations"
-    assert _route_by_keywords("이 문서 법령 인용 검토해줘") == "check_law_citations"
-    assert _route_by_keywords("인용한 조문 확인") == "check_law_citations"
-    assert _route_by_keywords("숫자 확인해줘") == "verify_numbers"  # 일반 "확인"은 그대로 검증
-    print("route_by_keywords 통과 (법령 인용 확인)")
 
 
 if __name__ == "__main__":
